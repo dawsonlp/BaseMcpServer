@@ -1,0 +1,36 @@
+{
+  "servers": [
+    {
+      "name": "your-mcp-server-name",
+      "url": "http://localhost:7501",
+      "apiKey": "your_api_key_here",
+      "description": "Your MCP Server Description",
+      "tools": [
+        {
+          "name": "example_tool",
+          "description": "Example tool template - Replace with your own implementation",
+          "parameters": {
+            "param1": "First parameter (string)",
+            "param2": "Second parameter (integer)",
+            "optional_param": "Optional parameter (boolean)"
+          }
+        }
+        // Add your additional tools here
+      ],
+      "resources": [
+        {
+          "uri": "resource://example",
+          "description": "Example resource template"
+        },
+        {
+          "uri": "resource://example/{id}",
+          "description": "Example parameterized resource template",
+          "parameters": {
+            "id": "An identifier for the resource"
+          }
+        }
+        // Add your additional resources here
+      ]
+    }
+  ]
+}

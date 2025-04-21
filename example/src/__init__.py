@@ -1,0 +1,3 @@
+"""
+Basic MCP Server Example
+"""
