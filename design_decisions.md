@@ -2,6 +2,44 @@
 
 This document logs important design decisions made during the development of BasicMcpServer.
 
+## 2025-04-21: Removing .env Files from Git Tracking and Adding .gitignore
+
+### Decision
+
+We've removed .env files from git tracking and added a .gitignore file to prevent accidentally committing sensitive information in the future.
+
+### Context
+
+A .env file containing sensitive information was accidentally committed to the git repository. This poses a security risk as environment variables often contain secrets, API keys, passwords, and other sensitive configuration.
+
+### Reasoning
+
+Removing .env files from git tracking while keeping them in the working directory offers several benefits:
+1. **Security**: Prevents sensitive credentials from being exposed in the git history
+2. **Compliance**: Aligns with security best practices for handling configuration data
+3. **Flexibility**: Allows developers to maintain their local configuration without affecting others
+4. **Documentation**: .env.example files can be used to document required variables without exposing actual values
+
+### Implementation Notes
+
+The implementation involved:
+1. Using `git rm --cached example/.env` to remove the file from git tracking while keeping it in the working directory
+2. Creating a comprehensive .gitignore file with rules for .env files and other common exclusions
+3. Committing the changes to ensure the .env file remains untracked
+4. Maintaining .env.example files as templates for required variables
+
+### Tradeoffs
+
+- **Pros**: Improved security, better secret management, compliance with best practices
+- **Cons**: Requires developers to manually create .env files based on examples, slight additional onboarding complexity
+
+The security benefits significantly outweigh the minor inconvenience of additional setup steps for new developers.
+
+### References
+
+- Git documentation for untracking files: https://git-scm.com/docs/git-rm
+- Environment variable security best practices
+
 ## 2025-04-21: Creation of Base MCP Server Docker Image
 
 ### Decision
