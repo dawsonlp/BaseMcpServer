@@ -62,12 +62,59 @@ CMD ["python", "-m", "src.main"]
 
 ### Protocol Support
 
-BaseMcpServer **only** supports the HTTP+SSE protocol, not stdio. This makes it ideal for:
+BaseMcpServer **only** supports the HTTP+SSE protocol, not stdio. This choice is deliberate and aligns with the containerized, web-based approach to MCP server deployment.
+
+#### What is HTTP+SSE in MCP?
+
+HTTP+SSE (Server-Sent Events) is one of the standard transports supported by the MCP protocol:
+
+- **HTTP**: Used for client-to-server communication (requests)
+- **SSE**: Used for server-to-client communication (responses and events)
+
+Unlike stdio (which is primarily used for local development and desktop integration), HTTP+SSE is designed for networked environments, making it ideal for:
 
 - Web-based LLM integrations
 - Service-to-service MCP communication
-- Containerized deployments
+- Containerized deployments (like this one)
 - Cloud environments
+
+#### Implementation Details
+
+This base image uses:
+- **Starlette**: A lightweight ASGI framework that handles the HTTP+SSE protocol
+- **Uvicorn**: An ASGI server that serves the Starlette application
+
+The implementation is provided by the MCP Python SDK through the `.sse_app()` method, which creates an ASGI application that handles the HTTP+SSE protocol.
+
+#### Mounting the MCP Server
+
+When extending this base image, your MCP server is automatically served via HTTP+SSE. For more advanced scenarios where you need to integrate with existing web services, you can mount the MCP server to an existing ASGI application:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Host
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("My App")
+
+# Mount the MCP server to an existing ASGI application
+app = Starlette(
+    routes=[
+        Mount('/mcp', app=mcp.sse_app()),
+    ]
+)
+
+# Or mount it as a subdomain
+app.router.routes.append(Host('mcp.example.com', app=mcp.sse_app()))
+```
+
+#### Security Considerations
+
+When using HTTP+SSE in production:
+- Always use HTTPS in production environments
+- Consider implementing authentication for the HTTP endpoints
+- If exposing your MCP server publicly, use API keys or other authentication mechanisms
+- Implement rate limiting for public-facing servers
 
 ### Python SDK Implementation
 
