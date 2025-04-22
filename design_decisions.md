@@ -2,6 +2,45 @@
 
 This document logs important design decisions made during the development of BasicMcpServer.
 
+## 2025-04-22: Removal of .mcp.json Files from MCP Server Projects
+
+### Decision
+
+We've removed all .mcp.json files from the MCP server projects (example, jira-clone, and template directories) as they were not being used by the server code and were potentially confusing.
+
+### Context
+
+The .mcp.json files were present in various MCP server projects but were not referenced by any of the server code. These files contained server definitions, tool descriptions, and resource listings that duplicated information already defined in the Python code.
+
+### Reasoning
+
+Removing the .mcp.json files offers several benefits:
+1. **Eliminates Redundancy**: The information was already defined in the Python code using FastMCP decorators
+2. **Prevents Confusion**: Having both code-defined and JSON-defined schemas could lead to inconsistencies
+3. **Simplifies Project Structure**: One less file to maintain and keep in sync
+4. **Clarifies Runtime Discovery**: Emphasizes that FastMCP handles schema generation at runtime
+5. **Better Documentation**: Updates the documentation to accurately reflect how VSCode/Cline discovers MCP servers
+
+### Implementation Notes
+
+The implementation involved:
+1. Removing .mcp.json files from all MCP server projects
+2. Updating documentation to clarify that VSCode/Cline settings are configured separately
+3. Updating README files to reflect the actual workflow for connecting to MCP servers
+4. Confirming that no code in the project was reading or using these files
+
+### Tradeoffs
+
+- **Pros**: Reduced redundancy, clearer project structure, more accurate documentation
+- **Cons**: Slightly less explicit documentation of available tools/resources in the project files
+
+The benefits of removing redundant files and clarifying the actual server discovery mechanism significantly outweigh the minor documentation convenience of having tool schemas in the project.
+
+### References
+
+- FastMCP automatic schema generation: See readme_fastmcp.md
+- VSCode/Cline MCP settings configuration: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+
 ## 2025-04-21: Removing .env Files from Git Tracking and Adding .gitignore
 
 ### Decision

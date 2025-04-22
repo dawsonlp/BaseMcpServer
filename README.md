@@ -22,13 +22,11 @@ When creating custom MCP servers based on this template, follow these best pract
 1. **Use the Correct Ports**: The base image exposes port `7501`. Always align your configuration with this port:
    - In the `.env` file, set `PORT=7501`
    - When running the container, map the external port to 7501: `docker run -p EXTERNAL_PORT:7501`
-   - In the `.mcp.json` file, use your chosen external port: `"url": "http://localhost:EXTERNAL_PORT"`
-   - In the Claude MCP settings, use the external port with the SSE suffix: `"url": "http://localhost:EXTERNAL_PORT/sse"`
+   - In the VSCode/Claude settings, use the external port with the SSE suffix: `"url": "http://localhost:EXTERNAL_PORT/sse"`
 
 2. **Consistent Port Usage**: Be consistent with your port numbering. If you choose external port 7777:
    - Docker command: `docker run -p 7777:7501`
-   - `.mcp.json`: `"url": "http://localhost:7777"`
-   - Claude settings: `"url": "http://localhost:7777/sse"`
+   - VSCode/Claude settings: `"url": "http://localhost:7777/sse"`
 
 3. **Port Conflicts**: If you get connection errors, check for port conflicts with `lsof -i :PORT_NUMBER`
 

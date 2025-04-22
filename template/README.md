@@ -27,8 +27,7 @@ template/
 ├── docker/                  # Docker configuration
 │   ├── Dockerfile           # Container definition
 │   └── build.sh             # Docker build script
-├── .env.example             # Example environment variables
-└── .mcp.json.template       # MCP configuration template
+└── .env.example             # Example environment variables
 ```
 
 ## Prerequisites
@@ -57,13 +56,6 @@ cd my-mcp-server/
 ```bash
 cp .env.example .env
 # Edit .env with your preferred settings
-```
-
-2. Update the MCP configuration:
-
-```bash
-cp .mcp.json.template .mcp.json
-# Edit .mcp.json with your server details
 ```
 
 ### Step 3: Implement Your Tools and Resources
