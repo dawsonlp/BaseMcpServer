@@ -13,6 +13,80 @@ BaseMcpServer provides a standardized Docker base image for building Model Conte
 
 This image provides all the common dependencies and configuration needed for MCP servers, so that derived projects can focus solely on implementing their specific tools and resources.
 
+## Best Practices for Custom MCP Servers
+
+When creating custom MCP servers based on this template, follow these best practices to avoid common issues:
+
+### Port Configuration
+
+1. **Use the Correct Ports**: The base image exposes port `7501`. Always align your configuration with this port:
+   - In the `.env` file, set `PORT=7501`
+   - When running the container, map the external port to 7501: `docker run -p EXTERNAL_PORT:7501`
+   - In the `.mcp.json` file, use your chosen external port: `"url": "http://localhost:EXTERNAL_PORT"`
+   - In the Claude MCP settings, use the external port with the SSE suffix: `"url": "http://localhost:EXTERNAL_PORT/sse"`
+
+2. **Consistent Port Usage**: Be consistent with your port numbering. If you choose external port 7777:
+   - Docker command: `docker run -p 7777:7501`
+   - `.mcp.json`: `"url": "http://localhost:7777"`
+   - Claude settings: `"url": "http://localhost:7777/sse"`
+
+3. **Port Conflicts**: If you get connection errors, check for port conflicts with `lsof -i :PORT_NUMBER`
+
+### Environment Variables
+
+1. **Mounting vs. Copying**: For development, you can copy the `.env` file into the container:
+   ```dockerfile
+   COPY ./.env ./.env
+   ```
+   For production, mount it at runtime:
+   ```bash
+   docker run -p 7777:7501 --env-file .env your-image
+   ```
+
+2. **Robust Config Loading**: Implement robust environment variable loading with logging and fallbacks:
+   ```python
+   # Add logging of loaded configuration values
+   logger.info(f"JIRA_URL: {settings.JIRA_URL}")
+   logger.info(f"Using port: {settings.port}")
+   ```
+
+3. **Verify Environment**: Use explicit validation of required environment variables with clear error messages
+
+### VS Code Integration
+
+1. **Restart VS Code When Needed**: If you encounter connection issues with Claude trying to access your MCP server, try:
+   - Restarting VS Code completely
+   - Checking the Claude MCP settings file for proper configuration
+   - Ensuring the server is running and accessible via the correct port
+
+2. **Clear Connection Errors**: When you see "Not connected" errors from Claude, it usually indicates:
+   - Port configuration mismatch
+   - The server isn't running
+   - VS Code needs to be restarted to refresh the connection
+
+3. **Check Claude's MCP Settings**: Ensure Claude's MCP settings file (`~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`) has the correct entry for your server
+
+### Debugging Techniques
+
+1. **Add Detailed Logging**: Enhance logging, especially for configuration and initialization:
+   ```python
+   logger.info(f"Starting MCP server on {settings.host}:{settings.port}")
+   logger.info(f"Using API key: {'Yes' if settings.api_key else 'No'}")
+   ```
+
+2. **Check Server Logs**: Always check the Docker container logs with `docker logs CONTAINER_ID`
+
+3. **Verify Docker Container**: Use `docker ps` to ensure your container is running and the port mapping is correct
+
+### Testing Approach
+
+1. **Incremental Development**: Start with a known working example (like the example server)
+2. **Make Small Changes**: Make one change at a time and test after each change
+3. **Test Core Functionality**: Test with simple tools like the calculator before adding complex integrations
+4. **Examine Error Messages**: Pay close attention to error messages in both the server logs and Claude's responses
+
+For more detailed debugging notes, see `debugging_notes.md` in the project root.
+
 ## Key Features
 
 - Python 3.13 environment with all MCP SDK dependencies pre-installed
