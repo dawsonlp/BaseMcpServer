@@ -7,7 +7,7 @@ name = "mcp-manager"
 version = "0.1.0"
 description = "Comprehensive manager for MCP servers"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 authors = [
     {name = "MCP Server Team", email = "example@example.com"},
 ]
