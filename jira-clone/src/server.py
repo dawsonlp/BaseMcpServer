@@ -1,14 +1,14 @@
 """
 MCP server implementation for the Jira clone server.
 
-This module defines the MCP server and its tools/resources.
+This module defines tools and resources for the MCP server.
 """
 
-from mcp.server.fastmcp import FastMCP
 import random
 from typing import List, Dict, Any, Optional
 from jira import JIRA
-from .config import settings
+from mcp.server.fastmcp import FastMCP
+from config import settings
 
 
 def create_jira_client():
@@ -28,16 +28,13 @@ def create_jira_client():
         raise Exception(f"Failed to create JIRA client: {e}")
 
 
-def create_mcp_server():
+def register_tools_and_resources(mcp: FastMCP):
     """
-    Create and configure an MCP server instance using FastMCP.
+    Register tools and resources with the provided MCP server instance.
     
-    Returns:
-        FastMCP: A configured FastMCP server instance
+    Args:
+        mcp: A FastMCP server instance to register tools and resources with
     """
-    # Create a FastMCP server instance with a unique name
-    mcp = FastMCP("jira-clone-server")
-    
     # Add a calculator tool
     @mcp.tool()
     def calculator(operation: str, x: float, y: float) -> Dict[str, float]:
@@ -200,5 +197,3 @@ def create_mcp_server():
             raise ValueError(f"Index out of range: {index}")
         
         return quotes[index]
-    
-    return mcp

@@ -1,24 +1,21 @@
 """
 MCP server implementation for the example server.
 
-This module defines the MCP server and its tools/resources.
+This module defines tools and resources for the MCP server.
 """
 
-from mcp.server.fastmcp import FastMCP
 import random
 from typing import List, Dict, Optional
+from mcp.server.fastmcp import FastMCP
 
 
-def create_mcp_server():
+def register_tools_and_resources(mcp: FastMCP):
     """
-    Create and configure an MCP server instance using FastMCP.
+    Register tools and resources with the provided MCP server instance.
     
-    Returns:
-        FastMCP: A configured FastMCP server instance
+    Args:
+        mcp: A FastMCP server instance to register tools and resources with
     """
-    # Create a FastMCP server instance with a unique name
-    mcp = FastMCP("example-mcp-server")
-    
     # Add a calculator tool
     @mcp.tool()
     def calculator(operation: str, x: float, y: float) -> Dict[str, float]:
@@ -117,5 +114,3 @@ def create_mcp_server():
             raise ValueError(f"Index out of range: {index}")
         
         return quotes[index]
-    
-    return mcp

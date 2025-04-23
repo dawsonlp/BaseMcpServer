@@ -44,11 +44,15 @@ class Settings(BaseSettings):
     Environment variables can be set directly or loaded from a .env file.
     """
     
-    # Server settings
-    host: str = "0.0.0.0"
-    port: int = 7501
+    # MCP Server identity
+    server_name: str = "jira-clone-server"
     
-    # Add a simple API key for demonstration purposes
+    # Server settings (rarely need to be changed in Docker environments)
+    # These defaults work well with Docker's port mapping
+    host: str = "0.0.0.0"  # Listen on all interfaces
+    port: int = 7501       # Default MCP port
+    
+    # API key for authentication (should be changed in production)
     api_key: str = "example_key"
     
     # Jira settings - these have custom validation to ensure they're properly set

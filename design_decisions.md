@@ -2,6 +2,118 @@
 
 This document logs important design decisions made during the development of BasicMcpServer.
 
+## 2025-04-22: MCP Manager Development
+
+### Decision
+
+We've developed a comprehensive command-line utility called `mcp-manager` to streamline the management of MCP servers across different environments.
+
+### Context
+
+MCP servers can be deployed in various ways: as local stdio-based processes, as HTTP+SSE servers, or as remote services. Managing these different deployment methods and properly configuring them for tools like VS Code's Cline extension was becoming complex and error-prone.
+
+### Reasoning
+
+Creating a dedicated management tool offers several benefits:
+1. **Unified Interface**: A single tool manages all types of MCP servers
+2. **Isolated Environments**: Each MCP server gets its own virtual environment
+3. **Simplified Configuration**: Automatic generation of wrapper scripts and VS Code settings
+4. **Consistent Structure**: Standardized directory structure under ~/.mcp_servers
+5. **Modern Python Practices**: Using pipx for isolated CLI tool installation
+
+### Implementation
+
+The implementation follows modern Python best practices:
+1. **Project Structure**:
+   - Organized as an installable Python package with pyproject.toml
+   - Command-line interface using Typer
+   - Rich terminal output with the Rich library
+   - Jinja2 templates for generating configuration files
+
+2. **Commands**:
+   - `install`: Install local MCP servers with isolated environments
+   - `add`: Configure remote MCP servers
+   - `list`: List all configured servers
+   - `run`: Run local servers with different transport modes
+   - `configure`: Set up editor integration
+
+3. **Directory Structure**:
+   ```
+   ~/.mcp_servers/
+   ├── servers/                # Local server installations
+   │   ├── example-server/     # Each server gets its own directory
+   │   │   ├── .venv/          # Isolated virtual environment
+   │   │   ├── src/            # Source code (symlinked)
+   │   │   └── meta.json       # Metadata
+   ├── bin/                    # Generated wrapper scripts
+   └── config/                 # Configuration files
+       └── servers.json        # Server registry
+   ```
+
+4. **VS Code Integration**:
+   - Automatically configures the Cline extension settings
+   - Generates wrapper scripts for stdio transport
+
+### Tradeoffs
+
+- **Pros**: 
+  - Simplified management of multiple MCP servers
+  - Consistent environment setup
+  - Easy configuration of VS Code/Cline integration
+  - Support for both stdio and HTTP+SSE transport modes
+
+- **Cons**:
+  - Additional dependency (pipx) for installation
+  - More complex than direct configuration for simple use cases
+
+The benefits of having a dedicated management tool significantly outweigh the minor complexity it introduces, especially as the number of MCP servers grows.
+
+### References
+
+- Python packaging best practices: https://packaging.python.org/
+- Typer documentation: https://typer.tiangolo.com/
+- pipx documentation: https://pypa.github.io/pipx/
+
+## 2025-04-22: Improved MCP Server Architecture with Command-Line Support
+
+### Decision
+
+We've restructured the MCP server code to improve separation of concerns, made the MCP server name configurable via environment variables, simplified how the main Python module is called in Docker containers, optimized environment variable handling for Docker deployments, updated the import system to use direct imports instead of relative imports, and added a comprehensive command-line interface with built-in documentation.
+
+### Context
+
+Previously, the MCP server name was hardcoded in the server.py file, and the Docker container used the module notation (src.main) to run the server, which was not aligned with treating src as the Python sources root.
+
+### Reasoning
+
+Making these changes offers several benefits:
+1. **Configurable Identity**: The server name can now be changed via environment variables without code changes
+2. **Simplified Docker Execution**: Running the server with `python main` instead of `python -m src.main` is cleaner
+3. **Proper Sources Root**: Setting PYTHONPATH to include src as a sources root provides a cleaner import structure
+4. **Consistent Environment**: The changes make the development and Docker environments more consistent
+5. **Flexible Deployment**: Multiple instances of the same code can have different names when deployed
+
+### Implementation Notes
+
+The implementation involved:
+1. Adding a `server_name` field to the Settings class in config.py
+2. Updating server.py to use this configurable name
+3. Modifying the Dockerfile to set PYTHONPATH and change working directory
+4. Updating the Docker CMD to run main.py directly
+5. Adding SERVER_NAME to .env.example files
+
+### Tradeoffs
+
+- **Pros**: More flexible server naming, cleaner Docker configuration, better alignment with Python practices
+- **Cons**: Requires environment variables to be properly set for consistent naming
+
+The benefits of configurable naming and simplified Docker execution outweigh the minor additional requirement to manage environment variables.
+
+### References
+
+- Python PYTHONPATH documentation: https://docs.python.org/3/using/cmdline.html#envvar-PYTHONPATH
+- Docker WORKDIR documentation: https://docs.docker.com/engine/reference/builder/#workdir
+
 ## 2025-04-22: Removal of .mcp.json Files from MCP Server Projects
 
 ### Decision

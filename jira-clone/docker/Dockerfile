@@ -9,14 +9,22 @@ WORKDIR /app
 # Install the Jira Python library
 RUN pip install --no-cache-dir jira
 
-# Copy the application code and environment file
+# Copy the application code
 COPY ./src ./src
-COPY ./.env ./.env
+
+# Set PYTHONPATH to include src as a sources root
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+
+# Set working directory to src
+WORKDIR /app/src
+
+# Environment variables will be provided at runtime
+# .env file can be mounted if needed
 
 # Add metadata
 LABEL maintainer="MCP Example" \
       version="0.1.0" \
-      description="Example MCP Server Docker Image"
+      description="Jira MCP Server Docker Image"
 
-# The command to run the MCP server
-CMD ["python", "-m", "src.main"]
+# Run main directly with sse transport mode
+CMD ["python", "main", "sse"]

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+{% for name, server in servers.items() %}
+    "{{ name }}": {
+{% if server.__class__.__name__ == "LocalServer" %}
+      "command": "/bin/bash",
+      "args": ["{{ wrapper_path }}"],
+      "disabled": {{ 'true' if server.disabled else 'false' }},
+      "autoApprove": {{ server.auto_approve | tojson }}
+{% else %}
+      "url": "{{ server.url }}",
+      "apiKey": "{{ server.api_key }}",
+      "disabled": {{ 'true' if server.disabled else 'false' }},
+      "autoApprove": {{ server.auto_approve | tojson }}
+{% endif %}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  }
+}
