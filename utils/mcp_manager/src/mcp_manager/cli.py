@@ -65,6 +65,9 @@ def install_local(
     port: Optional[int] = typer.Option(
         None, "--port", "-p", help="Port for SSE transport (if needed)"
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Force installation, overwriting existing server"
+    ),
 ):
     """Install a local MCP server from a directory."""
     from mcp_manager.commands.install import install_local_server
@@ -75,7 +78,7 @@ def install_local(
         raise typer.Exit(1)
     
     try:
-        install_local_server(name, source, port)
+        install_local_server(name, source, port, force)
         console.print(f"[bold green]Success:[/bold green] MCP server '{name}' installed.")
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
@@ -92,12 +95,15 @@ def install_git(
     branch: str = typer.Option(
         "main", "--branch", "-b", help="Git branch to clone"
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Force installation, overwriting existing server"
+    ),
 ):
     """Install a local MCP server from a Git repository."""
     from mcp_manager.commands.install import install_git_server
     
     try:
-        install_git_server(name, repo, path, branch)
+        install_git_server(name, repo, path, branch, force)
         console.print(f"[bold green]Success:[/bold green] MCP server '{name}' installed from Git.")
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")

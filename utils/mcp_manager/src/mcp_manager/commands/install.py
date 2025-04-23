@@ -65,7 +65,7 @@ def install_requirements(venv_dir: Path, requirements_file: Path) -> None:
     )
 
 
-def install_local_server(name: str, source_dir: Path, port: Optional[int] = None) -> None:
+def install_local_server(name: str, source_dir: Path, port: Optional[int] = None, force: bool = False) -> None:
     """Install a local MCP server from a directory."""
     # Validate server name
     if not name.isalnum() and not (name.replace("-", "").isalnum() and "-" in name):
@@ -73,10 +73,25 @@ def install_local_server(name: str, source_dir: Path, port: Optional[int] = None
             f"Server name must be alphanumeric or contain only hyphens, got '{name}'"
         )
     
+    # Check if server exists in registry
+    registry = ServerRegistry.load(get_registry_path())
+    if name in registry.servers:
+        if force:
+            console.print(f"[yellow]Warning:[/yellow] Overwriting existing server: {name}")
+            # Remove from registry
+            registry.remove_server(name)
+            registry.save(get_registry_path())
+        else:
+            raise ValueError(f"Server with name '{name}' already exists")
+    
     # Create server directory
     server_dir = get_server_dir(name)
     if server_dir.exists():
-        raise ValueError(f"Server directory already exists: {server_dir}")
+        if force:
+            # Remove existing server directory
+            shutil.rmtree(server_dir)
+        else:
+            raise ValueError(f"Server directory already exists: {server_dir}")
     
     server_dir.mkdir(parents=True, exist_ok=True)
     
@@ -88,10 +103,19 @@ def install_local_server(name: str, source_dir: Path, port: Optional[int] = None
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        # Create a symlink to the source directory
-        task = progress.add_task(f"Creating symlink to source directory...", total=1)
+        # Copy the source directory's src folder
+        task = progress.add_task(f"Copying source files...", total=1)
         src_dir = server_dir / "src"
-        src_dir.symlink_to(source_dir.absolute(), target_is_directory=True)
+        
+        # Check if the source directory has a src subdirectory
+        source_src_dir = source_dir / "src"
+        if source_src_dir.exists() and source_src_dir.is_dir():
+            # Copy from the src subdirectory
+            shutil.copytree(source_src_dir.absolute(), src_dir, dirs_exist_ok=True)
+        else:
+            # Copy the source directory itself
+            shutil.copytree(source_dir.absolute(), src_dir, dirs_exist_ok=True)
+            
         progress.update(task, advance=1)
         
         # Create a virtual environment
@@ -148,7 +172,7 @@ def install_local_server(name: str, source_dir: Path, port: Optional[int] = None
         progress.update(task, advance=1)
 
 
-def install_git_server(name: str, repo_url: str, repo_path: str = ".", branch: str = "main") -> None:
+def install_git_server(name: str, repo_url: str, repo_path: str = ".", branch: str = "main", force: bool = False) -> None:
     """Install a local MCP server from a Git repository."""
     # Validate server name
     if not name.isalnum() and not (name.replace("-", "").isalnum() and "-" in name):
@@ -181,4 +205,4 @@ def install_git_server(name: str, repo_url: str, repo_path: str = ".", branch: s
                 raise ValueError(f"Source directory '{repo_path}' not found in repository")
             
             # Install the server
-            install_local_server(name, source_dir)
+            install_local_server(name, source_dir, None, force)
