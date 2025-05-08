@@ -1,10 +1,9 @@
 """
 MCP server implementation for the Jira clone server.
 
-This module defines tools and resources for the MCP server.
+This module defines Jira-specific tools and resources for the MCP server.
 """
 
-import random
 from typing import List, Dict, Any, Optional
 from jira import JIRA
 from mcp.server.fastmcp import FastMCP
@@ -30,41 +29,12 @@ def create_jira_client():
 
 def register_tools_and_resources(mcp: FastMCP):
     """
-    Register tools and resources with the provided MCP server instance.
+    Register Jira tools and resources with the provided MCP server instance.
     
     Args:
         mcp: A FastMCP server instance to register tools and resources with
     """
-    # Add a calculator tool
-    @mcp.tool()
-    def calculator(operation: str, x: float, y: float) -> Dict[str, float]:
-        """
-        A simple calculator tool that performs basic arithmetic operations.
-        
-        Args:
-            operation: The arithmetic operation (add, subtract, multiply, divide)
-            x: The first number
-            y: The second number
-            
-        Returns:
-            A dictionary containing the result
-        """
-        if operation.lower() == "add":
-            result = x + y
-        elif operation.lower() == "subtract":
-            result = x - y
-        elif operation.lower() == "multiply":
-            result = x * y
-        elif operation.lower() == "divide":
-            if y == 0:
-                raise ValueError("Cannot divide by zero")
-            result = x / y
-        else:
-            raise ValueError(f"Unsupported operation: {operation}")
-        
-        return {"result": result}
-    
-    # Add a Jira tool to list projects
+    # Jira tool to list all projects
     @mcp.tool()
     def list_jira_projects() -> Dict[str, List[Dict[str, str]]]:
         """
@@ -128,72 +98,227 @@ def register_tools_and_resources(mcp: FastMCP):
         except Exception as e:
             return {"error": str(e)}
     
-    # Add a weather tool that returns simulated weather data
+    # Jira tool to create a new ticket
     @mcp.tool()
-    def get_weather(city: str, country: Optional[str] = None) -> Dict[str, any]:
+    def create_jira_ticket(
+        project_key: str, 
+        summary: str, 
+        description: str, 
+        issue_type: str = "Story",
+        priority: Optional[str] = None,
+        assignee: Optional[str] = None,
+        labels: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """
-        Get simulated weather data for a given location.
+        Create a new Jira ticket (issue).
         
         Args:
-            city: The city name
-            country: The country code (optional)
+            project_key: The project key (e.g., 'PROJ')
+            summary: The ticket summary/title
+            description: The ticket description
+            issue_type: The issue type (Story, Task, Epic, Bug) - defaults to "Story"
+            priority: Optional priority (e.g., "High", "Medium", "Low")
+            assignee: Optional username to assign the ticket to
+            labels: Optional list of labels to apply to the ticket
             
         Returns:
-            Simulated weather data
+            A dictionary containing the created issue details
         """
-        # In a real implementation, this would call a weather API
-        # This is just a simulation
-        location = f"{city}, {country}" if country else city
+        try:
+            jira = create_jira_client()
+            
+            # Validate issue type (convert to proper case if needed)
+            valid_types = ["Story", "Task", "Epic", "Bug"]
+            issue_type_proper = next((t for t in valid_types if t.lower() == issue_type.lower()), None)
+            if not issue_type_proper:
+                raise ValueError(f"Invalid issue type: {issue_type}. Valid types are: {', '.join(valid_types)}")
+            
+            # Prepare the issue fields
+            issue_dict = {
+                'project': {'key': project_key},
+                'summary': summary,
+                'description': description,
+                'issuetype': {'name': issue_type_proper},
+            }
+            
+            # Add optional fields if provided
+            if priority:
+                issue_dict['priority'] = {'name': priority}
+            if assignee:
+                issue_dict['assignee'] = {'name': assignee}
+            if labels:
+                issue_dict['labels'] = labels
+            
+            # Create the issue
+            new_issue = jira.create_issue(fields=issue_dict)
+            
+            # Return the issue details in a structured format
+            return {
+                "created": True,
+                "key": new_issue.key,
+                "id": new_issue.id,
+                "self": new_issue.self,
+                "url": f"{settings.JIRA_URL}/browse/{new_issue.key}"
+            }
+        except Exception as e:
+            return {"error": str(e), "created": False}
+    
+    # Jira tool to add a comment to an existing ticket
+    @mcp.tool()
+    def add_comment_to_jira_ticket(
+        issue_key: str,
+        comment: str
+    ) -> Dict[str, Any]:
+        """
+        Add a comment to an existing Jira ticket.
         
-        # Simulate random weather data
-        conditions = random.choice(["Sunny", "Cloudy", "Rainy", "Snowy", "Windy"])
-        temperature = round(random.uniform(-10, 40), 1)
-        humidity = random.randint(0, 100)
+        Args:
+            issue_key: The Jira issue key (e.g., 'PROJECT-123')
+            comment: The comment text to add
+            
+        Returns:
+            A dictionary containing the comment details and status
+        """
+        try:
+            jira = create_jira_client()
+            
+            # Verify the issue exists
+            issue = jira.issue(issue_key)
+            
+            # Add the comment
+            comment_obj = jira.add_comment(issue_key, comment)
+            
+            return {
+                "added": True,
+                "issue_key": issue_key,
+                "comment_id": comment_obj.id,
+                "comment_author": comment_obj.author.displayName if hasattr(comment_obj, 'author') else settings.JIRA_USER,
+                "comment_body": comment_obj.body,
+                "url": f"{settings.JIRA_URL}/browse/{issue_key}?focusedCommentId={comment_obj.id}"
+            }
+        except Exception as e:
+            return {"error": str(e), "added": False}
+    
+    # Jira tool to list tickets in a project
+    @mcp.tool()
+    def list_project_tickets(
+        project_key: str,
+        status: Optional[str] = None,
+        issue_type: Optional[str] = None,
+        max_results: int = 50
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        List tickets (issues) in a Jira project with optional filtering.
+        
+        Args:
+            project_key: The project key (e.g., 'PROJ')
+            status: Optional filter by status (e.g., "In Progress", "Done")
+            issue_type: Optional filter by issue type (e.g., "Story", "Bug")
+            max_results: Maximum number of results to return (default 50)
+            
+        Returns:
+            A dictionary containing a list of matching tickets
+        """
+        try:
+            jira = create_jira_client()
+            
+            # Build the JQL query
+            jql = f"project = {project_key}"
+            
+            if status:
+                jql += f" AND status = '{status}'"
+            
+            if issue_type:
+                jql += f" AND issuetype = '{issue_type}'"
+            
+            jql += " ORDER BY created DESC"
+            
+            # Execute the search
+            issues = jira.search_issues(jql, maxResults=max_results)
+            
+            # Extract relevant information from each issue
+            issue_list = []
+            for issue in issues:
+                fields = issue.fields
+                issue_data = {
+                    "key": issue.key,
+                    "summary": fields.summary,
+                    "status": fields.status.name,
+                    "issue_type": fields.issuetype.name,
+                    "priority": fields.priority.name if hasattr(fields, 'priority') and fields.priority else "None",
+                    "assignee": fields.assignee.displayName if fields.assignee else "Unassigned",
+                    "created": fields.created,
+                    "updated": fields.updated,
+                    "url": f"{settings.JIRA_URL}/browse/{issue.key}"
+                }
+                issue_list.append(issue_data)
+            
+            return {
+                "project": project_key,
+                "issues_count": len(issue_list),
+                "issues": issue_list
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    # Jira resource for project information
+    @mcp.resource("resource://jira/project/{project_key}")
+    def project_resource(project_key: str) -> Dict[str, Any]:
+        """
+        Get information about a specific Jira project.
+        
+        Args:
+            project_key: The project key (e.g., 'PROJ')
+            
+        Returns:
+            Project information
+        """
+        try:
+            jira = create_jira_client()
+            project = jira.project(project_key)
+            
+            # Get project lead information if available
+            lead_info = {}
+            if hasattr(project, 'lead'):
+                lead = project.lead
+                lead_info = {
+                    "name": lead.displayName if hasattr(lead, 'displayName') else "Unknown",
+                    "email": lead.emailAddress if hasattr(lead, 'emailAddress') else "Unknown"
+                }
+            
+            return {
+                "key": project.key,
+                "name": project.name,
+                "id": project.id,
+                "lead": lead_info,
+                "url": f"{settings.JIRA_URL}/projects/{project.key}"
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    # Resource to list all known Jira instances
+    @mcp.resource("resource://jira/instances")
+    def jira_instances_resource() -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get information about all known Jira instances.
+        
+        This resource currently returns only the single Jira instance configured in settings,
+        but could be expanded in the future to support multiple Jira instances.
+        
+        Returns:
+            A dictionary containing a list of Jira instances
+        """
+        # Currently we only have one Jira instance configured
+        # In the future, this could be expanded to support multiple instances
+        instances = [{
+            "name": "Primary Jira Instance",
+            "url": settings.JIRA_URL,
+            "user": settings.JIRA_USER,
+            "has_token": bool(settings.JIRA_TOKEN),
+            "description": "The primary Jira instance configured for this MCP server"
+        }]
         
         return {
-            "location": location,
-            "temperature": temperature,
-            "unit": "Celsius",
-            "conditions": conditions,
-            "humidity": humidity
+            "instances": instances,
+            "count": len(instances)
         }
-    
-    # Add a resource that returns a list of quotes
-    @mcp.resource("resource://quotes")
-    def quotes_resource() -> List[Dict[str, str]]:
-        """
-        A resource that provides a list of inspirational quotes.
-        
-        Returns:
-            A list of quote dictionaries
-        """
-        return [
-            {"text": "The best way to predict the future is to invent it.", "author": "Alan Kay"},
-            {"text": "It's not that I'm so smart, it's just that I stay with problems longer.", "author": "Albert Einstein"},
-            {"text": "Simplicity is the ultimate sophistication.", "author": "Leonardo da Vinci"},
-            {"text": "Code is like humor. When you have to explain it, it's bad.", "author": "Cory House"}
-        ]
-    
-    # Add a parameterized resource
-    @mcp.resource("resource://quotes/{index}")
-    def quote_by_index(index: int) -> Dict[str, str]:
-        """
-        Get a specific quote by its index.
-        
-        Args:
-            index: The index of the quote (0-3)
-            
-        Returns:
-            A quote dictionary
-        """
-        quotes = [
-            {"text": "The best way to predict the future is to invent it.", "author": "Alan Kay"},
-            {"text": "It's not that I'm so smart, it's just that I stay with problems longer.", "author": "Albert Einstein"},
-            {"text": "Simplicity is the ultimate sophistication.", "author": "Leonardo da Vinci"},
-            {"text": "Code is like humor. When you have to explain it, it's bad.", "author": "Cory House"}
-        ]
-        
-        if index < 0 or index >= len(quotes):
-            raise ValueError(f"Index out of range: {index}")
-        
-        return quotes[index]

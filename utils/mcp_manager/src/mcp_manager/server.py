@@ -156,7 +156,14 @@ def get_registry_path() -> Path:
 
 def get_vscode_cline_settings_path() -> Path:
     """Get the path to the VS Code Cline settings file."""
-    return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    import sys
+    
+    if sys.platform == "darwin":  # macOS
+        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    elif sys.platform == "win32":  # Windows
+        return Path.home() / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    else:  # Linux and others
+        return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
 
 
 def create_directory_structure() -> None:

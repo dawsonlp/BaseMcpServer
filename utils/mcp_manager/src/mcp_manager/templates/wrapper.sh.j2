@@ -6,18 +6,31 @@
 # Get the directory of this script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
+# Log file for debugging
+LOG_FILE="{{ server_dir }}/wrapper.log"
+echo "=======================================" >> "$LOG_FILE"
+echo "Script started at $(date)" >> "$LOG_FILE"
+echo "Arguments: $@" >> "$LOG_FILE"
+echo "Working directory: $(pwd)" >> "$LOG_FILE"
+
 # Server environment variables
 export MCP_SERVER_NAME="{{ server.name }}"
 export MCP_SERVER_HOME="{{ server_dir }}"
+echo "MCP_SERVER_NAME: $MCP_SERVER_NAME" >> "$LOG_FILE"
+echo "MCP_SERVER_HOME: $MCP_SERVER_HOME" >> "$LOG_FILE"
 
 # Activate the virtual environment
-source "{{ venv_activate }}"
+echo "Activating virtual environment" >> "$LOG_FILE"
+source "{{ venv_activate }}" 2>> "$LOG_FILE"
+echo "Virtual environment activated, python path: $(which python)" >> "$LOG_FILE"
 
 # Set PYTHONPATH to include the source directory
 export PYTHONPATH="{{ source_dir }}:${PYTHONPATH}"
+echo "PYTHONPATH: $PYTHONPATH" >> "$LOG_FILE"
 
 # Go to the source directory
 cd "{{ source_dir }}"
+echo "Changed directory to: $(pwd)" >> "$LOG_FILE"
 
 # Run the server with stdio transport by default (used by VS Code Cline)
 # To use HTTP+SSE transport, add "sse" as an argument

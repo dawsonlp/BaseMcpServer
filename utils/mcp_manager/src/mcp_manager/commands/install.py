@@ -103,18 +103,45 @@ def install_local_server(name: str, source_dir: Path, port: Optional[int] = None
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        # Copy the source directory's src folder
+        # Create proper structure for the server - fixed to avoid nested src/src and use actual copies
         task = progress.add_task(f"Copying source files...", total=1)
-        src_dir = server_dir / "src"
+        
+        # Determine correct structure based on source dir
+        server_code_dir = server_dir / "code"
+        server_code_dir.mkdir(parents=True, exist_ok=True)
         
         # Check if the source directory has a src subdirectory
         source_src_dir = source_dir / "src"
+        
         if source_src_dir.exists() and source_src_dir.is_dir():
-            # Copy from the src subdirectory
-            shutil.copytree(source_src_dir.absolute(), src_dir, dirs_exist_ok=True)
+            # Case 1: Source has /src subdirectory - copy src's contents to code/
+            console.print(f"Copying source files from {source_src_dir}")
+            for item in source_src_dir.iterdir():
+                if item.is_dir():
+                    console.print(f"Copying directory: {item.name}")
+                    # Use symlinks=False to ensure actual file copies, not symlinks
+                    shutil.copytree(item, server_code_dir / item.name, 
+                                   dirs_exist_ok=True, symlinks=False)
+                else:
+                    console.print(f"Copying file: {item.name}")
+                    shutil.copy2(item, server_code_dir / item.name)
         else:
-            # Copy the source directory itself
-            shutil.copytree(source_dir.absolute(), src_dir, dirs_exist_ok=True)
+            # Case 2: Source is directly the code - copy source_dir contents to code/
+            console.print(f"Copying source files from {source_dir}")
+            for item in source_dir.iterdir():
+                # Skip setup/config files that shouldn't be in the code directory
+                if item.name in ['.env', '.env.example', 'docker', 'run.sh', 'setup.sh', 
+                               'README.md', 'readme_fastmcp.md', 'requirements.txt']:
+                    continue
+                    
+                if item.is_dir():
+                    console.print(f"Copying directory: {item.name}")
+                    # Use symlinks=False to ensure actual file copies, not symlinks
+                    shutil.copytree(item, server_code_dir / item.name, 
+                                   dirs_exist_ok=True, symlinks=False)
+                else:
+                    console.print(f"Copying file: {item.name}")
+                    shutil.copy2(item, server_code_dir / item.name)
             
         progress.update(task, advance=1)
         
@@ -144,7 +171,7 @@ def install_local_server(name: str, source_dir: Path, port: Optional[int] = None
         server = LocalServer(
             name=name,
             server_type=server_type,
-            source_dir=src_dir,
+            source_dir=server_code_dir,  # Updated to use our code directory
             venv_dir=venv_dir,
             requirements_file=requirements_file,
             port=port,

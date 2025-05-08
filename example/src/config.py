@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     """
     
     # MCP Server identity
-    server_name: str = "example-mcp-server"
+    server_name: str = "example"
     
     # Server settings (rarely need to be changed in Docker environments)
     # These defaults work well with Docker's port mapping
