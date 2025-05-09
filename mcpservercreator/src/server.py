@@ -81,20 +81,43 @@ settings = Settings()
     with open(src_dir / "server.py", "w") as f:
         f.write(f'''"""
 {description}
+
+This module defines tools and resources for the MCP server.
+All tool and resource definitions should be placed inside the register_tools_and_resources function.
 """
 
 import logging
+from typing import Dict, Any, List, Optional, Union
 from mcp.server.fastmcp import FastMCP
-
-from config import settings
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize MCP server
-mcp = FastMCP(settings.server_name)
 
+def register_tools_and_resources(mcp: FastMCP) -> None:
+    """
+    Register tools and resources with the provided MCP server instance.
+    
+    This is the main entry point for defining all tools and resources.
+    Add your custom tool implementations as decorated functions within this function.
+    
+    Example:
+        @mcp.tool()
+        def my_tool(param1: str, param2: int) -> Dict[str, Any]:
+            \"\"\"Tool description\"\"\"
+            # Tool implementation
+            return {{"result": result}}
+            
+        @mcp.resource("resource://my-resource/{{parameter}}")
+        def my_resource(parameter: str) -> Dict[str, Any]:
+            \"\"\"Resource description\"\"\"
+            # Resource implementation
+            return {{"data": data}}
+    
+    Args:
+        mcp: A FastMCP server instance to register tools and resources with
+    """
 {code_snippet}
 ''')
     
@@ -102,6 +125,9 @@ mcp = FastMCP(settings.server_name)
     with open(src_dir / "main.py", "w") as f:
         f.write(f'''"""
 Main entry point for the {server_name} MCP Server.
+
+This module sets up and runs the MCP server using FastMCP.
+It handles server initialization, transport selection, and configuration.
 """
 
 import sys
@@ -109,7 +135,7 @@ import logging
 from mcp.server.fastmcp import FastMCP
 
 from config import settings
-from server import mcp  # Import the already initialized MCP server from server.py
+from server import register_tools_and_resources
 
 # Set up logging
 logging.basicConfig(
@@ -120,8 +146,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def print_help():
-    """Print helpful information about using the MCP server."""
+def print_help() -> None:
+    """Print helpful information about using and customizing the MCP server."""
     help_text = """
 {server_name} MCP Server Usage Guide
 ==========================
@@ -131,40 +157,149 @@ BASIC USAGE:
   python main.py sse        # Run as HTTP+SSE server (for network/container use)
   python main.py stdio      # Run as stdio server (for local development)
   python main.py help       # Show this help message
+
+CUSTOMIZATION:
+-------------
+This MCP server is designed with a clear separation of concerns:
+
+1. main.py (THIS FILE):
+   - Handles server initialization and transport selection
+   - Sets up logging and configuration
+   - Generally, you should NOT modify this file
+
+2. server.py:
+   - Defines all MCP tools and resources
+   - This is where you should add your customizations
+   - Use the register_tools_and_resources function to add tools
+
+3. config.py:
+   - Contains server configuration settings
+   - Environment variables can override these settings
+
+ADDING NEW TOOLS:
+---------------
+To add a new tool, edit server.py and add a function within the
+register_tools_and_resources function:
+
+    @mcp.tool()
+    def my_new_tool(param1: str, param2: int) -> Dict[str, Any]:
+        \"\"\"
+        Tool description here (will be shown to users)
+
+        Args:
+            param1: Description of first parameter
+            param2: Description of second parameter
+
+        Returns:
+            A dictionary with the result
+        \"\"\"
+        # Your tool implementation here
+        result = do_something(param1, param2)
+        return {{"result": result}}
+
+ADDING NEW RESOURCES:
+------------------
+To add a new resource, edit server.py:
+
+    @mcp.resource("resource://my-resource")
+    def my_resource() -> Dict[str, Any]:
+        \"\"\"Resource description\"\"\"
+        return {{"data": "resource content"}}
+
+CONNECTING TO CLAUDE/CLINE:
+------------------------
+To connect this MCP server to Claude Desktop or Cline in VS Code:
+
+1. First make sure your MCP server is running with the sse transport:
+   python main.py sse
+
+2. For Cline in VS Code, edit the settings file:
+
+   Path: ~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+
+   Example configuration:
+
+   {{
+     "mcpServers": {{
+       "{server_name}-server": {{
+         "url": "http://localhost:7501/sse",
+         "apiKey": "example_key",
+         "disabled": false,
+         "autoApprove": []
+       }}
+     }}
+   }}
+
+   Notes:
+   - Use the correct server name from config.py (server_name setting)
+   - Ensure the port matches your configuration (default is 7501)
+   - Include "/sse" at the end of the URL
+   - The apiKey should match the one in your .env file
+
+3. For Claude Desktop, go to:
+   Settings → Advanced → MCP Servers → Add MCP Server
+
+   Enter:
+   - Name: {server_name}-server (or your custom server name)
+   - URL: http://localhost:7501
+   - API Key: example_key (or your custom API key)
+
+4. Restart Claude/VS Code to apply the changes
+
+DEPLOYMENT:
+----------
+- For local development: Use 'stdio' transport
+- For Docker/containers: Use 'sse' transport with port 7501
+- Configure with environment variables or .env file
+
+For more information, see the MCP SDK documentation at:
+https://github.com/modelcontextprotocol/python-sdk
 """
     print(help_text)
 
 
-def start_server(transport="sse"):
+def start_server(transport: str = "sse") -> None:
     """Start the MCP server using the specified transport."""
+    # Create the MCP server
+    mcp_server = FastMCP(settings.server_name)
+    
+    # Register all tools and resources
+    register_tools_and_resources(mcp_server)
+    
     # Log important configuration
     logger.info(f"Starting {{settings.server_name}}")
-    
+
     # Configure server settings
     if transport == "sse":
-        mcp.settings.host = settings.host
-        mcp.settings.port = settings.port
+        mcp_server.settings.host = settings.host
+        mcp_server.settings.port = settings.port
         logger.info(f"Using HTTP+SSE transport on {{settings.host}}:{{settings.port}}")
     else:  # stdio
         logger.info(f"Using stdio transport")
-    
-    mcp.settings.debug = True
-    mcp.settings.log_level = "INFO"
-    
+
+    mcp_server.settings.debug = True
+    mcp_server.settings.log_level = "INFO"
+
     # Run the server with the selected transport
-    mcp.run(transport)
+    mcp_server.run(transport)
 
 
-def create_app():
+def create_app() -> Any:
     """Create an ASGI application for use with an external ASGI server."""
-    # Configure server settings
-    mcp.settings.debug = True
+    # Create the MCP server
+    mcp_server = FastMCP(settings.server_name)
     
+    # Register all tools and resources
+    register_tools_and_resources(mcp_server)
+    
+    # Configure server settings
+    mcp_server.settings.debug = True
+
     # Return the ASGI app instance
-    return mcp.sse_app()
+    return mcp_server.sse_app()
 
 
-def main():
+def main() -> None:
     """Process command-line arguments and start the server appropriately."""
     if len(sys.argv) <= 1 or sys.argv[1] in ["help", "--help", "-h"]:
         print_help()
@@ -269,14 +404,31 @@ def create_mcp_server(code_snippet: str, server_name: str, description: str = ""
     """
     Create and install a new MCP server from a Python code snippet.
     
+    This tool generates a complete MCP server from a provided code snippet that defines 
+    one or more tools. The generated server follows best practices for MCP server architecture
+    and includes proper documentation, type hints, and configuration.
+    
     Args:
-        code_snippet: Python code that defines one or more MCP tools using @mcp.tool decorators
-        server_name: Name for the new MCP server (alphanumeric with optional hyphens)
-        description: Optional description for the server
-        author: Optional author name for the server
+        code_snippet: Python code that defines one or more MCP tools using @mcp.tool() decorators.
+                     Each tool should be a function decorated with @mcp.tool() that returns a dictionary.
+        server_name: Name for the new MCP server (alphanumeric with optional hyphens).
+                    This will be used as the directory name and in configuration.
+        description: Optional description for the server. This will appear in docstrings and help text.
+        author: Optional author name for the server, defaults to "MCP Server Creator".
         
     Returns:
-        Dictionary with result information including server name and tool names
+        Dictionary containing:
+          - success: Boolean indicating whether the server was created successfully
+          - server_name: The name of the created server
+          - tool_names: List of tool names defined in the code snippet
+          - message: Success message with instructions for using the server
+          - error: Error message if success is False
+    
+    Example usage:
+        To create a simple greeting server, you would:
+        1. Define a code snippet with your tool
+        2. Call create_mcp_server with the snippet and server details
+        3. The server will be created and installed for you
     """
     logger.info(f"Creating MCP server '{server_name}'")
     
@@ -343,8 +495,22 @@ def list_installed_servers() -> Dict[str, Any]:
     """
     List all installed MCP servers.
     
+    This tool discovers and lists all MCP servers installed on the system,
+    including both local and remote servers. It runs the mcp-manager list
+    command and parses the output into a structured format.
+    
     Returns:
-        Dictionary with server information
+        Dictionary containing:
+          - success: Boolean indicating whether the operation succeeded
+          - servers: Dictionary with two keys:
+              - local: List of local server information (name, type, source, port, status)
+              - remote: List of remote server information (name, url, status)
+          - error: Error message if success is False
+    
+    Example usage:
+        To list all installed MCP servers, simply call the function and 
+        process the returned dictionary. The servers are organized by type
+        (local or remote) and include details like name, type, and status.
     """
     try:
         # Find the mcp-manager executable by checking multiple locations

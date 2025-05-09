@@ -97,6 +97,114 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"issue": issue_details}
         except Exception as e:
             return {"error": str(e)}
+            
+    # Add a Jira tool to get comprehensive issue details with formatting options
+    @mcp.tool()
+    def get_full_issue_details(
+        issue_key: str,
+        raw_data: bool = False,
+        format: str = "formatted"
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive information about a specific Jira issue with formatting options.
+        
+        Args:
+            issue_key: The Jira issue key (e.g., 'PROJECT-123')
+            raw_data: If True, returns the minimally processed raw data from Jira API (default: False)
+            format: Output format when raw_data is False - can be "formatted" (YAML-like) or "summary" (default: "formatted")
+            
+        Returns:
+            A dictionary containing issue details in the requested format
+        """
+        try:
+            jira = create_jira_client()
+            issue = jira.issue(issue_key)
+            fields = issue.fields
+            
+            # Get comments for the issue
+            comments = jira.comments(issue_key)
+            formatted_comments = []
+            for comment in comments:
+                comment_dict = {
+                    "id": comment.id,
+                    "author": {
+                        "name": comment.author.displayName if hasattr(comment.author, 'displayName') else str(comment.author),
+                        "key": comment.author.key if hasattr(comment.author, 'key') else None
+                    },
+                    "body": comment.body,
+                    "created": comment.created,
+                    "updated": comment.updated if hasattr(comment, 'updated') else None
+                }
+                formatted_comments.append(comment_dict)
+            
+            # Sort comments in reverse chronological order (newest first)
+            formatted_comments = sorted(formatted_comments, key=lambda c: c["created"], reverse=True)
+            
+            # If raw data is requested, return minimally processed data
+            if raw_data:
+                return {
+                    "issue": issue.raw,
+                    "comments": formatted_comments,
+                    "comment_count": len(formatted_comments)
+                }
+            
+            # Get custom field mappings for human-readable names
+            try:
+                # Use the function directly since we're in the same scope
+                field_mappings = get_custom_field_mappings()
+                custom_field_names = {field_id: field_info[0] for field_id, field_info in field_mappings.get("mappings", {}).items()}
+            except:
+                # If mapping fails, use raw field IDs
+                custom_field_names = {}
+            
+            # Extract key fields for the header section
+            summary_fields = {
+                "key": issue.key,
+                "id": issue.id,
+                "summary": fields.summary,
+                "status": fields.status.name,
+                "priority": fields.priority.name if hasattr(fields, 'priority') and fields.priority else "None",
+                "assignee": fields.assignee.displayName if fields.assignee else "Unassigned",
+                "reporter": fields.reporter.displayName if fields.reporter else "Unknown",
+                "created": fields.created,
+                "updated": fields.updated,
+            }
+            
+            # Extract custom fields (anything starting with customfield_)
+            custom_fields = {}
+            for field_name in dir(fields):
+                if field_name.startswith('customfield_'):
+                    value = getattr(fields, field_name)
+                    if value is not None:  # Only include non-None values
+                        # Look up custom field name from mappings
+                        field_label = custom_field_names.get(field_name, field_name)
+                        custom_fields[field_label] = value
+            
+            # Format based on requested format
+            if format == "summary":
+                # Similar to current get_issue_details but with comments
+                result = {
+                    "issue": summary_fields,
+                    "description": fields.description or "",
+                    "components": [c.name for c in fields.components] if fields.components else [],
+                    "labels": fields.labels if fields.labels else [],
+                    "comments": formatted_comments,
+                    "comment_count": len(formatted_comments)
+                }
+            else:  # "formatted" or any other value defaults to full formatted output
+                result = {
+                    "issue": summary_fields,
+                    "description": fields.description or "",
+                    "custom_fields": custom_fields,
+                    "components": [c.name for c in fields.components] if fields.components else [],
+                    "labels": fields.labels if fields.labels else [],
+                    "comments": formatted_comments,
+                    "comment_count": len(formatted_comments)
+                }
+            
+            return result
+        except Exception as e:
+            return {"error": str(e)}
     
     # Jira tool to create a new ticket
     @mcp.tool()
