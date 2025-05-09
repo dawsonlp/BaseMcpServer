@@ -15,6 +15,7 @@ from datetime import datetime
 from rich.console import Console
 from jinja2 import Environment, FileSystemLoader
 import stat
+import subprocess
 
 from mcp_manager.server import (
     Server,
@@ -68,6 +69,9 @@ def generate_wrapper_script(server: LocalServer) -> Path:
     if not venv_activate.exists():
         raise ValueError(f"Virtual environment activation script not found: {venv_activate}")
     
+    # Find the path to mcp-manager executable
+    mcp_manager_path = shutil.which("mcp-manager")
+    
     # Render the template
     env = get_jinja_env()
     template = env.get_template("wrapper.sh.j2")
@@ -77,6 +81,7 @@ def generate_wrapper_script(server: LocalServer) -> Path:
         source_dir=server.source_dir,
         venv_activate=venv_activate,
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        mcp_manager_path=mcp_manager_path,
     )
     
     # Write the wrapper script

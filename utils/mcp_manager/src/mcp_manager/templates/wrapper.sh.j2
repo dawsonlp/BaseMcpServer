@@ -19,6 +19,44 @@ export MCP_SERVER_HOME="{{ server_dir }}"
 echo "MCP_SERVER_NAME: $MCP_SERVER_NAME" >> "$LOG_FILE"
 echo "MCP_SERVER_HOME: $MCP_SERVER_HOME" >> "$LOG_FILE"
 
+# Set up PATH to include common tool directories
+echo "Setting up PATH for CLI tools" >> "$LOG_FILE"
+if [ -d "$HOME/.local/bin" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "Added $HOME/.local/bin to PATH" >> "$LOG_FILE"
+fi
+
+# Include platform-specific paths
+if [ "$(uname)" == "Darwin" ]; then
+    # macOS-specific paths
+    for pydir in "$HOME/Library/Python/"*/bin; do
+        if [ -d "$pydir" ]; then
+            export PATH="$pydir:$PATH"
+            echo "Added $pydir to PATH" >> "$LOG_FILE"
+        fi
+    done
+elif [ "$(expr substr $(uname -s) 1 5)" == "MINGW" ] || [ "$(expr substr $(uname -s) 1 5)" == "MSYS" ]; then
+    # Windows-specific paths
+    for pydir in "$HOME/AppData/Roaming/Python/"*/Scripts; do
+        if [ -d "$pydir" ]; then
+            export PATH="$pydir:$PATH"
+            echo "Added $pydir to PATH" >> "$LOG_FILE"
+        fi
+    done
+fi
+
+# Include specific path to mcp-manager if known
+{% if mcp_manager_path %}
+MCP_MANAGER_DIR="$(dirname "{{ mcp_manager_path }}")"
+if [ -d "$MCP_MANAGER_DIR" ]; then
+    export PATH="$MCP_MANAGER_DIR:$PATH"
+    echo "Added $MCP_MANAGER_DIR to PATH" >> "$LOG_FILE"
+fi
+{% endif %}
+
+# Log the updated PATH
+echo "Updated PATH: $PATH" >> "$LOG_FILE"
+
 # Activate the virtual environment
 echo "Activating virtual environment" >> "$LOG_FILE"
 source "{{ venv_activate }}" 2>> "$LOG_FILE"
