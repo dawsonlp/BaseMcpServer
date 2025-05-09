@@ -199,6 +199,58 @@ def register_tools_and_resources(mcp: FastMCP):
         except Exception as e:
             return {"error": str(e), "added": False}
     
+    # Jira tool to get custom field mappings
+    @mcp.tool()
+    def get_custom_field_mappings(reverse: bool = False) -> Dict[str, Any]:
+        """
+        Get mappings between Jira custom field IDs and their names/descriptions. If you have a dataset
+        with custom field IDs such as the way data gets returned from the Jira API, you can use this to translate to 
+        human-readable names. Similarly if you need to map from human-readable names to IDs, you can use the reverse option.
+        This is useful for understanding the custom fields in your Jira instance.
+        
+                
+        Args:
+            reverse: If False (default), map from field_id to (name, description)
+                    If True, map from name to (field_id, description)
+            
+        Returns:
+            A dictionary containing the custom field mappings
+        """
+        try:
+            jira = create_jira_client()
+            
+            # Fetch all fields from Jira
+            fields = jira.fields()
+            
+            # Filter for custom fields (those with IDs starting with "customfield_")
+            custom_fields = [field for field in fields if field['id'].startswith('customfield_')]
+            
+            # Create mappings
+            mappings = {}
+            
+            if not reverse:
+                # Forward mapping: field_id -> [name, description]
+                for field in custom_fields:
+                    field_id = field['id']
+                    name = field['name']
+                    description = field.get('description', "")
+                    mappings[field_id] = [name, description]
+            else:
+                # Reverse mapping: name -> [field_id, description]
+                for field in custom_fields:
+                    field_id = field['id']
+                    name = field['name']
+                    description = field.get('description', "")
+                    mappings[name] = [field_id, description]
+            
+            return {
+                "mappings": mappings,
+                "count": len(mappings),
+                "mapping_direction": "name_to_id" if reverse else "id_to_name"
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
     # Jira tool to list tickets in a project
     @mcp.tool()
     def list_project_tickets(

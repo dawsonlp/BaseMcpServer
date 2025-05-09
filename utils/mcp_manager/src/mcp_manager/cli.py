@@ -208,5 +208,58 @@ def info():
     ))
 
 
+@app.command()
+def help():
+    """Show detailed help for common MCP Manager operations."""
+    help_text = """
+MCP Manager Usage Guide
+=======================
+
+INSTALLING MCP SERVERS:
+----------------------
+1. Install a local server with stdio transport (for development):
+   mcp-manager install local my-server --source /path/to/server
+   
+2. Install a local server with SSE transport (for network/container use):
+   mcp-manager install local my-server --source /path/to/server --port 7501
+   
+3. Install from a Git repository:
+   mcp-manager install git my-server --repo https://github.com/user/repo --path src
+
+CONFIGURING VSCODE/CLINE INTEGRATION:
+-----------------------------------
+1. Configure VS Code integration:
+   mcp-manager configure vscode
+   
+   This will:
+   - Register all your MCP servers with VS Code's Cline extension
+   - Generate wrapper scripts for all local servers
+   - Update the VS Code Cline settings file
+
+RUNNING MCP SERVERS:
+------------------
+1. Run as stdio server (for development):
+   mcp-manager run my-server --transport stdio
+   
+2. Run as SSE server (for network/container use):
+   mcp-manager run my-server --transport sse
+
+LISTING SERVERS:
+--------------
+1. List all servers:
+   mcp-manager list
+   
+2. List only local servers:
+   mcp-manager list --local
+   
+3. List only remote servers:
+   mcp-manager list --remote
+
+For more information on a specific command, use:
+mcp-manager COMMAND --help
+"""
+    console.print(help_text)
+
+
 if __name__ == "__main__":
     app()
