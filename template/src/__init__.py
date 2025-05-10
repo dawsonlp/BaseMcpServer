@@ -1,5 +1,5 @@
 """
-Package initialization for the MCP Server template.
+MCP Server Template
 
-This file intentionally left blank to make the directory a proper Python package.
+A clean, well-structured foundation for building custom MCP servers
 """

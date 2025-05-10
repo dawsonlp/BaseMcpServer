@@ -1,27 +1,24 @@
 """
 MCP server implementation template.
 
-This module defines the MCP server and provides templates for tools and resources.
+This module defines template tools and resources for the MCP server.
 Customize this file to implement your own MCP server functionality.
 """
 
-from mcp.server.fastmcp import FastMCP
 from typing import Dict, List, Any, Optional
+from mcp.server.fastmcp import FastMCP
+from config import settings
 
 
-def create_mcp_server():
+def register_tools_and_resources(srv: FastMCP):
     """
-    Create and configure an MCP server instance using FastMCP.
+    Register tools and resources with the provided MCP server instance.
     
-    Returns:
-        FastMCP: A configured FastMCP server instance
+    Args:
+        srv: A FastMCP server instance to register tools and resources with
     """
-    # Create a FastMCP server instance with a unique name
-    # Replace "your-mcp-server-name" with your actual server name
-    mcp = FastMCP("your-mcp-server-name")
-    
     # EXAMPLE TOOL - Replace with your own tools
-    @mcp.tool()
+    @srv.tool()
     def example_tool(param1: str, param2: int, optional_param: Optional[bool] = None) -> Dict[str, Any]:
         """
         Example tool template - Replace with your own implementation.
@@ -47,7 +44,7 @@ def create_mcp_server():
         return result
     
     # EXAMPLE RESOURCE - Replace with your own resources
-    @mcp.resource("resource://example")
+    @srv.resource("resource://example")
     def example_resource() -> Dict[str, Any]:
         """
         Example resource template - Replace with your own implementation.
@@ -65,7 +62,7 @@ def create_mcp_server():
         }
     
     # EXAMPLE PARAMETERIZED RESOURCE - Replace with your own implementation
-    @mcp.resource("resource://example/{id}")
+    @srv.resource("resource://example/{id}")
     def example_parameterized_resource(id: str) -> Dict[str, Any]:
         """
         Example parameterized resource template - Replace with your own implementation.
@@ -88,14 +85,12 @@ def create_mcp_server():
     # Add more tools and resources as needed
     # For example:
     #
-    # @mcp.tool()
+    # @srv.tool()
     # def your_custom_tool(...):
     #     """Tool documentation"""
     #     # Your implementation
     #
-    # @mcp.resource("resource://your-custom-resource")
+    # @srv.resource("resource://your-custom-resource")
     # def your_custom_resource(...):
     #     """Resource documentation"""
     #     # Your implementation
-    
-    return mcp

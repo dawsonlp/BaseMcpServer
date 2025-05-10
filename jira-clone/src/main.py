@@ -58,7 +58,7 @@ ADDING NEW JIRA TOOLS:
 To add a new Jira tool, edit server.py and add a function within the 
 register_tools_and_resources function:
 
-    @mcp.tool()
+    @srv.tool()
     def my_jira_tool(issue_key: str) -> Dict[str, Any]:
         \"\"\"
         Tool description here (will be shown to users)
@@ -78,7 +78,7 @@ ADDING NEW RESOURCES:
 ------------------
 To add a new resource, edit server.py:
 
-    @mcp.resource("resource://jira/{project_key}")
+    @srv.resource("resource://jira/{project_key}")
     def project_resource(project_key: str) -> Dict[str, Any]:
         \"\"\"Resource description\"\"\"
         jira = create_jira_client()

@@ -57,7 +57,7 @@ ADDING NEW TOOLS:
 To add a new tool, edit server.py and add a function within the 
 register_tools_and_resources function:
 
-    @mcp.tool()
+    @srv.tool()
     def my_new_tool(param1: str, param2: int) -> Dict[str, Any]:
         \"\"\"
         Tool description here (will be shown to users)
@@ -77,7 +77,7 @@ ADDING NEW RESOURCES:
 ------------------
 To add a new resource, edit server.py:
 
-    @mcp.resource("resource://my-resource")
+    @srv.resource("resource://my-resource")
     def my_resource() -> Dict[str, Any]:
         \"\"\"Resource description\"\"\"
         return {"data": "resource content"}

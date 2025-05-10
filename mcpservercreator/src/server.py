@@ -89,7 +89,7 @@ def create_server_files(
     server_content += '# Set up logging\n'
     server_content += 'logging.basicConfig(level=logging.INFO)\n'
     server_content += 'logger = logging.getLogger(__name__)\n\n\n'
-    server_content += 'def register_tools_and_resources(mcp: FastMCP) -> None:\n'
+    server_content += 'def register_tools_and_resources(srv: FastMCP) -> None:\n'
     server_content += '    """\n'
     server_content += '    Register tools and resources with the provided MCP server instance.\n'
     server_content += '    \n'
@@ -97,20 +97,20 @@ def create_server_files(
     server_content += '    Add your custom tool implementations as decorated functions within this function.\n'
     server_content += '    \n'
     server_content += '    Example:\n'
-    server_content += '        @mcp.tool()\n'
+    server_content += '        @srv.tool()\n'
     server_content += '        def my_tool(param1: str, param2: int) -> Dict[str, Any]:\n'
     server_content += "            '''Tool description'''\n"
     server_content += '            # Tool implementation\n'
     server_content += '            return {"result": "result"}\n'
     server_content += '            \n'
-    server_content += '        @mcp.resource("resource://my-resource/{parameter}")\n'
+    server_content += '        @srv.resource("resource://my-resource/{parameter}")\n'
     server_content += '        def my_resource(parameter: str) -> Dict[str, Any]:\n'
     server_content += "            '''Resource description'''\n"
     server_content += '            # Resource implementation\n'
     server_content += '            return {"data": "data"}\n'
     server_content += '    \n'
     server_content += '    Args:\n'
-    server_content += '        mcp: A FastMCP server instance to register tools and resources with\n'
+    server_content += '        srv: A FastMCP server instance to register tools and resources with\n'
     server_content += '    """\n'
     server_content += f'{indented_code}\n'
     
@@ -164,7 +164,7 @@ def create_server_files(
     main_content += '---------------\n'
     main_content += 'To add a new tool, edit server.py and add a function within the\n'
     main_content += 'register_tools_and_resources function:\n\n'
-    main_content += '    @mcp.tool()\n'
+    main_content += '    @srv.tool()\n'
     main_content += '    def my_new_tool(param1: str, param2: int) -> Dict[str, Any]:\n'
     main_content += '        # Description comments instead of nested triple quotes\n'
     main_content += '        # Tool description here (will be shown to users)\n'
@@ -182,7 +182,7 @@ def create_server_files(
     main_content += 'ADDING NEW RESOURCES:\n'
     main_content += '------------------\n'
     main_content += 'To add a new resource, edit server.py:\n\n'
-    main_content += '    @mcp.resource("resource://my-resource")\n'
+    main_content += '    @srv.resource("resource://my-resource")\n'
     main_content += '    def my_resource() -> Dict[str, Any]:\n'
     main_content += '        # Resource description \n'
     main_content += '        return {"data": "resource content"}\n\n'
@@ -314,17 +314,19 @@ def validate_code_snippet(code_snippet: str) -> List[str]:
             if any(node.module.startswith(restricted) for restricted in settings.restricted_imports):
                 raise ValueError(f"Import from {node.module} is not allowed")
     
-    # Extract the tool names from @mcp.tool() decorators
+    # Extract the tool names from @mcp.tool() or @srv.tool() decorators
     tool_names = []
     for node in ast.walk(parsed):
         if isinstance(node, ast.FunctionDef):
             for decorator in node.decorator_list:
                 if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                    if decorator.func.attr == "tool" and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp":
-                        tool_names.append(node.name)
+                    if decorator.func.attr == "tool" and isinstance(decorator.func.value, ast.Name):
+                        # Support both @mcp.tool() and @srv.tool() patterns
+                        if decorator.func.value.id in ["mcp", "srv"]:
+                            tool_names.append(node.name)
     
     if not tool_names:
-        raise ValueError("No tools defined with @mcp.tool() decorator. Remember to include parentheses: use @mcp.tool() instead of @mcp.tool")
+        raise ValueError("No tools defined with @mcp.tool() or @srv.tool() decorator. Remember to include parentheses: use @srv.tool() instead of @srv.tool")
     
     return tool_names
 
@@ -354,7 +356,7 @@ def install_server(server_dir: Path, server_name: str) -> bool:
         return False
 
 
-def register_tools_and_resources(mcp: FastMCP) -> None:
+def register_tools_and_resources(srv: FastMCP) -> None:
     """
     Register tools and resources with the provided MCP server instance.
     
@@ -362,10 +364,79 @@ def register_tools_and_resources(mcp: FastMCP) -> None:
     Add your custom tool implementations as decorated functions within this function.
     
     Args:
-        mcp: A FastMCP server instance to register tools and resources with
+        srv: A FastMCP server instance to register tools and resources with
     """
     
-    @mcp.tool()
+    @srv.tool()
+    def help() -> Dict[str, str]:
+        """
+        Get detailed help and security information about the MCP Server Creator.
+        
+        This tool provides comprehensive information about using the MCP Server Creator,
+        including important security warnings and best practices.
+        
+        Returns:
+            Dictionary containing help sections including usage, security warnings, and examples
+        """
+        help_text = {
+            "description": "The MCP Server Creator dynamically creates and installs new MCP servers based on Python code snippets.",
+            
+            "security_warning": """
+⚠️ IMPORTANT SECURITY WARNING ⚠️
+
+The MCP Server Creator allows an AI to:
+1. Write arbitrary Python code from vague specifications
+2. Install that code as an MCP server
+3. Use that server without human code review
+
+SECURITY RISKS:
+- CODE EXECUTION: Generated code runs on your machine with the same privileges as your user
+- LACK OF REVIEW: Server code is installed and made available without mandatory human review
+- SECURITY BYPASSES: May circumvent some built-in AI safety restrictions
+- DATA EXFILTRATION: Potential for accessing sensitive data on your machine
+- API KEYS: Any keys or credentials in generated code could be misused
+
+SAFETY RECOMMENDATIONS:
+- ALWAYS review generated code before using the server
+- NEVER include API keys or sensitive credentials in code snippets
+- USE with caution in production or sensitive environments
+- INSPECT code in ~/.mcp_servers directory after creation
+- CONSIDER security implications before creating servers that access external services
+- DISABLE the server when not in active use
+            """,
+            
+            "usage": """
+To create a new MCP server, use the create_mcp_server tool with:
+- code_snippet: Python code that defines MCP tools using @srv.tool() decorators
+- server_name: Name for the new server (alphanumeric with optional hyphens)
+- description: Optional description for the server
+- author: Optional author name
+
+After creation, restart VS Code completely for the server to be recognized.
+            """,
+            
+            "security_features": """
+Built-in security measures:
+- AST-based code analysis to detect potentially harmful operations
+- Blocking of dangerous imports and system operations
+- Restriction of file access operations
+- Prevention of direct code execution via eval() or exec()
+
+These measures provide basic protection but ARE NOT FOOLPROOF.
+            """,
+            
+            "limitations": """
+Currently, the MCP Server Creator has limitations:
+- No automated handling for .env files (manual configuration in ~/.mcp_servers required)
+- Limited management of external dependencies
+- No mandatory code review step before installation
+- Basic validation that can potentially be bypassed by sophisticated code
+            """
+        }
+        
+        return help_text
+    
+    @srv.tool()
     def create_mcp_server(code_snippet: str, server_name: str, description: str = "", author: str = "MCP Server Creator") -> Dict[str, Any]:
         """
         Create and install a new MCP server from a Python code snippet.
@@ -375,8 +446,8 @@ def register_tools_and_resources(mcp: FastMCP) -> None:
         and includes proper documentation, type hints, and configuration.
         
         Args:
-            code_snippet: Python code that defines one or more MCP tools using @mcp.tool() decorators.
-                         Each tool should be a function decorated with @mcp.tool() that returns a dictionary.
+            code_snippet: Python code that defines one or more MCP tools using @srv.tool() decorators.
+                         Each tool should be a function decorated with @srv.tool() that returns a dictionary.
             server_name: Name for the new MCP server (alphanumeric with optional hyphens).
                         This will be used as the directory name and in configuration.
             description: Optional description for the server. This will appear in docstrings and help text.
@@ -456,7 +527,7 @@ def register_tools_and_resources(mcp: FastMCP) -> None:
             }
 
 
-    @mcp.tool()
+    @srv.tool()
     def list_installed_servers() -> Dict[str, Any]:
         """
         List all installed MCP servers.

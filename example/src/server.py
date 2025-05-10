@@ -9,15 +9,15 @@ from typing import List, Dict, Optional
 from mcp.server.fastmcp import FastMCP
 
 
-def register_tools_and_resources(mcp: FastMCP):
+def register_tools_and_resources(srv: FastMCP):
     """
     Register tools and resources with the provided MCP server instance.
     
     Args:
-        mcp: A FastMCP server instance to register tools and resources with
+        srv: A FastMCP server instance to register tools and resources with
     """
     # Add a calculator tool
-    @mcp.tool()
+    @srv.tool()
     def calculator(operation: str, x: float, y: float) -> Dict[str, float]:
         """
         A simple calculator tool that performs basic arithmetic operations.
@@ -46,7 +46,7 @@ def register_tools_and_resources(mcp: FastMCP):
         return {"result": result}
     
     # Add a weather tool that returns simulated weather data
-    @mcp.tool()
+    @srv.tool()
     def get_weather(city: str, country: Optional[str] = None) -> Dict[str, any]:
         """
         Get simulated weather data for a given location.
@@ -76,7 +76,7 @@ def register_tools_and_resources(mcp: FastMCP):
         }
     
     # Add a resource that returns a list of quotes
-    @mcp.resource("resource://quotes")
+    @srv.resource("resource://quotes")
     def quotes_resource() -> List[Dict[str, str]]:
         """
         A resource that provides a list of inspirational quotes.
@@ -92,7 +92,7 @@ def register_tools_and_resources(mcp: FastMCP):
         ]
     
     # Add a parameterized resource
-    @mcp.resource("resource://quotes/{index}")
+    @srv.resource("resource://quotes/{index}")
     def quote_by_index(index: int) -> Dict[str, str]:
         """
         Get a specific quote by its index.

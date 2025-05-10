@@ -1,5 +1,4 @@
 # Use the base MCP server image as a foundation
-# The DOCKER_USERNAME will be passed as a build argument
 ARG DOCKER_USERNAME
 
 FROM docker.io/${DOCKER_USERNAME}/base-mcp-server:latest
@@ -7,25 +6,26 @@ FROM docker.io/${DOCKER_USERNAME}/base-mcp-server:latest
 # Set working directory
 WORKDIR /app
 
+# Optional: Install additional dependencies
+# Uncomment and modify the following to add your required packages:
+# RUN pip install --no-cache-dir package-name another-package
+
 # Copy the application code
-# This copies your src directory containing the MCP server implementation
 COPY ./src ./src
+
+# Set PYTHONPATH to include src as a sources root
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+
+# Set working directory to src
+WORKDIR /app/src
+
+# Environment variables will be provided at runtime
+# .env file can be mounted if needed
 
 # Add metadata - replace with your own information
 LABEL maintainer="Your Name <your.email@example.com>" \
       version="0.1.0" \
-      description="Your MCP Server Description"
+      description="Template MCP Server Docker Image"
 
-# The command to run the MCP server
-# This executes the main.py module in the src package
-CMD ["python", "-m", "src.main"]
-
-# Optional: If you need to install additional dependencies,
-# uncomment and modify the following:
-#
-# RUN pip install --no-cache-dir some-package another-package
-
-# Optional: If you need to copy additional files (like configurations),
-# uncomment and modify the following:
-#
-# COPY ./some-config-file.json /app/
+# Run main directly with sse transport mode
+CMD ["python", "main", "sse"]

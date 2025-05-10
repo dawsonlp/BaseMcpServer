@@ -27,15 +27,15 @@ def create_jira_client():
         raise Exception(f"Failed to create JIRA client: {e}")
 
 
-def register_tools_and_resources(mcp: FastMCP):
+def register_tools_and_resources(srv: FastMCP):
     """
     Register Jira tools and resources with the provided MCP server instance.
     
     Args:
-        mcp: A FastMCP server instance to register tools and resources with
+        srv: A FastMCP server instance to register tools and resources with
     """
     # Jira tool to list all projects
-    @mcp.tool()
+    @srv.tool()
     def list_jira_projects() -> Dict[str, List[Dict[str, str]]]:
         """
         List all projects available in the Jira instance.
@@ -61,7 +61,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
     
     # Add a Jira tool to get issue details
-    @mcp.tool()
+    @srv.tool()
     def get_issue_details(issue_key: str) -> Dict[str, Any]:
         """
         Get detailed information about a specific Jira issue.
@@ -99,7 +99,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
             
     # Add a Jira tool to get comprehensive issue details with formatting options
-    @mcp.tool()
+    @srv.tool()
     def get_full_issue_details(
         issue_key: str,
         raw_data: bool = False,
@@ -207,7 +207,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
     
     # Jira tool to create a new ticket
-    @mcp.tool()
+    @srv.tool()
     def create_jira_ticket(
         project_key: str, 
         summary: str, 
@@ -272,7 +272,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e), "created": False}
     
     # Jira tool to add a comment to an existing ticket
-    @mcp.tool()
+    @srv.tool()
     def add_comment_to_jira_ticket(
         issue_key: str,
         comment: str
@@ -308,7 +308,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e), "added": False}
     
     # Jira tool to get custom field mappings
-    @mcp.tool()
+    @srv.tool()
     def get_custom_field_mappings(reverse: bool = False) -> Dict[str, Any]:
         """
         Get mappings between Jira custom field IDs and their names/descriptions. If you have a dataset
@@ -360,7 +360,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
     
     # Jira tool to list tickets in a project
-    @mcp.tool()
+    @srv.tool()
     def list_project_tickets(
         project_key: str,
         status: Optional[str] = None,
@@ -422,7 +422,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
     
     # Jira resource for project information
-    @mcp.resource("resource://jira/project/{project_key}")
+    @srv.resource("resource://jira/project/{project_key}")
     def project_resource(project_key: str) -> Dict[str, Any]:
         """
         Get information about a specific Jira project.
@@ -457,7 +457,7 @@ def register_tools_and_resources(mcp: FastMCP):
             return {"error": str(e)}
     
     # Resource to list all known Jira instances
-    @mcp.resource("resource://jira/instances")
+    @srv.resource("resource://jira/instances")
     def jira_instances_resource() -> Dict[str, List[Dict[str, Any]]]:
         """
         Get information about all known Jira instances.
