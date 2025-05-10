@@ -4,10 +4,11 @@ Main entry point for the MCP Server Creator.
 
 import sys
 import logging
+from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from config import settings
-from server import mcp  # Import the already initialized MCP server from server.py
+from server import register_tools_and_resources  # Import the function that registers tools
 
 # Set up logging
 logging.basicConfig(
@@ -18,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def print_help():
+def print_help() -> None:
     """Print helpful information about using the MCP server."""
     help_text = """
 MCP Server Creator Usage Guide
@@ -33,33 +34,45 @@ BASIC USAGE:
     print(help_text)
 
 
-def start_server(transport="sse"):
+def start_server(transport: str = "sse") -> None:
     """Start the MCP server using the specified transport."""
+    # Create the MCP server
+    mcp_server = FastMCP(settings.server_name)
+    
+    # Register all tools and resources
+    register_tools_and_resources(mcp_server)
+    
     # Log important configuration
     logger.info(f"Starting {settings.server_name}")
     
     # Configure server settings
     if transport == "sse":
-        mcp.settings.host = settings.host
-        mcp.settings.port = settings.port
+        mcp_server.settings.host = settings.host
+        mcp_server.settings.port = settings.port
         logger.info(f"Using HTTP+SSE transport on {settings.host}:{settings.port}")
     else:  # stdio
         logger.info(f"Using stdio transport")
     
-    mcp.settings.debug = True
-    mcp.settings.log_level = "INFO"
+    mcp_server.settings.debug = True
+    mcp_server.settings.log_level = "INFO"
     
     # Run the server with the selected transport
-    mcp.run(transport)
+    mcp_server.run(transport)
 
 
-def create_app():
+def create_app() -> Any:
     """Create an ASGI application for use with an external ASGI server."""
+    # Create the MCP server
+    mcp_server = FastMCP(settings.server_name)
+    
+    # Register all tools and resources
+    register_tools_and_resources(mcp_server)
+    
     # Configure server settings
-    mcp.settings.debug = True
+    mcp_server.settings.debug = True
     
     # Return the ASGI app instance
-    return mcp.sse_app()
+    return mcp_server.sse_app()
 
 
 def main():

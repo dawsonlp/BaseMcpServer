@@ -24,7 +24,7 @@ pipx ensurepath
 pipx install mcp-manager
 
 # Or directly from the repository
-pipx install git+https://github.com/yourusername/BaseMcpServer.git#subdirectory=utils/mcp_manager
+pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
 ```
 
 ## Usage
