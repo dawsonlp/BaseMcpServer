@@ -1,0 +1,18 @@
+My Document
+
+This is a simple example of converting **markdown** to multiple formats.
+
+Features
+• Easy to use
+• Multiple output formats
+• Clean, readable results
+
+Code Example
+
+
+    # Convert markdown to any format
+    doc = Document.from_markdown(content)
+    result = converter.convert(doc, options)
+
+
+That's it! Simple and effective.
