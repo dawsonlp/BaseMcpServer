@@ -325,6 +325,11 @@ def show_docker_help():
     console.print("\n[bold]Direct Usage:[/bold]")
     console.print("[cyan]docker run --rm -v $(pwd):/workspace dawsonlp/mdproc convert -i doc.md -f pdf[/cyan]")
     
+    console.print("\n[bold]Volume Mounting:[/bold]")
+    console.print("Mount your current directory to access files:")
+    console.print("[cyan]-v $(pwd):/workspace[/cyan]")
+    console.print("This allows mdproc to read your markdown files and write output files.")
+    
     console.print("\n[bold]Volume Convention:[/bold]")
     console.print("  [yellow]/workspace[/yellow] - Mount your project directory here")
     
