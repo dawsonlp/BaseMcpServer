@@ -366,7 +366,7 @@ def register_tools_and_resources(srv: FastMCP):
         status: Optional[str] = None,
         issue_type: Optional[str] = None,
         max_results: int = 50
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> Dict[str, Any]:
         """
         List tickets (issues) in a Jira project with optional filtering.
         

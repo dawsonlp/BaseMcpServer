@@ -11,6 +11,7 @@ import ast
 import shutil
 import uuid
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -18,9 +19,21 @@ from mcp.server.fastmcp import FastMCP
 
 from config import settings
 
-# Set up logging
+# Set up logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Add the utils directory to the path so we can import mcp_manager
+utils_path = Path(__file__).parent.parent.parent.parent / "utils"
+if str(utils_path) not in sys.path:
+    sys.path.insert(0, str(utils_path))
+
+try:
+    from mcp_manager.src.mcp_manager.commands.install import install_local_server
+    MCP_MANAGER_AVAILABLE = True
+except ImportError:
+    MCP_MANAGER_AVAILABLE = False
+    logger.warning("mcp-manager not available for direct import")
 
 
 def create_server_files(
@@ -281,7 +294,7 @@ def create_server_files(
     # Create requirements.txt
     with open(server_dir / "requirements.txt", "w") as f:
         f.write('''# Core MCP dependencies
-mcp>=1.6.0
+mcp>=1.10.1
 pydantic-settings>=2.9.1
 python-dotenv>=1.1.0
 uvicorn>=0.34.2
@@ -343,7 +356,7 @@ def install_server(server_dir: Path, server_name: str) -> bool:
         True if installation succeeded, False otherwise
     """
     try:
-        # Call mcp-manager to install the server
+        # Call mcp-manager to install the server (mcp-manager is included in our requirements)
         subprocess.run(
             ["mcp-manager", "install", "local", server_name, "--source", str(server_dir), "--force"],
             check=True,
