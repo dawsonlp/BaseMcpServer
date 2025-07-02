@@ -50,6 +50,9 @@ cp .env.example .env
 ### 3. Docker Setup
 
 ```bash
+# Navigate to the jira-helper directory (same as local development)
+cd servers/jira-helper
+
 # Build the Docker image (requires base image - see Prerequisites)
 ./docker/build.sh jira-helper-server latest 7501 <your-docker-username>
 
@@ -83,12 +86,14 @@ The Docker setup builds upon the BaseMcpServer base image:
 
 ```bash
 # 1. Ensure you have the base image built (from project root)
+cd /path/to/BaseMcpServer
 ./base-mcp-docker/build.sh base-mcp-server latest 7501 <your-docker-username>
 
-# 2. Build the Jira helper server
-./servers/jira-helper/docker/build.sh jira-helper-server latest 7501 <your-docker-username>
+# 2. Navigate to jira-helper directory and build the server
+cd servers/jira-helper
+./docker/build.sh jira-helper-server latest 7501 <your-docker-username>
 
-# 3. Run the container
+# 3. Run the container (from servers/jira-helper directory)
 docker run -p 7501:7501 --env-file .env jira-helper-server:latest
 ```
 
