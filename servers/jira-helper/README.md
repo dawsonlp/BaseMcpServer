@@ -104,7 +104,9 @@ SERVER_NAME=jira-helper-server
 HOST=0.0.0.0
 PORT=7501
 
-# API key for MCP client authentication (used by Claude Desktop, Cline, etc.)
+# API key for authentication
+# This should be a strong, unique value in production
+# Used by MCP clients (Claude Desktop, Cline) to authenticate with your MCP server - can be any string
 API_KEY=your_secure_api_key_here
 
 # Jira settings (REQUIRED)
