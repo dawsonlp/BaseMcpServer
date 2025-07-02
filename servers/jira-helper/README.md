@@ -104,7 +104,7 @@ SERVER_NAME=jira-helper-server
 HOST=0.0.0.0
 PORT=7501
 
-# API key for MCP authentication
+# API key for MCP client authentication (used by Claude Desktop, Cline, etc.)
 API_KEY=your_secure_api_key_here
 
 # Jira settings (REQUIRED)
@@ -317,7 +317,7 @@ full_details = await session.call_tool("get_full_issue_details", {
 | `SERVER_NAME` | MCP server identifier | `jira-helper-server` | No |
 | `HOST` | Server host address | `0.0.0.0` | No |
 | `PORT` | Server port | `7501` | No |
-| `API_KEY` | MCP authentication key | `example_key` | No |
+| `API_KEY` | MCP client authentication key (for Claude Desktop, Cline, etc.) | `example_key` | No |
 | `JIRA_URL` | Jira instance URL | - | **Yes** |
 | `JIRA_USER` | Jira username/email | - | **Yes** |
 | `JIRA_TOKEN` | Jira API token | - | **Yes** |
@@ -429,7 +429,7 @@ servers/jira-helper/
 - **API Token Security**: Store Jira API tokens securely, never commit them to version control
 - **Network Security**: Use HTTPS for Jira connections in production
 - **Access Control**: Ensure the Jira user has minimal required permissions
-- **MCP Authentication**: Set a strong `API_KEY` for MCP client authentication
+- **MCP Authentication**: Set a strong `API_KEY` for MCP client authentication (this is what Claude Desktop, Cline, and other MCP clients use to authenticate with your server)
 - **Container Security**: The Docker container runs as a non-root user
 
 ## License
