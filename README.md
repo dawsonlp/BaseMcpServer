@@ -131,8 +131,11 @@ The project now includes an `mcp-manager` utility for easy installation and mana
 ### Installing MCP Manager
 
 ```bash
+# install pipx
+brew install pipx
+
 # Install directly from the repository
-pipx install git+https://github.com/yourusername/BaseMcpServer.git#subdirectory=utils/mcp_manager
+pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
 ```
 
 ### Key Features
@@ -462,7 +465,7 @@ docker service create \
 For development or testing purposes, you can build configuration directly into derived images:
 
 ```dockerfile
-FROM docker.io/yourusername/base-mcp-server:latest
+FROM docker.io/dawsonlp/base-mcp-server:latest
 
 # Configure environment variables (non-sensitive only!)
 ENV HOST=0.0.0.0
