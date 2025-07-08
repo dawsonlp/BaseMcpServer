@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     """
     
     # MCP Server identity
-    server_name: str = "jira-clone-server"
+    server_name: str = "jira-mcp-server"
     
     # Server settings (rarely need to be changed in Docker environments)
     # These defaults work well with Docker's port mapping
@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     JIRA_USER: str = Field(default="user@example.com")
     JIRA_TOKEN: str = Field(default="")
     
+    # Logging configuration
+    log_level: str = "INFO"
+    debug_mode: bool = False
+    
     # Configure settings to load from .env file
     # We attempt to find the .env file in various places
     model_config = SettingsConfigDict(
@@ -72,6 +76,27 @@ class Settings(BaseSettings):
         case_sensitive=False,
         validate_default=True
     )
+    
+    def validate_jira_config(self) -> bool:
+        """
+        Validate that required Jira configuration is present.
+        
+        Returns:
+            bool: True if configuration is valid, False otherwise
+        """
+        if not self.JIRA_URL or self.JIRA_URL == "https://example.atlassian.net":
+            logger.error("JIRA_URL is not configured. Please set a valid Jira URL.")
+            return False
+            
+        if not self.JIRA_USER or self.JIRA_USER == "user@example.com":
+            logger.error("JIRA_USER is not configured. Please set a valid Jira user email.")
+            return False
+            
+        if not self.JIRA_TOKEN:
+            logger.error("JIRA_TOKEN is not configured. Please set a valid Jira API token.")
+            return False
+            
+        return True
 
 
 # Create a settings instance for importing in other modules
