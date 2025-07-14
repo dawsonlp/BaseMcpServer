@@ -1,6 +1,8 @@
-# Environment variables
+# Environment variables and configuration files with secrets
 .env
 *.env
+config.yaml
+*.config.yaml
 
 # Python
 __pycache__/
@@ -26,6 +28,7 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
 env/
 ENV/
 

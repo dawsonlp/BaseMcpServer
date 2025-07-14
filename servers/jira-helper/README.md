@@ -1,443 +1,348 @@
 # Jira Helper MCP Server
 
-A comprehensive MCP (Model Context Protocol) server that provides seamless integration with Jira instances. This server enables AI assistants to interact with Jira projects, issues, and workflows through a rich set of tools and resources.
+A comprehensive MCP server for interacting with Jira instances. This server provides tools for managing Jira issues, including support for multiple Jira instances, workflow transitions, and assignee management.
 
 ## Features
 
-- **🎯 Complete Jira Integration**: Connect to Jira Cloud or Server instances
-- **📋 Issue Management**: Create, read, update, and comment on Jira issues
-- **📊 Project Operations**: List projects, get project details, and manage project tickets
-- **🔧 Custom Field Support**: Access and understand custom field mappings
-- **🚀 Dual Transport Support**: HTTP+SSE for network use, stdio for local development
-- **🐳 Docker Ready**: Fully containerized with base image support
-- **⚡ FastMCP Implementation**: Built on the modern FastMCP framework
-- **🔒 Secure Authentication**: API token-based authentication with Jira
+- **Multiple Jira Instance Support**: Connect to and manage multiple Jira instances simultaneously
+- **Issue Management**: Create, read, update, and comment on Jira issues
+- **Workflow Transitions**: Move issues through their workflow states
+- **Assignee Management**: Change issue assignees or unassign issues
+- **Project Management**: List projects and tickets with filtering options
+- **Custom Field Support**: Access and understand custom fields in your Jira instances
+- **Workflow Visualization**: Generate visual workflow graphs in multiple formats
+- **Fully Dockerized**: Easy to build and deploy
+- **Based on MCP Python SDK**: Uses the official Model Context Protocol SDK
+
+## Project Structure
+
+```
+jira-helper/
+├── src/                     # Application code
+│   ├── __init__.py
+│   ├── config.py            # Configuration handling with multi-instance support
+│   ├── main.py              # Entry point for the server
+│   └── server.py            # MCP server implementation with Jira tools and resources
+├── docker/                  # Docker configuration
+│   ├── Dockerfile           # Dockerfile to build the image
+│   └── build.sh             # Build script for Docker image
+├── .env.example             # Example environment variables
+├── README.md                # This file
+├── requirements.txt         # Python dependencies
+├── run.sh                   # Local development runner
+└── setup.sh                 # Setup script
+```
 
 ## Prerequisites
 
-- **Jira Access**: A Jira Cloud or Server instance with API access
-- **Jira API Token**: Generated from your Jira account settings
-- **Python 3.13+** (for local development) or **Docker** (for containerized deployment)
-- **Network Access**: Ability to reach your Jira instance from where the server runs
+- Docker installed and configured (for containerized deployment)
+- Python 3.13+ (for local development)
+- Jira API tokens for the instances you want to connect to
 
-## Quick Start
+## Configuration
 
-### 1. Get Jira API Token
+### Single Jira Instance (Legacy)
 
-1. Go to your Jira instance → Profile → Personal Access Tokens (Cloud) or API Tokens (Server)
-2. Create a new token with appropriate permissions
-3. Save the token securely - you'll need it for configuration
-
-### 2. Local Development Setup
+For backward compatibility, you can configure a single Jira instance using individual environment variables:
 
 ```bash
-# Clone and navigate to the jira-helper directory
-cd servers/jira-helper
-
-# Run the setup script (creates venv and installs dependencies)
-./setup.sh
-
-# Copy and configure environment variables
 cp .env.example .env
-# Edit .env with your Jira credentials (see Configuration section)
-
-# Start the server
-./run.sh sse    # For HTTP+SSE transport
-# or
-./run.sh stdio  # For stdio transport
-```
-
-### 3. Docker Setup
-
-```bash
-# Navigate to the jira-helper directory (same as local development)
-cd servers/jira-helper
-
-# Build the Docker image (requires base image - see Prerequisites)
-./docker/build.sh jira-helper-server latest 7501 <your-docker-username>
-
-# Run with environment variables
-docker run -p 7501:7501 \
-  -e JIRA_URL=https://your-domain.atlassian.net \
-  -e JIRA_USER=your-email@example.com \
-  -e JIRA_TOKEN=your-api-token \
-  jira-helper-server:latest
-```
-
-## Installation & Setup
-
-### Local Development Setup
-
-The local setup uses Python virtual environments and shell scripts for easy development:
-
-```bash
-# 1. Run the setup script
-./setup.sh
-
-# This script will:
-# - Create a Python 3.13+ virtual environment in .venv/
-# - Install all required dependencies from requirements.txt
-# - Provide setup completion instructions
-```
-
-### Docker Setup
-
-The Docker setup builds upon the BaseMcpServer base image:
-
-```bash
-# 1. Ensure you have the base image built (from project root)
-cd /path/to/BaseMcpServer
-./base-mcp-docker/build.sh base-mcp-server latest 7501 <your-docker-username>
-
-# 2. Navigate to jira-helper directory and build the server
-cd servers/jira-helper
-./docker/build.sh jira-helper-server latest 7501 <your-docker-username>
-
-# 3. Run the container (from servers/jira-helper directory)
-docker run -p 7501:7501 --env-file .env jira-helper-server:latest
-```
-
-### Environment Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```bash
-# MCP Server identity
-SERVER_NAME=jira-helper-server
-
-# Server settings (for HTTP+SSE transport)
-HOST=0.0.0.0
-PORT=7501
-
-# API key for authentication
-# This should be a strong, unique value in production
-# Used by MCP clients (Claude Desktop, Cline) to authenticate with your MCP server - can be any string
-API_KEY=your_secure_api_key_here
-
-# Jira settings (REQUIRED)
+# Edit .env with your Jira details:
 JIRA_URL=https://your-domain.atlassian.net
 JIRA_USER=your-jira-email@example.com
 JIRA_TOKEN=your-jira-api-token
 ```
 
-**Important**: Replace the placeholder values with your actual Jira credentials.
+### Multiple Jira Instances
+
+To configure multiple Jira instances, use the `JIRA_INSTANCES` environment variable with JSON format. You can use either single-line or multi-line format:
+
+**Multi-line format (recommended for readability):**
+```bash
+JIRA_INSTANCES='[
+  {
+    "name": "production",
+    "url": "https://company.atlassian.net",
+    "user": "user@company.com",
+    "token": "your-production-token",
+    "description": "Production Jira instance"
+  },
+  {
+    "name": "staging",
+    "url": "https://staging.atlassian.net",
+    "user": "user@company.com",
+    "token": "your-staging-token",
+    "description": "Staging Jira instance"
+  }
+]'
+```
+
+**Single-line format:**
+```bash
+JIRA_INSTANCES='[{"name": "production", "url": "https://company.atlassian.net", "user": "user@company.com", "token": "your-production-token", "description": "Production Jira"}, {"name": "staging", "url": "https://staging.atlassian.net", "user": "user@company.com", "token": "your-staging-token", "description": "Staging Jira"}]'
+```
+
+**Important:** When using multi-line format, wrap the entire JSON in single quotes to preserve the formatting.
+
+### Getting Jira API Tokens
+
+1. Go to your Jira instance
+2. Navigate to Account Settings → Security → API tokens
+3. Create a new API token
+4. Use your email address as the username and the token as the password
+
+## Building and Running
+
+### Docker Deployment
+
+```bash
+# Build the Docker image
+./docker/build.sh jira-helper-server latest 7501 <your-docker-username>
+
+# Run the container
+docker run -p 7501:7501 --env-file .env jira-helper-server:latest
+```
+
+### Local Development
+
+```bash
+# Set up the project-specific virtual environment
+./setup.sh
+
+# Run the server (automatically activates venv)
+./run.sh
+```
+
+**Note:** The project uses a server-specific virtual environment (`.venv/`) that inherits from the base project requirements and adds Jira-specific dependencies. The setup script will:
+
+1. Create a Python 3.13+ virtual environment in `.venv/`
+2. Install base MCP dependencies from `../../requirements-base.txt`
+3. Install server-specific dependencies (Jira API, graph visualization)
+
+**Manual Setup (if needed):**
+```bash
+# Create and activate virtual environment
+python3.13 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r ../../requirements-base.txt
+pip install -r requirements.txt
+```
 
 ## Available Tools
 
-### 1. `list_jira_projects`
-List all projects available in your Jira instance.
+### Core Issue Management
 
-**Parameters**: None
+1. **list_jira_projects** - List all projects in a Jira instance
+   - Parameters:
+     - `instance_name` (optional): Name of the Jira instance to use
 
-**Returns**: 
-```json
-{
-  "projects": [
-    {
-      "key": "PROJ",
-      "name": "Project Name",
-      "id": "12345"
-    }
-  ]
-}
-```
+2. **get_issue_details** - Get detailed information about a specific issue
+   - Parameters:
+     - `issue_key`: The Jira issue key (e.g., 'PROJECT-123')
+     - `instance_name` (optional): Name of the Jira instance to use
 
-### 2. `get_issue_details`
-Get detailed information about a specific Jira issue.
+3. **get_full_issue_details** - Get comprehensive issue information with formatting options
+   - Parameters:
+     - `issue_key`: The Jira issue key
+     - `raw_data` (optional): Return raw API data if true
+     - `format` (optional): "formatted" or "summary"
 
-**Parameters**:
-- `issue_key` (string): The Jira issue key (e.g., 'PROJ-123')
+4. **create_jira_ticket** - Create a new Jira issue
+   - Parameters:
+     - `project_key`: Project key (e.g., 'PROJ')
+     - `summary`: Issue title
+     - `description`: Issue description
+     - `issue_type` (optional): Story, Task, Epic, Bug (default: Story)
+     - `priority` (optional): High, Medium, Low
+     - `assignee` (optional): Username to assign to
+     - `labels` (optional): List of labels
 
-**Returns**: Issue details including summary, status, assignee, description, etc.
+5. **add_comment_to_jira_ticket** - Add a comment to an existing issue
+   - Parameters:
+     - `issue_key`: The Jira issue key
+     - `comment`: Comment text to add
 
-### 3. `get_full_issue_details`
-Get comprehensive issue information with formatting options and comments.
+6. **list_project_tickets** - List issues in a project with filtering
+   - Parameters:
+     - `project_key`: Project key
+     - `status` (optional): Filter by status
+     - `issue_type` (optional): Filter by issue type
+     - `max_results` (optional): Maximum results (default: 50)
+     - `instance_name` (optional): Name of the Jira instance to use
 
-**Parameters**:
-- `issue_key` (string): The Jira issue key
-- `raw_data` (boolean, optional): Return raw API data if true (default: false)
-- `format` (string, optional): "formatted" or "summary" (default: "formatted")
+### Workflow Management
 
-**Returns**: Comprehensive issue data including comments, custom fields, and metadata.
+7. **transition_jira_issue** - Move an issue through its workflow
+   - Parameters:
+     - `issue_key`: The Jira issue key
+     - `transition_name`: Name of the transition (e.g., "Start Progress", "Done")
+     - `comment` (optional): Comment to add during transition
+     - `instance_name` (optional): Name of the Jira instance to use
 
-### 4. `create_jira_ticket`
-Create a new Jira ticket (issue).
+8. **get_issue_transitions** - Get available workflow transitions for an issue
+   - Parameters:
+     - `issue_key`: The Jira issue key
+     - `instance_name` (optional): Name of the Jira instance to use
 
-**Parameters**:
-- `project_key` (string): The project key (e.g., 'PROJ')
-- `summary` (string): The ticket summary/title
-- `description` (string): The ticket description
-- `issue_type` (string, optional): Issue type - "Story", "Task", "Epic", "Bug" (default: "Story")
-- `priority` (string, optional): Priority level (e.g., "High", "Medium", "Low")
-- `assignee` (string, optional): Username to assign the ticket to
-- `labels` (array, optional): List of labels to apply
+### Assignee Management
 
-**Returns**: Created issue details with key, ID, and URL.
+9. **change_issue_assignee** - Change the assignee of an issue
+   - Parameters:
+     - `issue_key`: The Jira issue key
+     - `assignee` (optional): Username/email of new assignee (empty to unassign)
+     - `instance_name` (optional): Name of the Jira instance to use
 
-### 5. `add_comment_to_jira_ticket`
-Add a comment to an existing Jira ticket.
+### Instance and Field Management
 
-**Parameters**:
-- `issue_key` (string): The Jira issue key
-- `comment` (string): The comment text to add
+10. **list_jira_instances** - List all configured Jira instances
+    - No parameters required
 
-**Returns**: Comment details and status confirmation.
+11. **get_custom_field_mappings** - Get mappings between custom field IDs and names
+    - Parameters:
+      - `reverse` (optional): If true, map from name to ID instead of ID to name
 
-### 6. `get_custom_field_mappings`
-Get mappings between Jira custom field IDs and their human-readable names.
+### Workflow Visualization
 
-**Parameters**:
-- `reverse` (boolean, optional): If true, map from name to ID; if false, map from ID to name (default: false)
-
-**Returns**: Dictionary of custom field mappings with descriptions.
-
-### 7. `list_project_tickets`
-List tickets (issues) in a Jira project with optional filtering.
-
-**Parameters**:
-- `project_key` (string): The project key
-- `status` (string, optional): Filter by status (e.g., "In Progress", "Done")
-- `issue_type` (string, optional): Filter by issue type (e.g., "Story", "Bug")
-- `max_results` (integer, optional): Maximum results to return (default: 50)
-
-**Returns**: List of matching tickets with key details.
+12. **generate_project_workflow_graph** - Generate visual workflow graph for a project
+    - Parameters:
+      - `project_key`: Project key (e.g., 'PROJ')
+      - `issue_type` (optional): Issue type to analyze (default: "Story")
+      - `format` (optional): Output format - "svg", "png", "dot", or "json" (default: "svg")
+      - `instance_name` (optional): Name of the Jira instance to use
 
 ## Available Resources
 
-### 1. Project Resource
-**URI Template**: `resource://jira/project/{project_key}`
+1. **resource://jira/instances** - Information about all configured Jira instances
 
-Get detailed information about a specific Jira project.
+2. **resource://jira/project/{project_key}** - Information about a specific project
+   - Parameters:
+     - `project_key`: The project key to get information for
 
-**Example**: `resource://jira/project/MYPROJ`
+## Example Usage
 
-### 2. Jira Instances Resource
-**URI**: `resource://jira/instances`
-
-Get information about configured Jira instances.
-
-## Usage Examples
-
-### Basic Issue Operations
+### Basic Issue Management
 
 ```python
 # List all projects
-projects = await session.call_tool("list_jira_projects", {})
+projects = await session.call_tool("list_jira_projects")
 
 # Get issue details
 issue = await session.call_tool("get_issue_details", {
     "issue_key": "PROJ-123"
 })
 
-# Create a new ticket
-new_ticket = await session.call_tool("create_jira_ticket", {
+# Create a new issue
+new_issue = await session.call_tool("create_jira_ticket", {
     "project_key": "PROJ",
-    "summary": "Fix login bug",
-    "description": "Users cannot log in with special characters in password",
-    "issue_type": "Bug",
+    "summary": "New feature request",
+    "description": "Detailed description of the feature",
+    "issue_type": "Story",
     "priority": "High",
-    "labels": ["urgent", "security"]
-})
-
-# Add a comment
-comment = await session.call_tool("add_comment_to_jira_ticket", {
-    "issue_key": "PROJ-123",
-    "comment": "Investigation shows this is related to password validation regex"
+    "assignee": "john.doe"
 })
 ```
 
-### Project Management
+### Workflow Management
 
 ```python
-# List tickets in a project
-tickets = await session.call_tool("list_project_tickets", {
+# Check available transitions
+transitions = await session.call_tool("get_issue_transitions", {
+    "issue_key": "PROJ-123"
+})
+
+# Move issue to "In Progress"
+result = await session.call_tool("transition_jira_issue", {
+    "issue_key": "PROJ-123",
+    "transition_name": "Start Progress",
+    "comment": "Starting work on this issue"
+})
+```
+
+### Multi-Instance Usage
+
+```python
+# List projects from a specific instance
+projects = await session.call_tool("list_jira_projects", {
+    "instance_name": "production"
+})
+
+# Get issue from staging instance
+issue = await session.call_tool("get_issue_details", {
+    "issue_key": "STAGE-456",
+    "instance_name": "staging"
+})
+```
+
+### Assignee Management
+
+```python
+# Assign issue to a user
+result = await session.call_tool("change_issue_assignee", {
+    "issue_key": "PROJ-123",
+    "assignee": "jane.smith"
+})
+
+# Unassign issue
+result = await session.call_tool("change_issue_assignee", {
+    "issue_key": "PROJ-123",
+    "assignee": ""  # Empty string to unassign
+})
+```
+
+### Workflow Visualization
+
+```python
+# Generate SVG workflow graph
+graph = await session.call_tool("generate_project_workflow_graph", {
     "project_key": "PROJ",
-    "status": "In Progress",
-    "max_results": 20
+    "issue_type": "Story",
+    "format": "svg"
 })
+# Returns base64-encoded SVG data
 
-# Get project information via resource
-project_info = await session.access_resource("resource://jira/project/PROJ")
+# Generate JSON workflow data
+workflow_data = await session.call_tool("generate_project_workflow_graph", {
+    "project_key": "PROJ",
+    "issue_type": "Bug",
+    "format": "json",
+    "instance_name": "production"
+})
+# Returns structured workflow data with nodes and edges
+
+# Generate DOT format for custom processing
+dot_graph = await session.call_tool("generate_project_workflow_graph", {
+    "project_key": "PROJ",
+    "format": "dot"
+})
+# Returns DOT language representation
 ```
 
-### Custom Fields
+## Security Considerations
 
-```python
-# Get custom field mappings
-field_mappings = await session.call_tool("get_custom_field_mappings", {})
-
-# Get comprehensive issue details with custom fields
-full_details = await session.call_tool("get_full_issue_details", {
-    "issue_key": "PROJ-123",
-    "format": "formatted"
-})
-```
-
-## MCP Client Integration
-
-### Claude Desktop Integration
-
-1. Start the server with SSE transport:
-   ```bash
-   ./run.sh sse
-   ```
-
-2. Add to Claude Desktop settings:
-   ```json
-   {
-     "mcpServers": {
-       "jira-helper": {
-         "url": "http://localhost:7501",
-         "apiKey": "your_api_key_here"
-       }
-     }
-   }
-   ```
-
-### Cline (VS Code) Integration
-
-1. Start the server:
-   ```bash
-   ./run.sh sse
-   ```
-
-2. Edit Cline MCP settings file:
-   ```json
-   {
-     "mcpServers": {
-       "jira-helper-server": {
-         "url": "http://localhost:7501/sse",
-         "apiKey": "your_api_key_here",
-         "disabled": false,
-         "autoApprove": []
-       }
-     }
-   }
-   ```
-
-## Configuration Reference
-
-### Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `SERVER_NAME` | MCP server identifier | `jira-helper-server` | No |
-| `HOST` | Server host address | `0.0.0.0` | No |
-| `PORT` | Server port | `7501` | No |
-| `API_KEY` | MCP client authentication key (for Claude Desktop, Cline, etc.) | `example_key` | No |
-| `JIRA_URL` | Jira instance URL | - | **Yes** |
-| `JIRA_USER` | Jira username/email | - | **Yes** |
-| `JIRA_TOKEN` | Jira API token | - | **Yes** |
-
-### Jira URL Formats
-
-- **Jira Cloud**: `https://your-domain.atlassian.net`
-- **Jira Server**: `https://jira.your-company.com`
-- **Jira Data Center**: `https://jira.your-company.com`
+- Store Jira API tokens securely and never commit them to version control
+- Use environment variables or secure secret management for production deployments
+- Consider using HTTPS in production environments
+- The container runs as a non-root user for improved security
+- Regularly rotate API tokens
 
 ## Troubleshooting
 
 ### Common Issues
 
-**1. Authentication Errors**
-```
-Error: Failed to create JIRA client: HTTP 401
-```
-- Verify your `JIRA_USER` and `JIRA_TOKEN` are correct
-- Ensure the API token has appropriate permissions
-- Check if your Jira instance requires additional authentication
-
-**2. Connection Errors**
-```
-Error: Failed to create JIRA client: Connection timeout
-```
-- Verify `JIRA_URL` is correct and accessible
-- Check network connectivity to Jira instance
-- Ensure firewall/proxy settings allow the connection
-
-**3. Permission Errors**
-```
-Error: You do not have permission to view this issue
-```
-- Verify your Jira user has appropriate project permissions
-- Check if the issue exists and is accessible to your user
-
-**4. Custom Field Issues**
-- Use `get_custom_field_mappings` to understand available custom fields
-- Custom field access depends on your Jira configuration and permissions
+1. **Authentication Errors**: Verify your Jira URL, username, and API token
+2. **Permission Errors**: Ensure your Jira user has appropriate permissions for the operations you're trying to perform
+3. **Instance Not Found**: Check that the instance name matches exactly what's configured in `JIRA_INSTANCES`
+4. **Transition Errors**: Use `get_issue_transitions` to see available transitions for an issue
 
 ### Debug Mode
 
-Enable debug logging by setting environment variables:
+Enable debug logging by setting:
 ```bash
-export DEBUG_MODE=true
-export LOG_LEVEL=DEBUG
+DEBUG_MODE=true
+LOG_LEVEL=DEBUG
 ```
-
-## Development & Customization
-
-### Adding New Tools
-
-To add a new Jira tool, edit `src/server.py` within the `register_tools_and_resources` function:
-
-```python
-@srv.tool()
-def my_custom_jira_tool(issue_key: str, custom_param: str) -> Dict[str, Any]:
-    """
-    Description of your custom tool.
-    
-    Args:
-        issue_key: The Jira issue key
-        custom_param: Description of custom parameter
-        
-    Returns:
-        Dictionary with results
-    """
-    try:
-        jira = create_jira_client()
-        # Your custom logic here
-        return {"result": "success"}
-    except Exception as e:
-        return {"error": str(e)}
-```
-
-### Adding New Resources
-
-```python
-@srv.resource("resource://jira/custom/{param}")
-def custom_resource(param: str) -> Dict[str, Any]:
-    """Custom resource description"""
-    jira = create_jira_client()
-    # Fetch and return resource data
-    return {"data": "resource_data"}
-```
-
-### Project Structure
-
-```
-servers/jira-helper/
-├── src/                     # Application source code
-│   ├── __init__.py
-│   ├── config.py            # Configuration and environment handling
-│   ├── main.py              # Entry point and server setup
-│   └── server.py            # MCP tools and resources implementation
-├── docker/                  # Docker configuration
-│   ├── Dockerfile           # Container definition
-│   └── build.sh             # Docker build script
-├── .env.example             # Environment variables template
-├── requirements.txt         # Python dependencies
-├── setup.sh                 # Local development setup script
-├── run.sh                   # Server execution script
-└── README.md                # This file
-```
-
-## Security Considerations
-
-- **API Token Security**: Store Jira API tokens securely, never commit them to version control
-- **Network Security**: Use HTTPS for Jira connections in production
-- **Access Control**: Ensure the Jira user has minimal required permissions
-- **MCP Authentication**: Set a strong `API_KEY` for MCP client authentication (this is what Claude Desktop, Cline, and other MCP clients use to authenticate with your server)
-- **Container Security**: The Docker container runs as a non-root user
 
 ## License
 

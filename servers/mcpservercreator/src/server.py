@@ -291,14 +291,8 @@ def create_server_files(
     with open(src_dir / "main.py", "w") as f:
         f.write(main_content)
     
-    # Create requirements.txt
-    with open(server_dir / "requirements.txt", "w") as f:
-        f.write('''# Core MCP dependencies
-mcp>=1.10.1
-pydantic-settings>=2.9.1
-python-dotenv>=1.1.0
-uvicorn>=0.34.2
-''')
+    # Don't create a hardcoded requirements.txt - let the deployment process handle it
+    # This allows servers to have their own requirements.txt files that reference base requirements
 
 
 def validate_code_snippet(code_snippet: str) -> List[str]:
