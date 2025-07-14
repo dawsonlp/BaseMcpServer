@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  jira-mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: jira-mcp-server:latest
+    container_name: jira-mcp-server
+    ports:
+      - "${HOST_PORT:-7501}:7501"
+    env_file:
+      - ../.env
+    environment:
+      # Override any environment variables here if needed
+      - SERVER_NAME=${SERVER_NAME:-jira-mcp-server}
+      - HOST=0.0.0.0
+      - PORT=7501
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7501/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - jira-mcp-network
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+networks:
+  jira-mcp-network:
+    driver: bridge
+    name: jira-mcp-network

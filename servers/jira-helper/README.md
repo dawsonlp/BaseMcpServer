@@ -10,6 +10,7 @@ A comprehensive MCP server for interacting with Jira instances. This server prov
 - **Assignee Management**: Change issue assignees or unassign issues
 - **Project Management**: List projects and tickets with filtering options
 - **Custom Field Support**: Access and understand custom fields in your Jira instances
+- **Workflow Visualization**: Generate visual workflow graphs in multiple formats
 - **Fully Dockerized**: Easy to build and deploy
 - **Based on MCP Python SDK**: Uses the official Model Context Protocol SDK
 
@@ -346,3 +347,7 @@ LOG_LEVEL=DEBUG
 ## License
 
 [MIT License](LICENSE)
+
+---
+
+For more information about the Model Context Protocol, visit: https://modelcontextprotocol.io
