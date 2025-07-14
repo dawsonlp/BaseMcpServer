@@ -1,0 +1,43 @@
+# Jira Helper MCP Server Configuration
+# Copy this file to config.yaml and update with your actual values
+
+# Server configuration
+server:
+  name: jira-helper-server
+  host: 0.0.0.0  # Listen on all interfaces (good for Docker)
+  port: 7501     # Default MCP port
+  api_key: your_api_key_here  # Change this in production
+  debug_mode: true
+  log_level: INFO
+
+# Multiple Jira instances configuration
+# Much cleaner and more readable than JSON in .env files!
+jira_instances:
+  - name: personal
+    url: https://your-personal.atlassian.net
+    user: your.email@example.com
+    token: YOUR_PERSONAL_JIRA_TOKEN_HERE
+    description: Personal Jira Instance
+    
+  - name: work
+    url: https://your-company.atlassian.net
+    user: your.work.email@company.com
+    token: YOUR_WORK_JIRA_TOKEN_HERE
+    description: Company Jira Instance
+    
+  - name: client
+    url: https://client-company.atlassian.net
+    user: your.email@client.com
+    token: YOUR_CLIENT_JIRA_TOKEN_HERE
+    description: Client Jira Instance
+
+# Which instance to use by default (optional)
+# If not specified, will use the first instance
+default_jira_instance: personal
+
+# Legacy single instance settings (for backward compatibility)
+# These are used if no jira_instances are configured
+legacy:
+  jira_url: https://example.atlassian.net
+  jira_user: user@example.com
+  jira_token: ""  # Leave empty to disable legacy mode

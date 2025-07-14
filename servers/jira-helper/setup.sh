@@ -36,7 +36,10 @@ source "$DIR/.venv/bin/activate"
 pip install --upgrade pip
 
 # Install requirements
-echo "Installing dependencies..."
+echo "Installing base dependencies..."
+pip install -r "$DIR/../../requirements-base.txt"
+
+echo "Installing server-specific dependencies..."
 pip install -r "$DIR/requirements.txt"
 
 echo ""

@@ -1,6 +1,10 @@
-# Requires Python 3.13+
-# Core MCP dependencies
-mcp>=1.10.1
-pydantic-settings>=2.9.1
-python-dotenv>=1.1.0
-uvicorn>=0.34.2
+# Core MCP dependencies (Python 3.13+)
+mcp>=1.11.0
+pydantic-settings>=2.10.1
+python-decouple>=3.8
+uvicorn>=0.35.0
+typer>=0.16.0
+
+# Server creation dependencies
+virtualenv>=20.26.6
+rich>=13.9.4

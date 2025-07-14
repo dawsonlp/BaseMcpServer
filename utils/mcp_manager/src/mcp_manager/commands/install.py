@@ -58,6 +58,7 @@ def install_requirements(venv_dir: Path, requirements_file: Path) -> None:
         pip_path = venv_dir / "bin" / "pip"
     
     # Install requirements
+    console.print(f"Installing requirements from {requirements_file}")
     subprocess.run(
         [str(pip_path), "install", "-r", str(requirements_file)],
         check=True,
