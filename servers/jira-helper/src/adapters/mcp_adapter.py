@@ -17,13 +17,22 @@ from application.use_cases import (
     ListProjectsUseCase, GetIssueDetailsUseCase, GetFullIssueDetailsUseCase,
     CreateIssueUseCase, AddCommentUseCase, TransitionIssueUseCase,
     GetIssueTransitionsUseCase, ChangeAssigneeUseCase, ListProjectTicketsUseCase,
-    GetCustomFieldMappingsUseCase, GenerateWorkflowGraphUseCase, ListInstancesUseCase
+    GetCustomFieldMappingsUseCase, GenerateWorkflowGraphUseCase, ListInstancesUseCase,
+    UpdateIssueUseCase, CreateIssueLinkUseCase, CreateEpicStoryLinkUseCase,
+    GetIssueLinksUseCase, SearchIssuesUseCase, LogWorkUseCase, GetWorkLogsUseCase,
+    GetTimeTrackingInfoUseCase, UpdateTimeEstimatesUseCase, CreateIssueWithLinksUseCase,
+    ValidateJQLUseCase
 )
 from domain.services import (
-    IssueService, WorkflowService, ProjectService, VisualizationService, InstanceService
+    IssueService, WorkflowService, ProjectService, VisualizationService, InstanceService,
+    IssueUpdateService, IssueLinkService, SearchService, TimeTrackingService
 )
 from infrastructure.config_adapter import ConfigurationAdapter
-from infrastructure.jira_client import JiraClientFactoryImpl, JiraApiRepository
+from infrastructure.jira_client import (
+    JiraClientFactoryImpl, JiraApiRepository, JiraIssueUpdateAdapter,
+    JiraIssueLinkAdapter, JiraSearchAdapter, JiraTimeTrackingAdapter,
+    JiraTimeFormatValidator, JiraJQLValidator
+)
 from infrastructure.graph_generator import GraphvizGenerator, WorkflowAnalyzerImpl, LoggerAdapter
 
 logger = logging.getLogger(__name__)
@@ -40,6 +49,10 @@ class JiraHelperContext:
         project_service: ProjectService,
         visualization_service: VisualizationService,
         instance_service: InstanceService,
+        issue_update_service: IssueUpdateService,
+        issue_link_service: IssueLinkService,
+        search_service: SearchService,
+        time_tracking_service: TimeTrackingService,
         # Use cases
         list_projects_use_case: ListProjectsUseCase,
         get_issue_details_use_case: GetIssueDetailsUseCase,
@@ -52,7 +65,19 @@ class JiraHelperContext:
         list_project_tickets_use_case: ListProjectTicketsUseCase,
         get_custom_field_mappings_use_case: GetCustomFieldMappingsUseCase,
         generate_workflow_graph_use_case: GenerateWorkflowGraphUseCase,
-        list_instances_use_case: ListInstancesUseCase
+        list_instances_use_case: ListInstancesUseCase,
+        # New use cases
+        update_issue_use_case: UpdateIssueUseCase,
+        create_issue_link_use_case: CreateIssueLinkUseCase,
+        create_epic_story_link_use_case: CreateEpicStoryLinkUseCase,
+        get_issue_links_use_case: GetIssueLinksUseCase,
+        search_issues_use_case: SearchIssuesUseCase,
+        log_work_use_case: LogWorkUseCase,
+        get_work_logs_use_case: GetWorkLogsUseCase,
+        get_time_tracking_info_use_case: GetTimeTrackingInfoUseCase,
+        update_time_estimates_use_case: UpdateTimeEstimatesUseCase,
+        create_issue_with_links_use_case: CreateIssueWithLinksUseCase,
+        validate_jql_use_case: ValidateJQLUseCase
     ):
         # Services
         self.issue_service = issue_service
@@ -60,6 +85,10 @@ class JiraHelperContext:
         self.project_service = project_service
         self.visualization_service = visualization_service
         self.instance_service = instance_service
+        self.issue_update_service = issue_update_service
+        self.issue_link_service = issue_link_service
+        self.search_service = search_service
+        self.time_tracking_service = time_tracking_service
         
         # Use cases
         self.list_projects_use_case = list_projects_use_case
@@ -74,6 +103,18 @@ class JiraHelperContext:
         self.get_custom_field_mappings_use_case = get_custom_field_mappings_use_case
         self.generate_workflow_graph_use_case = generate_workflow_graph_use_case
         self.list_instances_use_case = list_instances_use_case
+        # New use cases
+        self.update_issue_use_case = update_issue_use_case
+        self.create_issue_link_use_case = create_issue_link_use_case
+        self.create_epic_story_link_use_case = create_epic_story_link_use_case
+        self.get_issue_links_use_case = get_issue_links_use_case
+        self.search_issues_use_case = search_issues_use_case
+        self.log_work_use_case = log_work_use_case
+        self.get_work_logs_use_case = get_work_logs_use_case
+        self.get_time_tracking_info_use_case = get_time_tracking_info_use_case
+        self.update_time_estimates_use_case = update_time_estimates_use_case
+        self.create_issue_with_links_use_case = create_issue_with_links_use_case
+        self.validate_jql_use_case = validate_jql_use_case
 
 
 @asynccontextmanager
@@ -90,6 +131,13 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         workflow_analyzer = WorkflowAnalyzerImpl()
         logger_adapter = LoggerAdapter()
         
+        # Initialize infrastructure adapters
+        issue_update_adapter = JiraIssueUpdateAdapter(client_factory, config_provider)
+        issue_link_adapter = JiraIssueLinkAdapter(client_factory, config_provider)
+        search_adapter = JiraSearchAdapter(client_factory, config_provider)
+        time_tracking_adapter = JiraTimeTrackingAdapter(client_factory, config_provider)
+        time_format_validator = JiraTimeFormatValidator()
+        
         # Initialize domain services
         issue_service = IssueService(repository, config_provider, logger_adapter)
         workflow_service = WorkflowService(repository, config_provider, logger_adapter)
@@ -98,6 +146,12 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             repository, config_provider, graph_generator, workflow_analyzer, logger_adapter
         )
         instance_service = InstanceService(config_provider, logger_adapter)
+        
+        # Initialize new domain services
+        issue_update_service = IssueUpdateService(issue_update_adapter, repository, config_provider, logger_adapter)
+        issue_link_service = IssueLinkService(issue_link_adapter, repository, config_provider, None, logger_adapter)
+        search_service = SearchService(search_adapter, config_provider, JiraJQLValidator(), logger_adapter)
+        time_tracking_service = TimeTrackingService(time_tracking_adapter, repository, config_provider, time_format_validator, logger_adapter)
         
         # Initialize use cases
         list_projects_use_case = ListProjectsUseCase(project_service)
@@ -113,6 +167,19 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         generate_workflow_graph_use_case = GenerateWorkflowGraphUseCase(visualization_service)
         list_instances_use_case = ListInstancesUseCase(instance_service)
         
+        # Initialize new use cases
+        update_issue_use_case = UpdateIssueUseCase(issue_update_service)
+        create_issue_link_use_case = CreateIssueLinkUseCase(issue_link_service)
+        create_epic_story_link_use_case = CreateEpicStoryLinkUseCase(issue_link_service)
+        get_issue_links_use_case = GetIssueLinksUseCase(issue_link_service)
+        search_issues_use_case = SearchIssuesUseCase(search_service)
+        log_work_use_case = LogWorkUseCase(time_tracking_service)
+        get_work_logs_use_case = GetWorkLogsUseCase(time_tracking_service)
+        get_time_tracking_info_use_case = GetTimeTrackingInfoUseCase(time_tracking_service)
+        update_time_estimates_use_case = UpdateTimeEstimatesUseCase(time_tracking_service)
+        create_issue_with_links_use_case = CreateIssueWithLinksUseCase(issue_service, issue_link_service)
+        validate_jql_use_case = ValidateJQLUseCase(search_service)
+        
         # Create context
         context = JiraHelperContext(
             # Services
@@ -121,6 +188,10 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             project_service=project_service,
             visualization_service=visualization_service,
             instance_service=instance_service,
+            issue_update_service=issue_update_service,
+            issue_link_service=issue_link_service,
+            search_service=search_service,
+            time_tracking_service=time_tracking_service,
             # Use cases
             list_projects_use_case=list_projects_use_case,
             get_issue_details_use_case=get_issue_details_use_case,
@@ -133,7 +204,19 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             list_project_tickets_use_case=list_project_tickets_use_case,
             get_custom_field_mappings_use_case=get_custom_field_mappings_use_case,
             generate_workflow_graph_use_case=generate_workflow_graph_use_case,
-            list_instances_use_case=list_instances_use_case
+            list_instances_use_case=list_instances_use_case,
+            # New use cases
+            update_issue_use_case=update_issue_use_case,
+            create_issue_link_use_case=create_issue_link_use_case,
+            create_epic_story_link_use_case=create_epic_story_link_use_case,
+            get_issue_links_use_case=get_issue_links_use_case,
+            search_issues_use_case=search_issues_use_case,
+            log_work_use_case=log_work_use_case,
+            get_work_logs_use_case=get_work_logs_use_case,
+            get_time_tracking_info_use_case=get_time_tracking_info_use_case,
+            update_time_estimates_use_case=update_time_estimates_use_case,
+            create_issue_with_links_use_case=create_issue_with_links_use_case,
+            validate_jql_use_case=validate_jql_use_case
         )
         
         logger.info("Jira Helper services initialized successfully")
@@ -651,6 +734,517 @@ async def list_jira_instances() -> Dict[str, Any]:
         return {
             "success": False,
             "error": str(e)
+        }
+
+
+@mcp.tool()
+async def update_jira_issue(
+    issue_key: str,
+    summary: Optional[str] = None,
+    description: Optional[str] = None,
+    priority: Optional[str] = None,
+    assignee: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Update an existing Jira issue with new field values.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        summary: Optional new summary/title
+        description: Optional new description
+        priority: Optional new priority (e.g., "High", "Medium", "Low")
+        assignee: Optional new assignee username
+        labels: Optional new list of labels
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the update result
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.update_issue_use_case.execute(
+            issue_key, summary, description, priority, assignee, labels, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in update_jira_issue: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"issue_key": issue_key, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def search_jira_issues(
+    jql: str,
+    max_results: int = 50,
+    start_at: int = 0,
+    fields: Optional[list[str]] = None,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Execute a JQL search query to find Jira issues.
+
+    Args:
+        jql: The JQL (Jira Query Language) search string
+        max_results: Maximum number of results to return (default 50, max 1000)
+        start_at: Starting index for pagination (default 0)
+        fields: Optional list of fields to include in results
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing search results with pagination info
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.search_issues_use_case.execute(
+            jql, max_results, start_at, fields, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in search_jira_issues: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"jql": jql, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def validate_jql_query(
+    jql: str,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Validate JQL syntax without executing the query.
+
+    Args:
+        jql: The JQL (Jira Query Language) string to validate
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing validation results
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.validate_jql_use_case.execute(jql, instance_name)
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in validate_jql_query: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"jql": jql, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def create_issue_link(
+    source_issue: str,
+    target_issue: str,
+    link_type: str,
+    direction: str = "outward",
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a link between two Jira issues.
+
+    Args:
+        source_issue: The source issue key (e.g., 'PROJECT-123')
+        target_issue: The target issue key (e.g., 'PROJECT-456')
+        link_type: Type of link (e.g., 'Blocks', 'Relates', 'Epic-Story', 'Parent-Child')
+        direction: Link direction - 'outward' or 'inward' (default: 'outward')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the link creation result
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.create_issue_link_use_case.execute(
+            source_issue, target_issue, link_type, direction, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in create_issue_link: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {
+                "source_issue": source_issue,
+                "target_issue": target_issue,
+                "link_type": link_type,
+                "instance_name": instance_name
+            }
+        }
+
+
+@mcp.tool()
+async def create_epic_story_link(
+    epic_key: str,
+    story_key: str,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create an Epic-Story link between two issues.
+
+    Args:
+        epic_key: The Epic issue key (e.g., 'PROJECT-123')
+        story_key: The Story issue key (e.g., 'PROJECT-456')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the Epic-Story link creation result
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.create_epic_story_link_use_case.execute(
+            epic_key, story_key, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in create_epic_story_link: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {
+                "epic_key": epic_key,
+                "story_key": story_key,
+                "instance_name": instance_name
+            }
+        }
+
+
+@mcp.tool()
+async def get_issue_links(
+    issue_key: str,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Get all links for a specific Jira issue.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing all links for the issue
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.get_issue_links_use_case.execute(issue_key, instance_name)
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_issue_links: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"issue_key": issue_key, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def create_jira_ticket_with_links(
+    project_key: str,
+    summary: str,
+    description: str,
+    issue_type: str = "Story",
+    priority: Optional[str] = None,
+    assignee: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+    links: Optional[list[dict]] = None,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a new Jira ticket with links to other issues.
+
+    Args:
+        project_key: The project key (e.g., 'PROJ')
+        summary: The ticket summary/title
+        description: The ticket description
+        issue_type: The issue type (Story, Task, Epic, Bug) - defaults to "Story"
+        priority: Optional priority (e.g., "High", "Medium", "Low")
+        assignee: Optional username to assign the ticket to
+        labels: Optional list of labels to apply to the ticket
+        links: Optional list of link objects with keys: link_type, source_issue, target_issue, direction
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the created issue details and link results
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.create_issue_with_links_use_case.execute(
+            project_key, summary, description, issue_type, priority, assignee, labels, links, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in create_jira_ticket_with_links: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"project_key": project_key, "summary": summary, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def log_work_on_issue(
+    issue_key: str,
+    time_spent: str,
+    comment: str = "",
+    started: Optional[str] = None,
+    adjust_estimate: str = "auto",
+    new_estimate: Optional[str] = None,
+    reduce_by: Optional[str] = None,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Log work time on a Jira issue.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        time_spent: Time spent in Jira format (e.g., '2h 30m', '1d', '4h')
+        comment: Optional comment describing the work done
+        started: Optional start time in ISO format (e.g., '2023-01-01T09:00:00.000+0000')
+        adjust_estimate: How to adjust remaining estimate - 'auto', 'new', 'manual', or 'leave'
+        new_estimate: New remaining estimate if adjust_estimate is 'new'
+        reduce_by: Amount to reduce estimate by if adjust_estimate is 'manual'
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the work log result
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.log_work_use_case.execute(
+            issue_key, time_spent, comment, started, adjust_estimate, new_estimate, reduce_by, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in log_work_on_issue: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"issue_key": issue_key, "time_spent": time_spent, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def get_work_logs(
+    issue_key: str,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Get all work logs for a Jira issue.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing all work logs for the issue
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.get_work_logs_use_case.execute(issue_key, instance_name)
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_work_logs: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"issue_key": issue_key, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def get_time_tracking_info(
+    issue_key: str,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Get time tracking information for a Jira issue.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing time tracking information
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.get_time_tracking_info_use_case.execute(issue_key, instance_name)
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_time_tracking_info: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {"issue_key": issue_key, "instance_name": instance_name}
+        }
+
+
+@mcp.tool()
+async def update_time_estimates(
+    issue_key: str,
+    original_estimate: Optional[str] = None,
+    remaining_estimate: Optional[str] = None,
+    instance_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Update time estimates for a Jira issue.
+
+    Args:
+        issue_key: The Jira issue key (e.g., 'PROJECT-123')
+        original_estimate: New original estimate in Jira format (e.g., '2h 30m', '1d')
+        remaining_estimate: New remaining estimate in Jira format (e.g., '1h 15m')
+        instance_name: Name of the Jira instance to use. If None, uses default instance.
+        
+    Returns:
+        A dictionary containing the time estimate update result
+    """
+    try:
+        ctx = mcp.get_context()
+        jira_ctx = ctx.request_context.lifespan_context
+        
+        result = await jira_ctx.update_time_estimates_use_case.execute(
+            issue_key, original_estimate, remaining_estimate, instance_name
+        )
+        
+        if result.success:
+            return result.data
+        else:
+            return {
+                "success": False,
+                "error": result.error,
+                "details": result.details
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in update_time_estimates: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "details": {
+                "issue_key": issue_key,
+                "original_estimate": original_estimate,
+                "remaining_estimate": remaining_estimate,
+                "instance_name": instance_name
+            }
         }
 
 
