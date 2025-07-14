@@ -344,6 +344,29 @@ DEBUG_MODE=true
 LOG_LEVEL=DEBUG
 ```
 
+## Testing
+
+The project includes comprehensive architecture tests to validate the hexagonal architecture implementation. For detailed testing instructions, see [TESTING.md](TESTING.md).
+
+### Quick Test Run
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run architecture tests
+pytest src/tests/test_architecture.py -v
+
+# Run all tests
+pytest -v
+```
+
+The tests verify:
+- Clean architecture dependency flow
+- Domain logic independence from frameworks
+- Use case functionality with mocked dependencies
+- Error handling across all layers
+
 ## License
 
 [MIT License](LICENSE)
