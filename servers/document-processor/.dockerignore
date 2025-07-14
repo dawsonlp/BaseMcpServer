@@ -1,0 +1,80 @@
+# Docker ignore file for mdproc
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test outputs and temporary files
+output/
+test_output/
+*.pdf
+*.html
+*.docx
+*.txt
+test_*.md
+
+# Documentation and development files
+*.md
+!README.md
+!requirements.txt
+DEVELOPMENT.md
+USAGE.md
+GIT_COMMIT_NOTES.md
+MCP_SETUP.md
+
+# Environment and config files
+.env
+.env.*
+*.log
+
+# Backup files
+*-backup/
+*.bak
+*.backup
+
+# Docker files (don't include other Docker files in build)
+docker-compose.yml
+docker-compose.yaml

@@ -1,276 +1,156 @@
-# Document Processor MCP Server
+# Document Processor
 
-A Model Context Protocol (MCP) server that converts markdown text to various document formats including PDF, HTML, Microsoft Word, and plain text. Designed to run in Docker containers with mounted volumes for file input/output.
+A clean, domain-driven document conversion system built with hexagonal architecture principles.
 
-## Features
+## Overview
 
-- **Multiple Output Formats**: Convert markdown to PDF, HTML, DOCX, and plain text
-- **Multiple PDF Engines**: Support for WeasyPrint, pdfkit, ReportLab, and Pandoc
-- **HTML Templates**: Customizable Jinja2 templates for HTML output
-- **Docker Ready**: Ubuntu-based container with all document processing tools
-- **Volume Mounting**: Easy file access through mounted directories
-- **MCP Protocol**: Full compliance with Model Context Protocol v1.10.1+
+This document processor converts markdown documents to various formats (HTML, PDF, DOCX, TXT) using a clean domain model that separates business logic from infrastructure concerns.
 
-## Quick Start
+## Architecture
 
-### Docker (Recommended)
+### Domain Model (Pure Business Logic)
 
-1. **Build the image**:
-   ```bash
-   cd servers/document-processor
-   docker build -f docker/Dockerfile -t document-processor .
-   ```
+- **Document**: Core entity representing content and metadata
+- **DocumentFormat**: Enum of supported formats with properties
+- **ConversionOptions**: Configuration for conversion operations
+- **DocumentConverter**: Abstract interface for converters
+- **ConversionResult**: Value object for conversion outcomes
+- **ConverterRegistry**: Registry pattern for managing converters
 
-2. **Run the container**:
-   ```bash
-   docker run -d \
-     --name document-processor \
-     -p 7502:7502 \
-     -v $(pwd)/output:/app/output \
-     -v $(pwd)/input:/app/input \
-     -v $(pwd)/templates:/app/templates \
-     document-processor
-   ```
+### Key Design Principles
 
-3. **Test the server**:
-   ```bash
-   curl -X POST http://localhost:7502/tools/convert_markdown_to_pdf \
-     -H "Content-Type: application/json" \
-     -d '{"markdown_text": "# Hello World\n\nThis is a test document."}'
-   ```
-
-### Local Development
-
-1. **Setup environment**:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-
-2. **Run locally**:
-   ```bash
-   source venv/bin/activate
-   cd src
-   python main.py streamable-http
-   ```
-
-## Available Tools
-
-### convert_markdown_to_pdf
-Convert markdown text to PDF format.
-
-**Parameters:**
-- `markdown_text` (string, required): The markdown content to convert
-- `filename` (string, optional): Output filename without extension
-- `engine` (string, optional): PDF engine (weasyprint, pdfkit, reportlab, pandoc)
-- `template` (string, optional): HTML template name for styling
-
-### convert_markdown_to_html
-Convert markdown text to HTML format.
-
-**Parameters:**
-- `markdown_text` (string, required): The markdown content to convert
-- `filename` (string, optional): Output filename without extension
-- `template` (string, optional): Template name for styling
-
-### convert_markdown_to_docx
-Convert markdown text to Microsoft Word document.
-
-**Parameters:**
-- `markdown_text` (string, required): The markdown content to convert
-- `filename` (string, optional): Output filename without extension
-
-### convert_markdown_to_text
-Convert markdown text to plain text.
-
-**Parameters:**
-- `markdown_text` (string, required): The markdown content to convert
-- `filename` (string, optional): Output filename without extension
-
-### list_output_files
-List all files in the output directory with details.
-
-### get_server_info
-Get server configuration and capabilities.
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERVER_NAME` | document-processor | MCP server name |
-| `HOST` | 0.0.0.0 | Server host |
-| `PORT` | 7502 | Server port |
-| `API_KEY` | doc_processor_api_key | API key for authentication |
-| `OUTPUT_DIRECTORY` | /app/output | Output files directory |
-| `INPUT_DIRECTORY` | /app/input | Input files directory |
-| `HTML_TEMPLATE_DIR` | /app/templates | HTML templates directory |
-| `PDF_ENGINE` | weasyprint | Default PDF engine |
-| `MAX_FILE_SIZE_MB` | 50 | Maximum file size limit |
-
-### Custom Configuration
-
-Copy `.env.example` to `.env` and customize:
-
-```bash
-cp .env.example .env
-# Edit .env with your preferred settings
-```
-
-## HTML Templates
-
-Templates use Jinja2 syntax with markdown content available as `{{ content }}`.
-
-### Built-in Templates
-- **professional.html**: Formal document styling with header/footer
-- **simple.html**: Clean, minimal styling
-
-### Custom Templates
-Create your own templates in the templates directory:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>My Custom Template</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        h1 { color: #2c3e50; }
-    </style>
-</head>
-<body>
-    {{ content }}
-</body>
-</html>
-```
-
-## MCP Client Integration
-
-### Claude Desktop
-Add to your Claude Desktop MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "document-processor": {
-      "url": "http://localhost:7502/mcp",
-      "apiKey": "doc_processor_api_key",
-      "disabled": false
-    }
-  }
-}
-```
-
-### Cline (VS Code)
-Add to Cline MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "document-processor": {
-      "url": "http://localhost:7502/mcp",
-      "apiKey": "doc_processor_api_key",
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
-```
-
-## Docker Commands Reference
-
-### Build multi-architecture image
-```bash
-# Use the provided build script for multi-arch builds
-chmod +x docker/build.sh
-./docker/build.sh
-```
-
-### Run with custom port
-```bash
-docker run -d \
-  --name document-processor \
-  -p 8080:7502 \
-  -v $(pwd)/output:/app/output \
-  -v $(pwd)/input:/app/input \
-  -v $(pwd)/templates:/app/templates \
-  document-processor
-```
-
-### Run with custom environment
-```bash
-docker run -d \
-  --name document-processor \
-  -p 7502:7502 \
-  -e PDF_ENGINE=pandoc \
-  -e MAX_FILE_SIZE_MB=100 \
-  -v $(pwd)/output:/app/output \
-  -v $(pwd)/input:/app/input \
-  -v $(pwd)/templates:/app/templates \
-  document-processor
-```
-
-### View logs
-```bash
-docker logs -f document-processor
-```
-
-### Stop and remove
-```bash
-docker stop document-processor
-docker rm document-processor
-```
-
-## Supported Formats
-
-| Format | Engine Options | Features |
-|--------|---------------|----------|
-| PDF | WeasyPrint (default) | Best CSS support, modern HTML to PDF |
-| PDF | pdfkit | Requires wkhtmltopdf, good for complex layouts |
-| PDF | ReportLab | Basic PDF generation, lightweight |
-| PDF | Pandoc | Universal converter, requires pandoc |
-| HTML | Built-in | Markdown to HTML with optional templates |
-| DOCX | python-docx | Microsoft Word document format |
-| TXT | html2text | Clean plain text conversion |
+- **Domain-Driven Design**: Business logic is independent of frameworks
+- **Hexagonal Architecture**: Clear separation of concerns
+- **Strategy Pattern**: Pluggable converters for different formats
+- **Value Objects**: Immutable data structures
+- **Factory Methods**: Clean object creation
 
 ## Project Structure
 
 ```
 servers/document-processor/
-├── src/
+├── domain/                    # Pure domain logic
+│   ├── __init__.py           # Domain exports
+│   ├── document.py           # Document entity and metadata
+│   ├── formats.py            # Format enums and options
+│   ├── converters.py         # Converter interfaces and registry
+│   └── exceptions.py         # Domain-specific exceptions
+├── tests/                    # Domain model tests
 │   ├── __init__.py
-│   ├── main.py          # Entry point
-│   ├── server.py        # MCP tools and resources
-│   └── config.py        # Configuration management
-├── docker/
-│   ├── Dockerfile       # Container definition
-│   ├── build.sh         # Multi-arch build script
-│   └── templates/       # Default HTML templates
-├── requirements.txt     # Python dependencies
-├── .env.example        # Environment configuration
-├── setup.sh            # Local development setup
-└── README.md           # This file
+│   └── test_domain.py        # Comprehensive domain tests
+├── templates/                # HTML templates for conversion
+├── output/                   # Generated output files
+├── venv/                     # Python virtual environment
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
 
-## Troubleshooting
+## Current Status
 
-### Common Issues
-1. **WeasyPrint fails**: Use different PDF engine (`-e PDF_ENGINE=reportlab`)
-2. **Permission errors**: Check volume mount permissions
-3. **Large files**: Increase `MAX_FILE_SIZE_MB` setting
-4. **Template not found**: Ensure template exists in templates directory
+✅ **Complete Document Processor**
+- All core domain objects implemented
+- Comprehensive test coverage
+- Clean interfaces and abstractions
 
-### System Requirements
-- **Docker**: For containerized deployment
-- **Python 3.13+**: For local development
-- **System packages**: Installed automatically in Docker
+✅ **All Four Converters Working**
+- **Markdown → PDF**: WeasyPrint and ReportLab engines
+- **Markdown → HTML**: Standalone HTML with CSS styling
+- **Markdown → DOCX**: Microsoft Word documents with formatting
+- **Markdown → TXT**: Clean plain text output
 
-## Security
-- API key authentication for MCP connections
-- Non-root user in Docker container
-- File size limits to prevent abuse
-- Input validation for all parameters
+✅ **Production Ready**
+- Comprehensive error handling
+- Multiple working examples and tests
+- Clean, simple API
+- Fast and reliable conversions
 
-## License
-This project follows the same license as the parent MCP server project.
+🚧 **Future Enhancements**
+- Add MCP server integration
+- Create application services layer
+- Add batch processing capabilities
+- Support for additional input formats
+
+## Dependencies
+
+Core document processing libraries:
+- `markdown` - Markdown parsing and conversion
+- `weasyprint` - HTML to PDF conversion with CSS support
+- `python-docx` - Microsoft Word document generation
+- `html2text` - HTML to plain text conversion
+- `jinja2` - Template rendering
+- `reportlab` - Alternative PDF generation
+
+Development and testing:
+- `pytest` - Testing framework
+- `pytest-cov` - Test coverage
+
+## Usage Example
+
+```python
+from domain import Document, DocumentFormat, ConversionOptions
+
+# Create a document
+doc = Document.from_markdown(
+    content="# Hello World\n\nThis is a test document.",
+    title="Test Document",
+    author="Test Author"
+)
+
+# Configure conversion options
+options = ConversionOptions(
+    filename="test_output",
+    template_name="professional.html",
+    save_to_file=True
+)
+
+# Convert using a registered converter
+registry = ConverterRegistry()
+converter = registry.get_converter(DocumentFormat.MARKDOWN, DocumentFormat.HTML)
+result = converter.convert(doc, options)
+
+if result.success:
+    print(f"Converted successfully: {result.output_file_path}")
+else:
+    print(f"Conversion failed: {result.error_message}")
+```
+
+## Testing
+
+Run the domain model tests:
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests
+python -m pytest tests/test_domain.py -v
+```
+
+## Design Decisions
+
+### Why Hexagonal Architecture?
+
+1. **Testability**: Domain logic can be tested without external dependencies
+2. **Flexibility**: Easy to swap out infrastructure components
+3. **Maintainability**: Clear separation of concerns
+4. **Extensibility**: New formats and converters can be added easily
+
+### Why Domain-First Approach?
+
+1. **Business Focus**: Core logic reflects real-world document processing
+2. **Framework Independence**: Not tied to any specific web framework or MCP library
+3. **Reusability**: Domain model can be used in different contexts
+4. **Clarity**: Business rules are explicit and well-defined
+
+## Future Enhancements
+
+- Support for additional input formats (HTML, DOCX → Markdown)
+- Batch processing capabilities
+- Document validation and sanitization
+- Custom template system
+- Plugin architecture for custom converters
+- Async processing for large documents
+- Document metadata extraction and enrichment
