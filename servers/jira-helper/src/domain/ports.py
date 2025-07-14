@@ -10,7 +10,10 @@ from typing import List, Optional, Dict, Any
 from .models import (
     JiraInstance, JiraProject, JiraIssue, JiraComment, WorkflowTransition,
     WorkflowGraph, CustomFieldMapping, IssueCreateRequest, IssueTransitionRequest,
-    AssigneeChangeRequest, CommentAddRequest
+    AssigneeChangeRequest, CommentAddRequest, IssueLink, IssueUpdate, SearchQuery,
+    SearchResult, IssueUpdateResult, IssueLinkResult, IssueCreateWithLinksRequest,
+    WorkLog, WorkLogRequest, WorkLogResult, TimeTrackingInfo, TimeEstimateUpdate,
+    TimeEstimateResult
 )
 
 
@@ -215,4 +218,206 @@ class EventPublisher(ABC):
     @abstractmethod
     async def publish_comment_added(self, issue_key: str, comment: JiraComment, instance_name: str) -> None:
         """Publish a comment added event."""
+        pass
+
+
+class IssueUpdatePort(ABC):
+    """Interface for issue update operations."""
+
+    @abstractmethod
+    async def update_issue(self, update_request: IssueUpdate, instance_name: Optional[str] = None) -> IssueUpdateResult:
+        """Update an existing issue with new field values."""
+        pass
+
+    @abstractmethod
+    async def validate_update_fields(self, issue_key: str, fields: Dict[str, Any], instance_name: Optional[str] = None) -> List[str]:
+        """Validate that the specified fields can be updated. Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    async def get_updatable_fields(self, issue_key: str, instance_name: Optional[str] = None) -> List[str]:
+        """Get list of fields that can be updated for the given issue."""
+        pass
+
+
+class IssueLinkPort(ABC):
+    """Interface for issue linking operations."""
+
+    @abstractmethod
+    async def create_link(self, issue_link: IssueLink, instance_name: Optional[str] = None) -> IssueLinkResult:
+        """Create a link between two issues."""
+        pass
+
+    @abstractmethod
+    async def get_links(self, issue_key: str, instance_name: Optional[str] = None) -> List[IssueLink]:
+        """Get all links for a specific issue."""
+        pass
+
+    @abstractmethod
+    async def remove_link(self, link_id: str, instance_name: Optional[str] = None) -> bool:
+        """Remove a link between issues."""
+        pass
+
+    @abstractmethod
+    async def get_available_link_types(self, instance_name: Optional[str] = None) -> List[str]:
+        """Get available link types for the Jira instance."""
+        pass
+
+    @abstractmethod
+    async def validate_link(self, issue_link: IssueLink, instance_name: Optional[str] = None) -> List[str]:
+        """Validate a link before creation. Returns list of validation errors."""
+        pass
+
+
+class IssueSearchPort(ABC):
+    """Interface for issue search operations."""
+
+    @abstractmethod
+    async def search_issues(self, query: SearchQuery, instance_name: Optional[str] = None) -> SearchResult:
+        """Execute a JQL search query."""
+        pass
+
+    @abstractmethod
+    async def validate_jql(self, jql: str, instance_name: Optional[str] = None) -> List[str]:
+        """Validate JQL syntax. Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    async def get_search_suggestions(self, partial_jql: str, instance_name: Optional[str] = None) -> List[str]:
+        """Get JQL completion suggestions for partial queries."""
+        pass
+
+
+class IssueCreationPort(ABC):
+    """Interface for enhanced issue creation with links."""
+
+    @abstractmethod
+    async def create_issue_with_links(self, request: IssueCreateWithLinksRequest, instance_name: Optional[str] = None) -> JiraIssue:
+        """Create a new issue with associated links."""
+        pass
+
+    @abstractmethod
+    async def create_epic_story_link(self, epic_key: str, story_key: str, instance_name: Optional[str] = None) -> IssueLinkResult:
+        """Create a specific Epic-Story link."""
+        pass
+
+    @abstractmethod
+    async def create_parent_child_link(self, parent_key: str, child_key: str, instance_name: Optional[str] = None) -> IssueLinkResult:
+        """Create a specific Parent-Child link."""
+        pass
+
+
+class LinkTypeMapper(ABC):
+    """Interface for mapping domain link types to Jira link types."""
+
+    @abstractmethod
+    def map_to_jira_link_type(self, domain_link_type: str, instance_name: Optional[str] = None) -> str:
+        """Map a domain link type to the corresponding Jira link type."""
+        pass
+
+    @abstractmethod
+    def map_from_jira_link_type(self, jira_link_type: str, instance_name: Optional[str] = None) -> str:
+        """Map a Jira link type to the corresponding domain link type."""
+        pass
+
+    @abstractmethod
+    def get_supported_link_types(self, instance_name: Optional[str] = None) -> Dict[str, str]:
+        """Get mapping of supported link types (domain -> jira)."""
+        pass
+
+
+class JQLValidator(ABC):
+    """Interface for JQL validation and security."""
+
+    @abstractmethod
+    def validate_syntax(self, jql: str) -> List[str]:
+        """Validate JQL syntax. Returns list of syntax errors."""
+        pass
+
+    @abstractmethod
+    def check_security(self, jql: str) -> List[str]:
+        """Check JQL for security issues. Returns list of security concerns."""
+        pass
+
+    @abstractmethod
+    def sanitize_jql(self, jql: str) -> str:
+        """Sanitize JQL query to remove potentially harmful content."""
+        pass
+
+    @abstractmethod
+    def validate_limits(self, max_results: int, start_at: int) -> List[str]:
+        """Validate search limits. Returns list of limit violations."""
+        pass
+
+
+class TimeTrackingPort(ABC):
+    """Interface for time tracking operations."""
+
+    @abstractmethod
+    async def log_work(self, work_log_request: WorkLogRequest, instance_name: Optional[str] = None) -> WorkLogResult:
+        """Log work on an issue."""
+        pass
+
+    @abstractmethod
+    async def get_work_logs(self, issue_key: str, instance_name: Optional[str] = None) -> List[WorkLog]:
+        """Get all work logs for an issue."""
+        pass
+
+    @abstractmethod
+    async def update_work_log(self, work_log_id: str, work_log_request: WorkLogRequest, instance_name: Optional[str] = None) -> WorkLogResult:
+        """Update an existing work log."""
+        pass
+
+    @abstractmethod
+    async def delete_work_log(self, issue_key: str, work_log_id: str, instance_name: Optional[str] = None) -> bool:
+        """Delete a work log entry."""
+        pass
+
+    @abstractmethod
+    async def get_time_tracking_info(self, issue_key: str, instance_name: Optional[str] = None) -> TimeTrackingInfo:
+        """Get time tracking information for an issue."""
+        pass
+
+    @abstractmethod
+    async def update_time_estimates(self, estimate_update: TimeEstimateUpdate, instance_name: Optional[str] = None) -> TimeEstimateResult:
+        """Update time estimates for an issue."""
+        pass
+
+    @abstractmethod
+    async def validate_time_format(self, time_string: str) -> List[str]:
+        """Validate time format (e.g., '2h 30m', '1d'). Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    async def is_time_tracking_enabled(self, project_key: str, issue_type: str = None, instance_name: Optional[str] = None) -> bool:
+        """Check if time tracking is enabled for a project/issue type."""
+        pass
+
+
+class TimeFormatValidator(ABC):
+    """Interface for time format validation and conversion."""
+
+    @abstractmethod
+    def validate_time_format(self, time_string: str) -> List[str]:
+        """Validate time format. Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    def parse_time_to_seconds(self, time_string: str) -> int:
+        """Parse time string to seconds."""
+        pass
+
+    @abstractmethod
+    def format_seconds_to_time(self, seconds: int) -> str:
+        """Format seconds to Jira time format."""
+        pass
+
+    @abstractmethod
+    def get_supported_time_units(self) -> List[str]:
+        """Get list of supported time units."""
+        pass
+
+    @abstractmethod
+    def normalize_time_format(self, time_string: str) -> str:
+        """Normalize time format to standard Jira format."""
         pass

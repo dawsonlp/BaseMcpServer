@@ -36,6 +36,31 @@ class StatusCategory(Enum):
     DONE = "Done"
 
 
+class LinkType(Enum):
+    """Enumeration of Jira issue link types."""
+    EPIC_STORY = "Epic-Story"
+    PARENT_CHILD = "Parent-Child"
+    BLOCKS = "Blocks"
+    CLONES = "Clones"
+    DUPLICATES = "Duplicates"
+    RELATES = "Relates"
+    CUSTOM = "Custom"
+
+
+class LinkDirection(Enum):
+    """Enumeration of link directions."""
+    INWARD = "inward"
+    OUTWARD = "outward"
+
+
+class TimeUnit(Enum):
+    """Enumeration of time units for work logging."""
+    MINUTES = "m"
+    HOURS = "h"
+    DAYS = "d"
+    WEEKS = "w"
+
+
 @dataclass
 class JiraInstance:
     """Represents a Jira instance configuration."""
@@ -339,3 +364,395 @@ class CommentAddRequest:
             raise ValueError("Issue key cannot be empty")
         if not self.comment:
             raise ValueError("Comment cannot be empty")
+
+
+@dataclass
+class IssueLink:
+    """Represents a link between two Jira issues."""
+    link_type: str
+    source_issue: str
+    target_issue: str
+    direction: str = LinkDirection.OUTWARD.value
+    link_id: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the issue link."""
+        if not self.link_type:
+            raise ValueError("Link type cannot be empty")
+        if not self.source_issue:
+            raise ValueError("Source issue cannot be empty")
+        if not self.target_issue:
+            raise ValueError("Target issue cannot be empty")
+        if self.source_issue == self.target_issue:
+            raise ValueError("Cannot link an issue to itself")
+        if self.direction not in [LinkDirection.INWARD.value, LinkDirection.OUTWARD.value]:
+            raise ValueError(f"Invalid link direction: {self.direction}")
+
+    def is_epic_link(self) -> bool:
+        """Check if this is an Epic-Story link."""
+        return self.link_type == LinkType.EPIC_STORY.value
+
+    def is_parent_child_link(self) -> bool:
+        """Check if this is a Parent-Child link."""
+        return self.link_type == LinkType.PARENT_CHILD.value
+
+    def get_reverse_direction(self) -> str:
+        """Get the reverse direction of this link."""
+        return LinkDirection.INWARD.value if self.direction == LinkDirection.OUTWARD.value else LinkDirection.OUTWARD.value
+
+
+@dataclass
+class IssueUpdate:
+    """Represents an update to an existing Jira issue."""
+    issue_key: str
+    fields: Dict[str, Any] = field(default_factory=dict)
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[str] = None
+    assignee: Optional[str] = None
+    labels: Optional[List[str]] = None
+
+    def __post_init__(self):
+        """Validate and prepare the issue update."""
+        if not self.issue_key:
+            raise ValueError("Issue key cannot be empty")
+        
+        # Build fields dictionary from individual properties
+        if self.summary is not None:
+            self.fields['summary'] = self.summary
+        if self.description is not None:
+            self.fields['description'] = self.description
+        if self.priority is not None:
+            self.fields['priority'] = self.priority
+        if self.assignee is not None:
+            self.fields['assignee'] = self.assignee
+        if self.labels is not None:
+            self.fields['labels'] = self.labels
+
+        if not self.fields:
+            raise ValueError("At least one field must be provided for update")
+
+    def has_field(self, field_name: str) -> bool:
+        """Check if a specific field is being updated."""
+        return field_name in self.fields
+
+    def get_field_value(self, field_name: str) -> Any:
+        """Get the value for a specific field."""
+        return self.fields.get(field_name)
+
+    def get_updated_fields(self) -> List[str]:
+        """Get a list of all fields being updated."""
+        return list(self.fields.keys())
+
+
+@dataclass
+class SearchQuery:
+    """Represents a JQL search query."""
+    jql: str
+    max_results: int = 50
+    start_at: int = 0
+    fields: Optional[List[str]] = None
+
+    def __post_init__(self):
+        """Validate the search query."""
+        if not self.jql:
+            raise ValueError("JQL query cannot be empty")
+        if self.max_results <= 0:
+            raise ValueError("Max results must be greater than 0")
+        if self.max_results > 1000:
+            raise ValueError("Max results cannot exceed 1000")
+        if self.start_at < 0:
+            raise ValueError("Start at cannot be negative")
+
+    def has_pagination(self) -> bool:
+        """Check if this query uses pagination."""
+        return self.start_at > 0
+
+    def get_next_page_query(self) -> 'SearchQuery':
+        """Get a query for the next page of results."""
+        return SearchQuery(
+            jql=self.jql,
+            max_results=self.max_results,
+            start_at=self.start_at + self.max_results,
+            fields=self.fields
+        )
+
+
+@dataclass
+class SearchResult:
+    """Represents the result of a JQL search."""
+    jql: str
+    total_results: int
+    start_at: int
+    max_results: int
+    issues: List[JiraIssue] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate the search result."""
+        if not self.jql:
+            raise ValueError("JQL query cannot be empty")
+        if self.total_results < 0:
+            raise ValueError("Total results cannot be negative")
+        if self.start_at < 0:
+            raise ValueError("Start at cannot be negative")
+        if self.max_results <= 0:
+            raise ValueError("Max results must be greater than 0")
+
+    def has_more_results(self) -> bool:
+        """Check if there are more results available."""
+        return self.start_at + len(self.issues) < self.total_results
+
+    def get_next_start_at(self) -> int:
+        """Get the start_at value for the next page."""
+        return self.start_at + len(self.issues)
+
+
+@dataclass
+class IssueUpdateResult:
+    """Represents the result of an issue update operation."""
+    issue_key: str
+    updated: bool
+    updated_fields: List[str] = field(default_factory=list)
+    error: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the update result."""
+        if not self.issue_key:
+            raise ValueError("Issue key cannot be empty")
+
+    def is_successful(self) -> bool:
+        """Check if the update was successful."""
+        return self.updated and self.error is None
+
+
+@dataclass
+class IssueLinkResult:
+    """Represents the result of an issue link operation."""
+    source_issue: str
+    target_issue: str
+    link_type: str
+    created: bool
+    link_id: Optional[str] = None
+    error: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the link result."""
+        if not self.source_issue:
+            raise ValueError("Source issue cannot be empty")
+        if not self.target_issue:
+            raise ValueError("Target issue cannot be empty")
+        if not self.link_type:
+            raise ValueError("Link type cannot be empty")
+
+    def is_successful(self) -> bool:
+        """Check if the link creation was successful."""
+        return self.created and self.error is None
+
+
+@dataclass
+class IssueCreateWithLinksRequest:
+    """Represents a request to create a new issue with links."""
+    project_key: str
+    summary: str
+    description: str
+    issue_type: str = "Story"
+    priority: Optional[str] = None
+    assignee: Optional[str] = None
+    labels: List[str] = field(default_factory=list)
+    links: List[IssueLink] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate the create request with links."""
+        if not self.project_key:
+            raise ValueError("Project key cannot be empty")
+        if not self.summary:
+            raise ValueError("Summary cannot be empty")
+        if not self.description:
+            raise ValueError("Description cannot be empty")
+        if not self.issue_type:
+            raise ValueError("Issue type cannot be empty")
+
+    def has_links(self) -> bool:
+        """Check if this request includes links."""
+        return len(self.links) > 0
+
+    def get_epic_links(self) -> List[IssueLink]:
+        """Get all Epic-Story links from this request."""
+        return [link for link in self.links if link.is_epic_link()]
+
+    def get_parent_child_links(self) -> List[IssueLink]:
+        """Get all Parent-Child links from this request."""
+        return [link for link in self.links if link.is_parent_child_link()]
+
+
+@dataclass
+class WorkLog:
+    """Represents a work log entry on a Jira issue."""
+    id: Optional[str] = None
+    author: Optional[str] = None
+    time_spent: str = ""  # e.g., "2h 30m", "1d", "45m"
+    time_spent_seconds: int = 0
+    comment: str = ""
+    started: Optional[str] = None  # ISO datetime string
+    created: Optional[str] = None
+    updated: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the work log entry."""
+        if not self.time_spent and self.time_spent_seconds <= 0:
+            raise ValueError("Either time_spent or time_spent_seconds must be provided")
+        
+        if self.time_spent_seconds < 0:
+            raise ValueError("Time spent cannot be negative")
+
+    def get_time_in_hours(self) -> float:
+        """Get time spent in hours as a float."""
+        if self.time_spent_seconds > 0:
+            return self.time_spent_seconds / 3600.0
+        return 0.0
+
+    def get_time_in_minutes(self) -> int:
+        """Get time spent in minutes as an integer."""
+        if self.time_spent_seconds > 0:
+            return self.time_spent_seconds // 60
+        return 0
+
+
+@dataclass
+class TimeTrackingInfo:
+    """Represents time tracking information for an issue."""
+    original_estimate: Optional[str] = None  # e.g., "1w 2d 3h"
+    remaining_estimate: Optional[str] = None
+    time_spent: Optional[str] = None
+    original_estimate_seconds: int = 0
+    remaining_estimate_seconds: int = 0
+    time_spent_seconds: int = 0
+
+    def __post_init__(self):
+        """Validate time tracking information."""
+        if self.original_estimate_seconds < 0:
+            raise ValueError("Original estimate cannot be negative")
+        if self.remaining_estimate_seconds < 0:
+            raise ValueError("Remaining estimate cannot be negative")
+        if self.time_spent_seconds < 0:
+            raise ValueError("Time spent cannot be negative")
+
+    def get_progress_percentage(self) -> float:
+        """Calculate progress percentage based on original estimate and time spent."""
+        if self.original_estimate_seconds <= 0:
+            return 0.0
+        return min(100.0, (self.time_spent_seconds / self.original_estimate_seconds) * 100.0)
+
+    def is_over_estimate(self) -> bool:
+        """Check if time spent exceeds original estimate."""
+        return self.original_estimate_seconds > 0 and self.time_spent_seconds > self.original_estimate_seconds
+
+    def get_remaining_hours(self) -> float:
+        """Get remaining estimate in hours."""
+        return self.remaining_estimate_seconds / 3600.0 if self.remaining_estimate_seconds > 0 else 0.0
+
+
+@dataclass
+class WorkLogRequest:
+    """Represents a request to log work on an issue."""
+    issue_key: str
+    time_spent: str  # e.g., "2h 30m", "1d", "45m"
+    comment: str = ""
+    started: Optional[str] = None  # ISO datetime string, defaults to now
+    adjust_estimate: str = "auto"  # "new", "leave", "manual", "auto"
+    new_estimate: Optional[str] = None  # Required if adjust_estimate is "new" or "manual"
+    reduce_by: Optional[str] = None  # Required if adjust_estimate is "manual"
+
+    def __post_init__(self):
+        """Validate the work log request."""
+        if not self.issue_key or not self.issue_key.strip():
+            raise ValueError("Issue key cannot be empty")
+        
+        if not self.time_spent or not self.time_spent.strip():
+            raise ValueError("Time spent cannot be empty")
+        
+        valid_adjust_options = ["new", "leave", "manual", "auto"]
+        if self.adjust_estimate not in valid_adjust_options:
+            raise ValueError(f"Adjust estimate must be one of: {', '.join(valid_adjust_options)}")
+        
+        if self.adjust_estimate == "new" and not self.new_estimate:
+            raise ValueError("New estimate is required when adjust_estimate is 'new'")
+        
+        if self.adjust_estimate == "manual" and not self.reduce_by:
+            raise ValueError("Reduce by is required when adjust_estimate is 'manual'")
+
+    def is_auto_adjust(self) -> bool:
+        """Check if this request uses automatic estimate adjustment."""
+        return self.adjust_estimate == "auto"
+
+    def is_manual_adjust(self) -> bool:
+        """Check if this request uses manual estimate adjustment."""
+        return self.adjust_estimate == "manual"
+
+
+@dataclass
+class TimeEstimateUpdate:
+    """Represents a request to update time estimates on an issue."""
+    issue_key: str
+    original_estimate: Optional[str] = None
+    remaining_estimate: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the time estimate update."""
+        if not self.issue_key or not self.issue_key.strip():
+            raise ValueError("Issue key cannot be empty")
+        
+        if not self.original_estimate and not self.remaining_estimate:
+            raise ValueError("At least one estimate must be provided")
+
+    def has_original_estimate(self) -> bool:
+        """Check if original estimate is being updated."""
+        return self.original_estimate is not None
+
+    def has_remaining_estimate(self) -> bool:
+        """Check if remaining estimate is being updated."""
+        return self.remaining_estimate is not None
+
+
+@dataclass
+class WorkLogResult:
+    """Represents the result of a work log operation."""
+    issue_key: str
+    work_log_id: Optional[str] = None
+    logged: bool = False
+    time_spent: str = ""
+    time_spent_seconds: int = 0
+    new_remaining_estimate: Optional[str] = None
+    error: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the work log result."""
+        if not self.issue_key:
+            raise ValueError("Issue key cannot be empty")
+
+    def is_successful(self) -> bool:
+        """Check if the work log was successful."""
+        return self.logged and self.error is None
+
+    def get_time_in_hours(self) -> float:
+        """Get logged time in hours."""
+        return self.time_spent_seconds / 3600.0 if self.time_spent_seconds > 0 else 0.0
+
+
+@dataclass
+class TimeEstimateResult:
+    """Represents the result of a time estimate update operation."""
+    issue_key: str
+    updated: bool = False
+    original_estimate: Optional[str] = None
+    remaining_estimate: Optional[str] = None
+    error: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate the time estimate result."""
+        if not self.issue_key:
+            raise ValueError("Issue key cannot be empty")
+
+    def is_successful(self) -> bool:
+        """Check if the estimate update was successful."""
+        return self.updated and self.error is None
