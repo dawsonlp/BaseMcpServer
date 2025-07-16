@@ -13,10 +13,10 @@ The Jira Helper MCP Server provides comprehensive Jira integration capabilities 
 - **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
 
 ### For Developers
+- **[Adding Features](developer/adding-features.md)** - Quick guide to extending functionality
 - **[Architecture Overview](developer/architecture.md)** - System design and patterns
 - **[Development Setup](developer/development-setup.md)** - Local development environment
 - **[Testing Guide](developer/testing.md)** - Testing strategies and tools
-- **[Extension Guide](developer/extensions.md)** - Adding new functionality
 
 ### Architecture Documentation
 - **[Hexagonal Architecture](architecture/hexagonal-design.md)** - Core architectural patterns
