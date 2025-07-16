@@ -96,28 +96,6 @@ class IssueService(BaseJiraService):
             self._logger.error(f"Failed to add comment to issue {request.issue_key}: {str(e)}")
             raise
 
-    async def search_issues(
-        self,
-        project_key: str,
-        status: Optional[str] = None,
-        issue_type: Optional[str] = None,
-        max_results: int = 50,
-        instance_name: Optional[str] = None
-    ) -> List[JiraIssue]:
-        """Search for issues in a project."""
-        self._validate_project_key(project_key)
-        self._validate_max_results(max_results)
-        instance_name = self._resolve_instance_name(instance_name)
-        
-        try:
-            issues = await self._repository.search_issues(
-                project_key, status, issue_type, max_results, instance_name
-            )
-            self._logger.debug(f"Found {len(issues)} issues in project {project_key}")
-            return issues
-        except Exception as e:
-            self._logger.error(f"Failed to search issues in project {project_key}: {str(e)}")
-            raise
 
     def _validate_issue_key(self, issue_key: str) -> None:
         """Validate issue key format."""
