@@ -542,7 +542,7 @@ class SearchIssuesUseCase(BaseQueryUseCase):
         def result_mapper(search_result):
             return {
                 "jql": jql,
-                "total": search_result.total,
+                "total": search_result.total_results,
                 "start_at": search_result.start_at,
                 "max_results": search_result.max_results,
                 "issues": [
@@ -562,10 +562,17 @@ class SearchIssuesUseCase(BaseQueryUseCase):
                 "instance": instance_name
             }
 
+        # Create SearchQuery from parameters
+        from domain.models import SearchQuery
+        search_query = SearchQuery(
+            jql=jql,
+            max_results=max_results,
+            start_at=start_at,
+            fields=fields
+        )
+
         return await self.execute_query(
-            lambda: self._search_service.search_issues(
-                jql, max_results, start_at, fields, instance_name
-            ),
+            lambda: self._search_service.search_issues(search_query, instance_name),
             result_mapper,
             jql=jql,
             max_results=max_results,
