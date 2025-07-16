@@ -1,0 +1,41 @@
+# Target Python 3.13
+target-version = "py313"
+
+# Include source directories
+include = ["src/**/*.py"]
+
+# Exclude virtual environment and cache directories
+exclude = [
+    ".venv",
+    "__pycache__",
+    "*.pyc",
+]
+
+[lint]
+# Enable import-related rules
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort (import sorting)
+    "TID",  # flake8-tidy-imports (import rules)
+    "UP",   # pyupgrade
+]
+
+# Ignore some rules that might be too strict for this analysis
+ignore = [
+    "E501",  # line too long (we're focusing on imports)
+    "E402",  # module level import not at top of file (common in main files with sys.path)
+    "F401",  # imported but unused (for optional dependencies like networkx)
+    "E722",  # bare except (legacy code pattern)
+    "F821",  # undefined name (legacy code issues)
+]
+
+[lint.flake8-tidy-imports]
+# Ban relative imports except within the same package
+ban-relative-imports = "parents"  # Allow relative imports within same package, ban parent imports
+
+[lint.isort]
+# Configure import sorting
+known-first-party = ["adapters", "application", "domain", "infrastructure", "utils"]
+force-single-line = false

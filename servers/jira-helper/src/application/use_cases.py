@@ -5,16 +5,21 @@ This module demonstrates the massive code reduction achieved by using
 the BaseUseCase pattern to eliminate boilerplate in application layer.
 """
 
-from typing import List, Optional, Dict, Any
 
-from application.base_use_case import BaseQueryUseCase, BaseCommandUseCase, CommonMappers, CommonErrorMappers
-from domain.models import IssueCreateRequest, CommentAddRequest, IssueTransitionRequest, AssigneeChangeRequest, SearchFilters
+from application.base_use_case import BaseCommandUseCase, BaseQueryUseCase
+from domain.models import (
+    AssigneeChangeRequest,
+    CommentAddRequest,
+    IssueCreateRequest,
+    IssueTransitionRequest,
+    SearchFilters,
+)
 
 
 class ListProjectsUseCase(BaseQueryUseCase):
     """Simplified use case for listing projects."""
 
-    async def execute(self, instance_name: Optional[str] = None):
+    async def execute(self, instance_name: str | None = None):
         """Execute the list projects use case."""
         def result_mapper(projects):
             return {
@@ -43,7 +48,7 @@ class ListProjectsUseCase(BaseQueryUseCase):
 class GetIssueDetailsUseCase(BaseQueryUseCase):
     """Simplified use case for getting issue details."""
 
-    async def execute(self, issue_key: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, instance_name: str | None = None):
         """Execute the get issue details use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -80,11 +85,11 @@ class GetFullIssueDetailsUseCase(BaseQueryUseCase):
     """Simplified use case for getting full issue details with comments."""
 
     async def execute(
-        self, 
-        issue_key: str, 
-        raw_data: bool = False, 
+        self,
+        issue_key: str,
+        raw_data: bool = False,
         format: str = "formatted",
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ):
         """Execute the get full issue details use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -101,14 +106,14 @@ class GetFullIssueDetailsUseCase(BaseQueryUseCase):
                 }
                 for comment in issue.comments
             ]
-            
+
             if raw_data:
                 return {
                     "issue": issue.__dict__,
                     "comments": formatted_comments,
                     "comment_count": len(formatted_comments)
                 }
-            
+
             base_issue = {
                 "key": issue.key,
                 "id": issue.id,
@@ -120,7 +125,7 @@ class GetFullIssueDetailsUseCase(BaseQueryUseCase):
                 "created": issue.created,
                 "updated": issue.updated
             }
-            
+
             if format == "summary":
                 return {
                     "issue": base_issue,
@@ -160,10 +165,10 @@ class CreateIssueUseCase(BaseCommandUseCase):
         summary: str,
         description: str,
         issue_type: str = "Story",
-        priority: Optional[str] = None,
-        assignee: Optional[str] = None,
-        labels: Optional[List[str]] = None,
-        instance_name: Optional[str] = None
+        priority: str | None = None,
+        assignee: str | None = None,
+        labels: list[str] | None = None,
+        instance_name: str | None = None
     ):
         """Execute the create issue use case."""
         self._validate_required_params(
@@ -204,7 +209,7 @@ class CreateIssueUseCase(BaseCommandUseCase):
 class AddCommentUseCase(BaseCommandUseCase):
     """Simplified use case for adding a comment to an issue."""
 
-    async def execute(self, issue_key: str, comment: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, comment: str, instance_name: str | None = None):
         """Execute the add comment use case."""
         self._validate_required_params(issue_key=issue_key, comment=comment)
 
@@ -236,8 +241,8 @@ class TransitionIssueUseCase(BaseCommandUseCase):
         self,
         issue_key: str,
         transition_name: str,
-        comment: Optional[str] = None,
-        instance_name: Optional[str] = None
+        comment: str | None = None,
+        instance_name: str | None = None
     ):
         """Execute the transition issue use case."""
         self._validate_required_params(issue_key=issue_key, transition_name=transition_name)
@@ -273,7 +278,7 @@ class TransitionIssueUseCase(BaseCommandUseCase):
 class GetIssueTransitionsUseCase(BaseQueryUseCase):
     """Simplified use case for getting available transitions for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, instance_name: str | None = None):
         """Execute the get issue transitions use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -306,8 +311,8 @@ class ChangeAssigneeUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        assignee: Optional[str] = None,
-        instance_name: Optional[str] = None
+        assignee: str | None = None,
+        instance_name: str | None = None
     ):
         """Execute the change assignee use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -340,10 +345,10 @@ class ListProjectTicketsUseCase(BaseQueryUseCase):
     async def execute(
         self,
         project_key: str,
-        status: Optional[str] = None,
-        issue_type: Optional[str] = None,
+        status: str | None = None,
+        issue_type: str | None = None,
         max_results: int = 50,
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ):
         """Execute the list project tickets use case."""
         self._validate_required_params(project_key=project_key)
@@ -425,7 +430,7 @@ class ListInstancesUseCase(BaseQueryUseCase):
 class GetCustomFieldMappingsUseCase(BaseQueryUseCase):
     """Simplified use case for getting custom field mappings."""
 
-    async def execute(self, reverse: bool = False, instance_name: Optional[str] = None):
+    async def execute(self, reverse: bool = False, instance_name: str | None = None):
         """Execute the get custom field mappings use case."""
         def result_mapper(mappings):
             return {
@@ -451,7 +456,7 @@ class GenerateWorkflowGraphUseCase(BaseQueryUseCase):
         project_key: str,
         issue_type: str = "Story",
         format: str = "svg",
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ):
         """Execute the generate workflow graph use case."""
         self._validate_required_params(project_key=project_key)
@@ -482,12 +487,12 @@ class UpdateIssueUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        summary: Optional[str] = None,
-        description: Optional[str] = None,
-        priority: Optional[str] = None,
-        assignee: Optional[str] = None,
-        labels: Optional[List[str]] = None,
-        instance_name: Optional[str] = None
+        summary: str | None = None,
+        description: str | None = None,
+        priority: str | None = None,
+        assignee: str | None = None,
+        labels: list[str] | None = None,
+        instance_name: str | None = None
     ):
         """Execute the update issue use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -533,8 +538,8 @@ class SearchIssuesUseCase(BaseQueryUseCase):
         jql: str,
         max_results: int = 50,
         start_at: int = 0,
-        fields: Optional[List[str]] = None,
-        instance_name: Optional[str] = None
+        fields: list[str] | None = None,
+        instance_name: str | None = None
     ):
         """Execute the search issues use case."""
         self._validate_required_params(jql=jql)
@@ -583,7 +588,7 @@ class SearchIssuesUseCase(BaseQueryUseCase):
 class ValidateJqlUseCase(BaseQueryUseCase):
     """Simplified use case for validating JQL syntax."""
 
-    async def execute(self, jql: str, instance_name: Optional[str] = None):
+    async def execute(self, jql: str, instance_name: str | None = None):
         """Execute the validate JQL use case."""
         self._validate_required_params(jql=jql)
 
@@ -613,7 +618,7 @@ class CreateIssueLinkUseCase(BaseCommandUseCase):
         target_issue: str,
         link_type: str,
         direction: str = "outward",
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ):
         """Execute the create issue link use case."""
         self._validate_required_params(
@@ -659,7 +664,7 @@ class CreateEpicStoryLinkUseCase(BaseCommandUseCase):
         self,
         epic_key: str,
         story_key: str,
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ):
         """Execute the create Epic-Story link use case."""
         self._validate_required_params(epic_key=epic_key, story_key=story_key)
@@ -689,7 +694,7 @@ class CreateEpicStoryLinkUseCase(BaseCommandUseCase):
 class GetIssueLinksUseCase(BaseQueryUseCase):
     """Simplified use case for getting all links for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, instance_name: str | None = None):
         """Execute the get issue links use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -726,11 +731,11 @@ class LogWorkUseCase(BaseCommandUseCase):
         issue_key: str,
         time_spent: str,
         comment: str = "",
-        started: Optional[str] = None,
+        started: str | None = None,
         adjust_estimate: str = "auto",
-        new_estimate: Optional[str] = None,
-        reduce_by: Optional[str] = None,
-        instance_name: Optional[str] = None
+        new_estimate: str | None = None,
+        reduce_by: str | None = None,
+        instance_name: str | None = None
     ):
         """Execute the log work use case."""
         self._validate_required_params(issue_key=issue_key, time_spent=time_spent)
@@ -772,7 +777,7 @@ class LogWorkUseCase(BaseCommandUseCase):
 class GetWorkLogsUseCase(BaseQueryUseCase):
     """Simplified use case for getting work logs for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, instance_name: str | None = None):
         """Execute the get work logs use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -811,7 +816,7 @@ class GetWorkLogsUseCase(BaseQueryUseCase):
 class GetTimeTrackingInfoUseCase(BaseQueryUseCase):
     """Simplified use case for getting time tracking information for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: Optional[str] = None):
+    async def execute(self, issue_key: str, instance_name: str | None = None):
         """Execute the get time tracking info use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -844,9 +849,9 @@ class UpdateTimeEstimatesUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        original_estimate: Optional[str] = None,
-        remaining_estimate: Optional[str] = None,
-        instance_name: Optional[str] = None
+        original_estimate: str | None = None,
+        remaining_estimate: str | None = None,
+        instance_name: str | None = None
     ):
         """Execute the update time estimates use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -888,11 +893,11 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
         summary: str,
         description: str,
         issue_type: str = "Story",
-        priority: Optional[str] = None,
-        assignee: Optional[str] = None,
-        labels: Optional[List[str]] = None,
-        links: Optional[List[Dict[str, str]]] = None,
-        instance_name: Optional[str] = None
+        priority: str | None = None,
+        assignee: str | None = None,
+        labels: list[str] | None = None,
+        links: list[dict[str, str]] | None = None,
+        instance_name: str | None = None
     ):
         """Execute the create issue with links use case."""
         self._validate_required_params(
@@ -912,9 +917,9 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
                 assignee=assignee,
                 labels=labels or []
             )
-            
+
             issue = await self._issue_service.create_issue(create_request, instance_name)
-            
+
             # Then create any links
             created_links = []
             if links:
@@ -927,7 +932,7 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
                             target_issue=link_data.get("target_issue", issue.key),
                             direction=link_data.get("direction", "outward")
                         )
-                        
+
                         # Ensure we're not linking to ourselves
                         if issue_link.source_issue != issue_link.target_issue:
                             link_result = await self._issue_link_service.create_link(issue_link, instance_name)
@@ -941,7 +946,7 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
                     except Exception:
                         # Log link creation error but don't fail the whole operation
                         pass
-            
+
             return {
                 "issue": issue,
                 "created_links": created_links

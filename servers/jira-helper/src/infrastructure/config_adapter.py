@@ -6,11 +6,14 @@ configuration system, bridging between the domain layer and the current
 configuration implementation.
 """
 
-from typing import Dict, Optional
-from domain.ports import ConfigurationProvider
-from domain.models import JiraInstance
-from domain.exceptions import JiraConfigurationMissingError, JiraInstanceConfigurationError
+
 from config import settings
+from domain.exceptions import (
+    JiraConfigurationMissingError,
+    JiraInstanceConfigurationError,
+)
+from domain.models import JiraInstance
+from domain.ports import ConfigurationProvider
 
 
 class ConfigurationAdapter(ConfigurationProvider):
@@ -19,16 +22,16 @@ class ConfigurationAdapter(ConfigurationProvider):
     def __init__(self):
         self._settings = settings
 
-    def get_instances(self) -> Dict[str, JiraInstance]:
+    def get_instances(self) -> dict[str, JiraInstance]:
         """Get all configured Jira instances."""
         try:
             # Get instances from the existing settings
             instances_dict = self._settings.get_jira_instances()
-            
+
             # Convert to domain models
             domain_instances = {}
             default_instance_name = self._settings.get_default_instance_name()
-            
+
             for name, config_instance in instances_dict.items():
                 try:
                     domain_instance = JiraInstance(
@@ -44,29 +47,29 @@ class ConfigurationAdapter(ConfigurationProvider):
                     raise JiraInstanceConfigurationError(
                         name, f"Invalid configuration: {str(e)}"
                     )
-            
+
             if not domain_instances:
                 raise JiraConfigurationMissingError("No Jira instances configured")
-            
+
             return domain_instances
-            
+
         except Exception as e:
-            if isinstance(e, (JiraConfigurationMissingError, JiraInstanceConfigurationError)):
+            if isinstance(e, JiraConfigurationMissingError | JiraInstanceConfigurationError):
                 raise
             raise JiraConfigurationMissingError(f"Failed to load configuration: {str(e)}")
 
-    def get_default_instance_name(self) -> Optional[str]:
+    def get_default_instance_name(self) -> str | None:
         """Get the name of the default instance."""
         try:
             return self._settings.get_default_instance_name()
         except Exception:
             return None
 
-    def get_instance(self, instance_name: Optional[str] = None) -> Optional[JiraInstance]:
+    def get_instance(self, instance_name: str | None = None) -> JiraInstance | None:
         """Get a specific instance by name or the default instance."""
         try:
             instances = self.get_instances()
-            
+
             if instance_name is None:
                 # Get default instance
                 default_name = self.get_default_instance_name()
@@ -76,9 +79,9 @@ class ConfigurationAdapter(ConfigurationProvider):
                 if instances:
                     return next(iter(instances.values()))
                 return None
-            
+
             return instances.get(instance_name)
-            
+
         except Exception:
             return None
 
@@ -88,11 +91,11 @@ class ConfigurationAdapter(ConfigurationProvider):
             instances = self.get_instances()
             if instance_name not in instances:
                 return False
-            
+
             instance = instances[instance_name]
             # Basic validation - the JiraInstance constructor already validates required fields
             return bool(instance.name and instance.url and instance.user and instance.token)
-            
+
         except Exception:
             return False
 

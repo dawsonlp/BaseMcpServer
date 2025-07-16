@@ -5,14 +5,14 @@ This module contains tests to verify that the hexagonal architecture
 is properly implemented and that dependencies flow in the correct direction.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock
-from typing import Dict, Any
+from unittest.mock import AsyncMock, Mock
 
-from domain.models import JiraInstance, JiraProject, JiraIssue
+import pytest
+
+from application.use_cases import GetIssueDetailsUseCase, ListProjectsUseCase
+from domain.models import JiraInstance, JiraIssue, JiraProject
 from domain.ports import ConfigurationProvider, JiraRepository
-from domain.services import IssueService, ProjectService
-from application.use_cases import ListProjectsUseCase, GetIssueDetailsUseCase
+from domain.services import IssueService
 from infrastructure.config_adapter import ConfigurationAdapter
 
 
@@ -22,10 +22,10 @@ class TestArchitectureDependencies:
     def test_domain_has_no_infrastructure_dependencies(self):
         """Verify domain layer has no dependencies on infrastructure."""
         # Domain models should be importable without infrastructure
+        from domain.exceptions import JiraValidationError
         from domain.models import JiraIssue, JiraProject
         from domain.services import IssueService
-        from domain.exceptions import JiraValidationError
-        
+
         # This should not raise any import errors
         assert JiraIssue is not None
         assert JiraProject is not None
@@ -35,8 +35,8 @@ class TestArchitectureDependencies:
     def test_application_has_no_infrastructure_dependencies(self):
         """Verify application layer has no dependencies on infrastructure."""
         # Application use cases should be importable without infrastructure
-        from application.use_cases import ListProjectsUseCase, GetIssueDetailsUseCase
-        
+        from application.use_cases import GetIssueDetailsUseCase, ListProjectsUseCase
+
         # This should not raise any import errors
         assert ListProjectsUseCase is not None
         assert GetIssueDetailsUseCase is not None
@@ -47,7 +47,7 @@ class TestArchitectureDependencies:
         mock_repository = Mock(spec=JiraRepository)
         mock_config = Mock(spec=ConfigurationProvider)
         mock_logger = Mock()
-        
+
         # Should be able to create domain service with mocked ports
         issue_service = IssueService(mock_repository, mock_config, mock_logger)
         assert issue_service is not None
@@ -123,19 +123,19 @@ class TestUseCasesWithMocks:
                 url="https://test.atlassian.net/projects/TEST"
             )
         ]
-        
+
         # Create use case with mock
         use_case = ListProjectsUseCase(mock_project_service)
-        
+
         # Execute use case
         result = await use_case.execute("test-instance")
-        
+
         # Verify results
         assert result.success is True
         assert "projects" in result.data
         assert len(result.data["projects"]) == 1
         assert result.data["projects"][0]["key"] == "TEST"
-        
+
         # Verify mock was called correctly
         mock_project_service.get_projects.assert_called_once_with("test-instance")
 
@@ -161,19 +161,19 @@ class TestUseCasesWithMocks:
             custom_fields={},
             url="https://test.atlassian.net/browse/TEST-123"
         )
-        
+
         # Create use case with mock
         use_case = GetIssueDetailsUseCase(mock_issue_service)
-        
+
         # Execute use case
         result = await use_case.execute("TEST-123", "test-instance")
-        
+
         # Verify results
         assert result.success is True
         assert "issue" in result.data
         assert result.data["issue"]["key"] == "TEST-123"
         assert result.data["issue"]["summary"] == "Test issue"
-        
+
         # Verify mock was called correctly
         mock_issue_service.get_issue.assert_called_once_with("TEST-123", "test-instance")
 
@@ -202,13 +202,13 @@ class TestErrorHandling:
         # Create mock service that raises an exception
         mock_project_service = AsyncMock()
         mock_project_service.get_projects.side_effect = Exception("Test error")
-        
+
         # Create use case with mock
         use_case = ListProjectsUseCase(mock_project_service)
-        
+
         # Execute use case
         result = await use_case.execute("test-instance")
-        
+
         # Verify error is handled properly
         assert result.success is False
         assert result.error == "Test error"

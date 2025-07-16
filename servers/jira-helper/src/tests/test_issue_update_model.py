@@ -3,8 +3,9 @@ Tests for IssueUpdate domain model.
 """
 
 import pytest
+
+from domain.exceptions import IssueFieldUpdateError
 from domain.models import IssueUpdate, IssueUpdateResult
-from domain.exceptions import IssueFieldUpdateError, ConcurrentUpdateError
 
 
 class TestIssueUpdate:
@@ -20,7 +21,7 @@ class TestIssueUpdate:
                 "priority": "High"
             }
         )
-        
+
         assert update.issue_key == "PROJ-123"
         assert update.fields["summary"] == "Updated summary"
         assert update.fields["description"] == "Updated description"
@@ -32,7 +33,7 @@ class TestIssueUpdate:
             issue_key="PROJ-123",
             fields={"summary": "New summary"}
         )
-        
+
         assert len(update.fields) == 1
         assert update.fields["summary"] == "New summary"
 
@@ -65,7 +66,7 @@ class TestIssueUpdate:
                 "labels": ["bug", "urgent"]
             }
         )
-        
+
         assert update.validate_fields()
 
     def test_invalid_field_names(self):
@@ -111,7 +112,7 @@ class TestIssueUpdate:
     def test_priority_field_validation(self):
         """Test validation of priority field."""
         valid_priorities = ["Highest", "High", "Medium", "Low", "Lowest"]
-        
+
         for priority in valid_priorities:
             update = IssueUpdate(
                 issue_key="PROJ-123",
@@ -151,9 +152,9 @@ class TestIssueUpdate:
                 "priority": "High"
             }
         )
-        
+
         update_dict = update.to_dict()
-        
+
         expected = {
             "issue_key": "PROJ-123",
             "fields": {
@@ -161,7 +162,7 @@ class TestIssueUpdate:
                 "priority": "High"
             }
         }
-        
+
         assert update_dict == expected
 
     def test_from_dict(self):
@@ -173,9 +174,9 @@ class TestIssueUpdate:
                 "priority": "High"
             }
         }
-        
+
         update = IssueUpdate.from_dict(update_dict)
-        
+
         assert update.issue_key == "PROJ-123"
         assert update.fields["summary"] == "Test summary"
         assert update.fields["priority"] == "High"
@@ -190,10 +191,10 @@ class TestIssueUpdate:
                 "priority": "High"
             }
         )
-        
+
         changed_fields = update.get_changed_fields()
         expected_fields = ["summary", "description", "priority"]
-        
+
         assert set(changed_fields) == set(expected_fields)
 
     def test_has_field(self):
@@ -202,7 +203,7 @@ class TestIssueUpdate:
             issue_key="PROJ-123",
             fields={"summary": "Test", "priority": "High"}
         )
-        
+
         assert update.has_field("summary")
         assert update.has_field("priority")
         assert not update.has_field("description")
@@ -213,7 +214,7 @@ class TestIssueUpdate:
             issue_key="PROJ-123",
             fields={"summary": "Test summary"}
         )
-        
+
         assert update.get_field_value("summary") == "Test summary"
         assert update.get_field_value("nonexistent") is None
 
@@ -223,9 +224,9 @@ class TestIssueUpdate:
             issue_key="PROJ-123",
             fields={"summary": "Test"}
         )
-        
+
         update.add_field("priority", "High")
-        
+
         assert update.has_field("priority")
         assert update.get_field_value("priority") == "High"
 
@@ -235,9 +236,9 @@ class TestIssueUpdate:
             issue_key="PROJ-123",
             fields={"summary": "Test", "priority": "High"}
         )
-        
+
         update.remove_field("priority")
-        
+
         assert not update.has_field("priority")
         assert update.has_field("summary")
 
@@ -253,7 +254,7 @@ class TestIssueUpdateResult:
             updated_fields=["summary", "priority"],
             message="Issue updated successfully"
         )
-        
+
         assert result.success is True
         assert result.issue_key == "PROJ-123"
         assert result.updated_fields == ["summary", "priority"]
@@ -267,7 +268,7 @@ class TestIssueUpdateResult:
             error="Permission denied",
             failed_fields=["assignee"]
         )
-        
+
         assert result.success is False
         assert result.issue_key == "PROJ-123"
         assert result.error == "Permission denied"
@@ -281,7 +282,7 @@ class TestIssueUpdateResult:
             updated_fields=["summary"],
             warnings=["Priority field was ignored due to workflow restrictions"]
         )
-        
+
         assert result.success is True
         assert len(result.warnings) == 1
         assert "Priority field was ignored" in result.warnings[0]
@@ -295,7 +296,7 @@ class TestIssueUpdateResult:
             failed_fields=["assignee"],
             warnings=["Could not update assignee: user not found"]
         )
-        
+
         assert result.success is True
         assert len(result.updated_fields) == 2
         assert len(result.failed_fields) == 1
@@ -309,9 +310,9 @@ class TestIssueUpdateResult:
             updated_fields=["summary"],
             message="Success"
         )
-        
+
         result_dict = result.to_dict()
-        
+
         expected = {
             "success": True,
             "issue_key": "PROJ-123",
@@ -321,7 +322,7 @@ class TestIssueUpdateResult:
             "error": None,
             "warnings": []
         }
-        
+
         assert result_dict == expected
 
     def test_result_from_dict(self):
@@ -332,9 +333,9 @@ class TestIssueUpdateResult:
             "updated_fields": ["summary"],
             "message": "Success"
         }
-        
+
         result = IssueUpdateResult.from_dict(result_dict)
-        
+
         assert result.success is True
         assert result.issue_key == "PROJ-123"
         assert result.updated_fields == ["summary"]
@@ -347,12 +348,12 @@ class TestIssueUpdateResult:
             issue_key="PROJ-123",
             warnings=["Warning message"]
         )
-        
+
         result_without_warnings = IssueUpdateResult(
             success=True,
             issue_key="PROJ-123"
         )
-        
+
         assert result_with_warnings.has_warnings()
         assert not result_without_warnings.has_warnings()
 
@@ -363,11 +364,11 @@ class TestIssueUpdateResult:
             issue_key="PROJ-123",
             failed_fields=["assignee"]
         )
-        
+
         result_without_failures = IssueUpdateResult(
             success=True,
             issue_key="PROJ-123"
         )
-        
+
         assert result_with_failures.has_failures()
         assert not result_without_failures.has_failures()

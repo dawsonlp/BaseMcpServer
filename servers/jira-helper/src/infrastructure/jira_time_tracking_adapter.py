@@ -5,16 +5,23 @@ This module implements time tracking operations with centralized error handling
 and massive boilerplate reduction.
 """
 
-from typing import List, Optional
 import logging
 
-from infrastructure.base_adapter import BaseJiraAdapter
-from domain.ports import TimeTrackingPort, JiraClientFactory, ConfigurationProvider
-from domain.models import WorkLog, WorkLogRequest, WorkLogResult, TimeTrackingInfo, TimeEstimateUpdate, TimeEstimateResult
 from domain.exceptions import (
-    JiraIssueNotFound, TimeTrackingError, WorkLogError, TimeEstimateError,
-    InvalidTimeFormatError, WorkLogNotFoundError, TimeTrackingNotEnabledError
+    JiraIssueNotFound,
+    TimeTrackingError,
+    WorkLogNotFoundError,
 )
+from domain.models import (
+    TimeEstimateResult,
+    TimeEstimateUpdate,
+    TimeTrackingInfo,
+    WorkLog,
+    WorkLogRequest,
+    WorkLogResult,
+)
+from domain.ports import ConfigurationProvider, JiraClientFactory, TimeTrackingPort
+from infrastructure.base_adapter import BaseJiraAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +32,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
     def __init__(self, client_factory: JiraClientFactory, config_provider: ConfigurationProvider):
         super().__init__(client_factory, config_provider)
 
-    async def log_work(self, work_log_request: WorkLogRequest, instance_name: Optional[str] = None) -> WorkLogResult:
+    async def log_work(self, work_log_request: WorkLogRequest, instance_name: str | None = None) -> WorkLogResult:
         """Log work on an issue."""
         async def operation(client):
             # Prepare work log data
@@ -33,32 +40,32 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 'timeSpent': work_log_request.time_spent,
                 'comment': work_log_request.comment
             }
-            
+
             if work_log_request.started:
                 work_log_data['started'] = work_log_request.started
-            
+
             # Handle estimate adjustment
             if work_log_request.adjust_estimate == "new" and work_log_request.new_estimate:
                 work_log_data['newEstimate'] = work_log_request.new_estimate
             elif work_log_request.adjust_estimate == "manual" and work_log_request.reduce_by:
                 work_log_data['reduceBy'] = work_log_request.reduce_by
-            
+
             # Log the work using Jira API
             response = client._session.post(
                 f"{client._options['server']}/rest/api/2/issue/{work_log_request.issue_key}/worklog",
                 json=work_log_data,
                 params={'adjustEstimate': work_log_request.adjust_estimate}
             )
-            
+
             if response.status_code == 201:
                 work_log_response = response.json()
-                
+
                 # Get updated issue to check remaining estimate
                 updated_issue = client.issue(work_log_request.issue_key)
                 remaining_estimate = None
                 if hasattr(updated_issue.fields, 'timetracking'):
                     remaining_estimate = getattr(updated_issue.fields.timetracking, 'remainingEstimate', None)
-                
+
                 return WorkLogResult(
                     issue_key=work_log_request.issue_key,
                     work_log_id=work_log_response.get('id'),
@@ -91,18 +98,18 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 )
             raise
 
-    async def get_work_logs(self, issue_key: str, instance_name: Optional[str] = None) -> List[WorkLog]:
+    async def get_work_logs(self, issue_key: str, instance_name: str | None = None) -> list[WorkLog]:
         """Get all work logs for an issue."""
         async def operation(client):
             # Get work logs from Jira
             response = client._session.get(
                 f"{client._options['server']}/rest/api/2/issue/{issue_key}/worklog"
             )
-            
+
             if response.status_code == 200:
                 work_logs_data = response.json()
                 work_logs = []
-                
+
                 for wl_data in work_logs_data.get('worklogs', []):
                     work_log = WorkLog(
                         id=wl_data.get('id'),
@@ -115,7 +122,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                         updated=wl_data.get('updated')
                     )
                     work_logs.append(work_log)
-                
+
                 return work_logs
             else:
                 logger.error(f"Failed to get work logs for {issue_key}: HTTP {response.status_code}")
@@ -134,7 +141,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 return []
             raise
 
-    async def update_work_log(self, work_log_id: str, work_log_request: WorkLogRequest, instance_name: Optional[str] = None) -> WorkLogResult:
+    async def update_work_log(self, work_log_id: str, work_log_request: WorkLogRequest, instance_name: str | None = None) -> WorkLogResult:
         """Update an existing work log."""
         async def operation(client):
             # Prepare update data
@@ -142,17 +149,17 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 'timeSpent': work_log_request.time_spent,
                 'comment': work_log_request.comment
             }
-            
+
             if work_log_request.started:
                 update_data['started'] = work_log_request.started
-            
+
             # Update the work log
             response = client._session.put(
                 f"{client._options['server']}/rest/api/2/issue/{work_log_request.issue_key}/worklog/{work_log_id}",
                 json=update_data,
                 params={'adjustEstimate': work_log_request.adjust_estimate}
             )
-            
+
             if response.status_code == 200:
                 work_log_response = response.json()
                 return WorkLogResult(
@@ -179,7 +186,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
         try:
             return await self._execute_jira_operation("update_work_log", operation, instance_name, error_mappings)
         except Exception as e:
-            if not isinstance(e, (JiraIssueNotFound, WorkLogNotFoundError)):
+            if not isinstance(e, JiraIssueNotFound | WorkLogNotFoundError):
                 return WorkLogResult(
                     issue_key=work_log_request.issue_key,
                     work_log_id=work_log_id,
@@ -188,14 +195,14 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 )
             raise
 
-    async def delete_work_log(self, issue_key: str, work_log_id: str, instance_name: Optional[str] = None) -> bool:
+    async def delete_work_log(self, issue_key: str, work_log_id: str, instance_name: str | None = None) -> bool:
         """Delete a work log entry."""
         async def operation(client):
             # Delete the work log
             response = client._session.delete(
                 f"{client._options['server']}/rest/api/2/issue/{issue_key}/worklog/{work_log_id}"
             )
-            
+
             return response.status_code == 204
 
         error_mappings = {
@@ -206,19 +213,19 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
         try:
             return await self._execute_jira_operation("delete_work_log", operation, instance_name, error_mappings)
         except Exception as e:
-            if not isinstance(e, (JiraIssueNotFound, WorkLogNotFoundError)):
+            if not isinstance(e, JiraIssueNotFound | WorkLogNotFoundError):
                 logger.error(f"Failed to delete work log {work_log_id}: {str(e)}")
                 return False
             raise
 
-    async def get_time_tracking_info(self, issue_key: str, instance_name: Optional[str] = None) -> TimeTrackingInfo:
+    async def get_time_tracking_info(self, issue_key: str, instance_name: str | None = None) -> TimeTrackingInfo:
         """Get time tracking information for an issue."""
         async def operation(client):
             issue = client.issue(issue_key)
-            
+
             # Extract time tracking information
             time_tracking = TimeTrackingInfo()
-            
+
             if hasattr(issue.fields, 'timetracking') and issue.fields.timetracking:
                 tt = issue.fields.timetracking
                 time_tracking.original_estimate = getattr(tt, 'originalEstimate', None)
@@ -227,7 +234,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 time_tracking.original_estimate_seconds = getattr(tt, 'originalEstimateSeconds', 0)
                 time_tracking.remaining_estimate_seconds = getattr(tt, 'remainingEstimateSeconds', 0)
                 time_tracking.time_spent_seconds = getattr(tt, 'timeSpentSeconds', 0)
-            
+
             return time_tracking
 
         error_mappings = {
@@ -242,22 +249,22 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 raise TimeTrackingError(issue_key, str(e))
             raise
 
-    async def update_time_estimates(self, estimate_update: TimeEstimateUpdate, instance_name: Optional[str] = None) -> TimeEstimateResult:
+    async def update_time_estimates(self, estimate_update: TimeEstimateUpdate, instance_name: str | None = None) -> TimeEstimateResult:
         """Update time estimates for an issue."""
         async def operation(client):
             issue = client.issue(estimate_update.issue_key)
-            
+
             # Prepare update fields
             update_fields = {}
             if estimate_update.original_estimate:
                 update_fields['originalEstimate'] = estimate_update.original_estimate
             if estimate_update.remaining_estimate:
                 update_fields['remainingEstimate'] = estimate_update.remaining_estimate
-            
+
             # Update the issue with new time estimates
             if update_fields:
                 issue.update(fields={'timetracking': update_fields})
-            
+
             return TimeEstimateResult(
                 issue_key=estimate_update.issue_key,
                 updated=True,
@@ -281,7 +288,7 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
                 )
             raise
 
-    async def is_time_tracking_enabled(self, project_key: str, issue_type: str = None, instance_name: Optional[str] = None) -> bool:
+    async def is_time_tracking_enabled(self, project_key: str, issue_type: str = None, instance_name: str | None = None) -> bool:
         """Check if time tracking is enabled for a project/issue type."""
         async def operation(client):
             # Get a sample issue from the project to check time tracking
@@ -289,9 +296,9 @@ class JiraTimeTrackingAdapter(BaseJiraAdapter, TimeTrackingPort):
             if issue_type:
                 jql += f" AND issuetype = '{issue_type}'"
             jql += " ORDER BY created DESC"
-            
+
             issues = client.search_issues(jql, maxResults=1)
-            
+
             if issues:
                 issue = issues[0]
                 # Check if the issue has time tracking fields

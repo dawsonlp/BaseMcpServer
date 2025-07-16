@@ -3,7 +3,8 @@ Tests for IssueLink domain model.
 """
 
 import pytest
-from domain.models import IssueLink, LinkType, LinkDirection
+
+from domain.models import IssueLink, LinkDirection, LinkType
 
 
 class TestIssueLink:
@@ -17,7 +18,7 @@ class TestIssueLink:
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         assert link.source_issue == "PROJ-123"
         assert link.target_issue == "PROJ-456"
         assert link.link_type == LinkType.BLOCKS.value
@@ -31,7 +32,7 @@ class TestIssueLink:
             link_type=LinkType.EPIC_STORY.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         assert link.link_type == LinkType.EPIC_STORY.value
         assert link.is_epic_link()
 
@@ -43,7 +44,7 @@ class TestIssueLink:
             link_type=LinkType.PARENT_CHILD.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         assert link.link_type == LinkType.PARENT_CHILD.value
         assert link.is_parent_child_link()
 
@@ -75,14 +76,14 @@ class TestIssueLink:
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         link2 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         assert link1 == link2
 
     def test_link_inequality(self):
@@ -93,14 +94,14 @@ class TestIssueLink:
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         link2 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-789",
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         assert link1 != link2
 
     def test_reverse_direction(self):
@@ -111,7 +112,7 @@ class TestIssueLink:
             link_type=LinkType.BLOCKS.value,
             direction=LinkDirection.OUTWARD.value
         )
-        
+
         reverse_direction = link.get_reverse_direction()
         assert reverse_direction == LinkDirection.INWARD.value
 
@@ -173,10 +174,10 @@ class TestLinkType:
     def test_all_link_types_defined(self):
         """Test that all expected link types are defined."""
         expected_types = [
-            "BLOCKS", "RELATES", "EPIC_STORY", "PARENT_CHILD", 
+            "BLOCKS", "RELATES", "EPIC_STORY", "PARENT_CHILD",
             "DUPLICATES", "CLONES", "CUSTOM"
         ]
-        
+
         for link_type in expected_types:
             assert hasattr(LinkType, link_type)
 
@@ -202,7 +203,7 @@ class TestLinkType:
             LinkType.CLONES,
             LinkType.CUSTOM
         ]
-        
+
         for link_type in link_types:
             assert isinstance(link_type.value, str)
             assert len(link_type.value) > 0
@@ -219,7 +220,7 @@ class TestLinkDirection:
     def test_direction_enum_access(self):
         """Test accessing directions through enum."""
         directions = [LinkDirection.OUTWARD, LinkDirection.INWARD]
-        
+
         for direction in directions:
             assert isinstance(direction.value, str)
             assert direction.value in ["outward", "inward"]
@@ -228,7 +229,7 @@ class TestLinkDirection:
         """Test direction validation in IssueLink."""
         # Valid directions should work
         valid_directions = [LinkDirection.OUTWARD.value, LinkDirection.INWARD.value]
-        
+
         for direction in valid_directions:
             link = IssueLink(
                 source_issue="PROJ-123",

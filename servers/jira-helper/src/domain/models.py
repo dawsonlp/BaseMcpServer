@@ -6,9 +6,8 @@ These models are framework-agnostic and contain only business logic.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from .base import validate_required_fields
 
@@ -82,9 +81,9 @@ class JiraProject:
     key: str
     name: str
     id: str
-    lead_name: Optional[str] = None
-    lead_email: Optional[str] = None
-    url: Optional[str] = None
+    lead_name: str | None = None
+    lead_email: str | None = None
+    url: str | None = None
 
 
 @validate_required_fields('id', 'author_name', 'body', 'created')
@@ -93,10 +92,10 @@ class JiraComment:
     """Represents a Jira issue comment."""
     id: str
     author_name: str
-    author_key: Optional[str]
+    author_key: str | None
     body: str
     created: str
-    updated: Optional[str] = None
+    updated: str | None = None
 
 
 @validate_required_fields('id', 'name', 'to_status')
@@ -106,7 +105,7 @@ class WorkflowTransition:
     id: str
     name: str
     to_status: str
-    from_status: Optional[str] = None
+    from_status: str | None = None
 
 
 @validate_required_fields('key', 'id', 'summary', 'status', 'issue_type', 'priority')
@@ -120,21 +119,21 @@ class JiraIssue:
     status: str
     issue_type: str
     priority: str
-    assignee: Optional[str] = None
-    reporter: Optional[str] = None
-    created: Optional[str] = None
-    updated: Optional[str] = None
-    components: List[str] = field(default_factory=list)
-    labels: List[str] = field(default_factory=list)
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
-    comments: List[JiraComment] = field(default_factory=list)
-    url: Optional[str] = None
+    assignee: str | None = None
+    reporter: str | None = None
+    created: str | None = None
+    updated: str | None = None
+    components: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
+    comments: list[JiraComment] = field(default_factory=list)
+    url: str | None = None
 
     def add_comment(self, comment: JiraComment) -> None:
         """Add a comment to the issue."""
         self.comments.append(comment)
 
-    def get_latest_comment(self) -> Optional[JiraComment]:
+    def get_latest_comment(self) -> JiraComment | None:
         """Get the most recent comment."""
         if not self.comments:
             return None
@@ -178,9 +177,9 @@ class WorkflowGraph:
     """Represents a complete workflow graph."""
     project_key: str
     issue_type: str
-    nodes: List[WorkflowNode] = field(default_factory=list)
-    edges: List[WorkflowEdge] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    nodes: list[WorkflowNode] = field(default_factory=list)
+    edges: list[WorkflowEdge] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def add_node(self, node: WorkflowNode) -> None:
         """Add a node to the graph."""
@@ -194,23 +193,23 @@ class WorkflowGraph:
         # Validate that both nodes exist
         from_exists = any(n.id == edge.from_node for n in self.nodes)
         to_exists = any(n.id == edge.to_node for n in self.nodes)
-        
+
         if not from_exists:
             raise ValueError(f"From node '{edge.from_node}' does not exist")
         if not to_exists:
             raise ValueError(f"To node '{edge.to_node}' does not exist")
-        
+
         self.edges.append(edge)
 
-    def get_node_by_id(self, node_id: str) -> Optional[WorkflowNode]:
+    def get_node_by_id(self, node_id: str) -> WorkflowNode | None:
         """Get a node by its ID."""
         return next((n for n in self.nodes if n.id == node_id), None)
 
-    def get_outgoing_edges(self, node_id: str) -> List[WorkflowEdge]:
+    def get_outgoing_edges(self, node_id: str) -> list[WorkflowEdge]:
         """Get all edges going out from a node."""
         return [e for e in self.edges if e.from_node == node_id]
 
-    def get_incoming_edges(self, node_id: str) -> List[WorkflowEdge]:
+    def get_incoming_edges(self, node_id: str) -> list[WorkflowEdge]:
         """Get all edges coming into a node."""
         return [e for e in self.edges if e.to_node == node_id]
 
@@ -232,9 +231,9 @@ class IssueCreateRequest:
     summary: str
     description: str
     issue_type: str = "Story"
-    priority: Optional[str] = None
-    assignee: Optional[str] = None
-    labels: List[str] = field(default_factory=list)
+    priority: str | None = None
+    assignee: str | None = None
+    labels: list[str] = field(default_factory=list)
 
 
 @validate_required_fields('issue_key', 'transition_name')
@@ -243,7 +242,7 @@ class IssueTransitionRequest:
     """Represents a request to transition a Jira issue."""
     issue_key: str
     transition_name: str
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 @validate_required_fields('issue_key')
@@ -251,7 +250,7 @@ class IssueTransitionRequest:
 class AssigneeChangeRequest:
     """Represents a request to change an issue's assignee."""
     issue_key: str
-    assignee: Optional[str] = None  # None means unassign
+    assignee: str | None = None  # None means unassign
 
 
 @validate_required_fields('issue_key', 'comment')
@@ -270,7 +269,7 @@ class IssueLink:
     source_issue: str
     target_issue: str
     direction: str = LinkDirection.OUTWARD.value
-    link_id: Optional[str] = None
+    link_id: str | None = None
 
     def __post_init__(self):
         """Validate the issue link."""
@@ -297,12 +296,12 @@ class IssueLink:
 class IssueUpdate:
     """Represents an update to an existing Jira issue."""
     issue_key: str
-    fields: Dict[str, Any] = field(default_factory=dict)
-    summary: Optional[str] = None
-    description: Optional[str] = None
-    priority: Optional[str] = None
-    assignee: Optional[str] = None
-    labels: Optional[List[str]] = None
+    fields: dict[str, Any] = field(default_factory=dict)
+    summary: str | None = None
+    description: str | None = None
+    priority: str | None = None
+    assignee: str | None = None
+    labels: list[str] | None = None
 
     def __post_init__(self):
         """Validate and prepare the issue update."""
@@ -329,7 +328,7 @@ class IssueUpdate:
         """Get the value for a specific field."""
         return self.fields.get(field_name)
 
-    def get_updated_fields(self) -> List[str]:
+    def get_updated_fields(self) -> list[str]:
         """Get a list of all fields being updated."""
         return list(self.fields.keys())
 
@@ -339,8 +338,8 @@ class IssueUpdate:
 class SearchFilters:
     """Represents search filters for simple project-based searches."""
     project_key: str
-    status: Optional[str] = None
-    issue_type: Optional[str] = None
+    status: str | None = None
+    issue_type: str | None = None
     max_results: int = 50
     start_at: int = 0
 
@@ -377,7 +376,7 @@ class SearchFilters:
             start_at=self.start_at + self.max_results
         )
 
-    def get_active_filters(self) -> Dict[str, str]:
+    def get_active_filters(self) -> dict[str, str]:
         """Get a dictionary of active (non-None) filters."""
         filters = {"project": self.project_key}
         if self.has_status_filter():
@@ -394,7 +393,7 @@ class SearchQuery:
     jql: str
     max_results: int = 50
     start_at: int = 0
-    fields: Optional[List[str]] = None
+    fields: list[str] | None = None
 
     def __post_init__(self):
         """Validate the search query."""
@@ -427,7 +426,7 @@ class SearchResult:
     total_results: int
     start_at: int
     max_results: int
-    issues: List[JiraIssue] = field(default_factory=list)
+    issues: list[JiraIssue] = field(default_factory=list)
 
     def __post_init__(self):
         """Validate the search result."""
@@ -453,8 +452,8 @@ class IssueUpdateResult:
     """Represents the result of an issue update operation."""
     issue_key: str
     updated: bool
-    updated_fields: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    updated_fields: list[str] = field(default_factory=list)
+    error: str | None = None
 
     def is_successful(self) -> bool:
         """Check if the update was successful."""
@@ -469,8 +468,8 @@ class IssueLinkResult:
     target_issue: str
     link_type: str
     created: bool
-    link_id: Optional[str] = None
-    error: Optional[str] = None
+    link_id: str | None = None
+    error: str | None = None
 
     def is_successful(self) -> bool:
         """Check if the link creation was successful."""
@@ -485,20 +484,20 @@ class IssueCreateWithLinksRequest:
     summary: str
     description: str
     issue_type: str = "Story"
-    priority: Optional[str] = None
-    assignee: Optional[str] = None
-    labels: List[str] = field(default_factory=list)
-    links: List[IssueLink] = field(default_factory=list)
+    priority: str | None = None
+    assignee: str | None = None
+    labels: list[str] = field(default_factory=list)
+    links: list[IssueLink] = field(default_factory=list)
 
     def has_links(self) -> bool:
         """Check if this request includes links."""
         return len(self.links) > 0
 
-    def get_epic_links(self) -> List[IssueLink]:
+    def get_epic_links(self) -> list[IssueLink]:
         """Get all Epic-Story links from this request."""
         return [link for link in self.links if link.is_epic_link()]
 
-    def get_parent_child_links(self) -> List[IssueLink]:
+    def get_parent_child_links(self) -> list[IssueLink]:
         """Get all Parent-Child links from this request."""
         return [link for link in self.links if link.is_parent_child_link()]
 
@@ -506,20 +505,20 @@ class IssueCreateWithLinksRequest:
 @dataclass
 class WorkLog:
     """Represents a work log entry on a Jira issue."""
-    id: Optional[str] = None
-    author: Optional[str] = None
+    id: str | None = None
+    author: str | None = None
     time_spent: str = ""  # e.g., "2h 30m", "1d", "45m"
     time_spent_seconds: int = 0
     comment: str = ""
-    started: Optional[str] = None  # ISO datetime string
-    created: Optional[str] = None
-    updated: Optional[str] = None
+    started: str | None = None  # ISO datetime string
+    created: str | None = None
+    updated: str | None = None
 
     def __post_init__(self):
         """Validate the work log entry."""
         if not self.time_spent and self.time_spent_seconds <= 0:
             raise ValueError("Either time_spent or time_spent_seconds must be provided")
-        
+
         if self.time_spent_seconds < 0:
             raise ValueError("Time spent cannot be negative")
 
@@ -539,9 +538,9 @@ class WorkLog:
 @dataclass
 class TimeTrackingInfo:
     """Represents time tracking information for an issue."""
-    original_estimate: Optional[str] = None  # e.g., "1w 2d 3h"
-    remaining_estimate: Optional[str] = None
-    time_spent: Optional[str] = None
+    original_estimate: str | None = None  # e.g., "1w 2d 3h"
+    remaining_estimate: str | None = None
+    time_spent: str | None = None
     original_estimate_seconds: int = 0
     remaining_estimate_seconds: int = 0
     time_spent_seconds: int = 0
@@ -577,20 +576,20 @@ class WorkLogRequest:
     issue_key: str
     time_spent: str  # e.g., "2h 30m", "1d", "45m"
     comment: str = ""
-    started: Optional[str] = None  # ISO datetime string, defaults to now
+    started: str | None = None  # ISO datetime string, defaults to now
     adjust_estimate: str = "auto"  # "new", "leave", "manual", "auto"
-    new_estimate: Optional[str] = None  # Required if adjust_estimate is "new" or "manual"
-    reduce_by: Optional[str] = None  # Required if adjust_estimate is "manual"
+    new_estimate: str | None = None  # Required if adjust_estimate is "new" or "manual"
+    reduce_by: str | None = None  # Required if adjust_estimate is "manual"
 
     def __post_init__(self):
         """Validate the work log request."""
         valid_adjust_options = ["new", "leave", "manual", "auto"]
         if self.adjust_estimate not in valid_adjust_options:
             raise ValueError(f"Adjust estimate must be one of: {', '.join(valid_adjust_options)}")
-        
+
         if self.adjust_estimate == "new" and not self.new_estimate:
             raise ValueError("New estimate is required when adjust_estimate is 'new'")
-        
+
         if self.adjust_estimate == "manual" and not self.reduce_by:
             raise ValueError("Reduce by is required when adjust_estimate is 'manual'")
 
@@ -608,8 +607,8 @@ class WorkLogRequest:
 class TimeEstimateUpdate:
     """Represents a request to update time estimates on an issue."""
     issue_key: str
-    original_estimate: Optional[str] = None
-    remaining_estimate: Optional[str] = None
+    original_estimate: str | None = None
+    remaining_estimate: str | None = None
 
     def __post_init__(self):
         """Validate the time estimate update."""
@@ -630,12 +629,12 @@ class TimeEstimateUpdate:
 class WorkLogResult:
     """Represents the result of a work log operation."""
     issue_key: str
-    work_log_id: Optional[str] = None
+    work_log_id: str | None = None
     logged: bool = False
     time_spent: str = ""
     time_spent_seconds: int = 0
-    new_remaining_estimate: Optional[str] = None
-    error: Optional[str] = None
+    new_remaining_estimate: str | None = None
+    error: str | None = None
 
     def is_successful(self) -> bool:
         """Check if the work log was successful."""
@@ -652,9 +651,9 @@ class TimeEstimateResult:
     """Represents the result of a time estimate update operation."""
     issue_key: str
     updated: bool = False
-    original_estimate: Optional[str] = None
-    remaining_estimate: Optional[str] = None
-    error: Optional[str] = None
+    original_estimate: str | None = None
+    remaining_estimate: str | None = None
+    error: str | None = None
 
     def is_successful(self) -> bool:
         """Check if the estimate update was successful."""

@@ -2,14 +2,19 @@
 Tests for IssueLinkService domain service.
 """
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock
-from domain.services import IssueLinkService
-from domain.models import IssueLink, LinkType, LinkDirection, IssueLinkResult
+
 from domain.exceptions import (
-    InvalidLinkTypeError, CircularLinkError, IssueLinkError, 
-    LinkNotFoundError, EpicLinkError
+    CircularLinkError,
+    EpicLinkError,
+    InvalidLinkTypeError,
+    IssueLinkError,
+    LinkNotFoundError,
 )
+from domain.models import IssueLink, IssueLinkResult, LinkDirection, LinkType
+from domain.services import IssueLinkService
 
 
 class TestIssueLinkService:
@@ -20,7 +25,7 @@ class TestIssueLinkService:
         self.mock_link_port = Mock()
         self.mock_config = Mock()
         self.mock_logger = Mock()
-        
+
         self.service = IssueLinkService(
             link_port=self.mock_link_port,
             config_provider=self.mock_config,
@@ -37,7 +42,7 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         expected_result = IssueLinkResult(
             success=True,
             link_id="12345",
@@ -45,13 +50,13 @@ class TestIssueLinkService:
             target_issue="PROJ-456",
             link_type="Blocks"
         )
-        
+
         self.mock_link_port.create_link = AsyncMock(return_value=expected_result)
         self.mock_link_port.validate_link = AsyncMock(return_value=True)
-        
+
         # Act
         result = await self.service.create_link(link)
-        
+
         # Assert
         assert result.success is True
         assert result.source_issue == "PROJ-123"
@@ -69,7 +74,7 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         # Act & Assert
         with pytest.raises(CircularLinkError):
             await self.service.create_link(link)
@@ -84,13 +89,13 @@ class TestIssueLinkService:
             link_type=LinkType.RELATES,
             direction=LinkDirection.OUTWARD
         )
-        
+
         self.mock_link_port.validate_link = AsyncMock(return_value=True)
         self.mock_link_port.create_link = AsyncMock(return_value=IssueLinkResult(success=True))
-        
+
         # Act
         result = await self.service.create_link(valid_link)
-        
+
         # Assert
         assert result.success is True
         self.mock_link_port.validate_link.assert_called_once()
@@ -105,9 +110,9 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         self.mock_link_port.validate_link = AsyncMock(side_effect=InvalidLinkTypeError("Invalid link type"))
-        
+
         # Act & Assert
         with pytest.raises(InvalidLinkTypeError):
             await self.service.create_link(link)
@@ -118,7 +123,7 @@ class TestIssueLinkService:
         # Arrange
         epic_key = "EPIC-1"
         story_key = "STORY-1"
-        
+
         expected_result = IssueLinkResult(
             success=True,
             link_id="12345",
@@ -126,13 +131,13 @@ class TestIssueLinkService:
             target_issue=story_key,
             link_type="Epic-Story"
         )
-        
+
         self.mock_link_port.create_epic_story_link = AsyncMock(return_value=expected_result)
         self.mock_link_port.validate_epic_story_link = AsyncMock(return_value=True)
-        
+
         # Act
         result = await self.service.create_epic_story_link(epic_key, story_key)
-        
+
         # Assert
         assert result.success is True
         assert result.source_issue == epic_key
@@ -147,11 +152,11 @@ class TestIssueLinkService:
         # Arrange
         epic_key = "STORY-1"  # Wrong issue type
         story_key = "STORY-2"
-        
+
         self.mock_link_port.validate_epic_story_link = AsyncMock(
             side_effect=EpicLinkError("Source issue must be an Epic")
         )
-        
+
         # Act & Assert
         with pytest.raises(EpicLinkError):
             await self.service.create_epic_story_link(epic_key, story_key)
@@ -175,12 +180,12 @@ class TestIssueLinkService:
                 direction=LinkDirection.INWARD
             )
         ]
-        
+
         self.mock_link_port.get_links = AsyncMock(return_value=expected_links)
-        
+
         # Act
         links = await self.service.get_issue_links(issue_key)
-        
+
         # Assert
         assert len(links) == 2
         assert links[0].source_issue == "PROJ-123"
@@ -193,7 +198,7 @@ class TestIssueLinkService:
         # Arrange
         issue_key = "NONEXISTENT-123"
         self.mock_link_port.get_links = AsyncMock(side_effect=LinkNotFoundError("Issue not found"))
-        
+
         # Act & Assert
         with pytest.raises(LinkNotFoundError):
             await self.service.get_issue_links(issue_key)
@@ -204,10 +209,10 @@ class TestIssueLinkService:
         # Arrange
         link_id = "12345"
         self.mock_link_port.remove_link = AsyncMock(return_value=True)
-        
+
         # Act
         result = await self.service.remove_link(link_id)
-        
+
         # Assert
         assert result is True
         self.mock_link_port.remove_link.assert_called_once_with(link_id)
@@ -218,10 +223,10 @@ class TestIssueLinkService:
         # Arrange
         link_id = "nonexistent"
         self.mock_link_port.remove_link = AsyncMock(return_value=False)
-        
+
         # Act
         result = await self.service.remove_link(link_id)
-        
+
         # Assert
         assert result is False
 
@@ -231,10 +236,10 @@ class TestIssueLinkService:
         # Arrange
         expected_types = ["Blocks", "Relates", "Epic-Story", "Parent-Child"]
         self.mock_link_port.get_available_link_types = AsyncMock(return_value=expected_types)
-        
+
         # Act
         link_types = await self.service.get_available_link_types()
-        
+
         # Assert
         assert link_types == expected_types
         self.mock_link_port.get_available_link_types.assert_called_once()
@@ -249,15 +254,15 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         # Mock that the reverse link doesn't exist
         self.mock_link_port.get_links = AsyncMock(return_value=[])
         self.mock_link_port.validate_link = AsyncMock(return_value=True)
         self.mock_link_port.create_link = AsyncMock(return_value=IssueLinkResult(success=True))
-        
+
         # Act
         result = await self.service.create_link(outward_link)
-        
+
         # Assert
         assert result.success is True
 
@@ -271,11 +276,11 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         # Mock that the link already exists
         existing_links = [link]
         self.mock_link_port.get_links = AsyncMock(return_value=existing_links)
-        
+
         # Act & Assert
         with pytest.raises(IssueLinkError, match="Link already exists"):
             await self.service.create_link(link)
@@ -286,7 +291,7 @@ class TestIssueLinkService:
         # Arrange
         parent_key = "PARENT-1"
         child_key = "CHILD-1"
-        
+
         expected_result = IssueLinkResult(
             success=True,
             link_id="12345",
@@ -294,13 +299,13 @@ class TestIssueLinkService:
             target_issue=child_key,
             link_type="Parent-Child"
         )
-        
+
         self.mock_link_port.create_parent_child_link = AsyncMock(return_value=expected_result)
         self.mock_link_port.validate_parent_child_link = AsyncMock(return_value=True)
-        
+
         # Act
         result = await self.service.create_parent_child_link(parent_key, child_key)
-        
+
         # Assert
         assert result.success is True
         assert result.source_issue == parent_key
@@ -318,15 +323,15 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         # Mock existing links that would create a cycle
         existing_links = [
             IssueLink("PROJ-A", "PROJ-B", LinkType.BLOCKS, LinkDirection.OUTWARD),
             IssueLink("PROJ-B", "PROJ-C", LinkType.BLOCKS, LinkDirection.OUTWARD)
         ]
-        
+
         self.mock_link_port.get_links = AsyncMock(return_value=existing_links)
-        
+
         # Act & Assert
         with pytest.raises(CircularLinkError):
             await self.service.create_link(link)
@@ -341,11 +346,11 @@ class TestIssueLinkService:
             link_type=LinkType.EPIC_STORY,
             direction=LinkDirection.OUTWARD
         )
-        
+
         self.mock_link_port.validate_link = AsyncMock(
             side_effect=InvalidLinkTypeError("Epic can only link to Story issues")
         )
-        
+
         # Act & Assert
         with pytest.raises(InvalidLinkTypeError):
             await self.service.create_link(link)
@@ -359,12 +364,12 @@ class TestIssueLinkService:
             IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
             IssueLink("PROJ-789", "PROJ-123", LinkType.RELATES, LinkDirection.INWARD)
         ]
-        
+
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
-        
+
         # Act
         outward_links = await self.service.get_outward_links(issue_key)
-        
+
         # Assert
         assert len(outward_links) == 1
         assert outward_links[0].direction == LinkDirection.OUTWARD
@@ -379,12 +384,12 @@ class TestIssueLinkService:
             IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
             IssueLink("PROJ-789", "PROJ-123", LinkType.RELATES, LinkDirection.INWARD)
         ]
-        
+
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
-        
+
         # Act
         inward_links = await self.service.get_inward_links(issue_key)
-        
+
         # Assert
         assert len(inward_links) == 1
         assert inward_links[0].direction == LinkDirection.INWARD
@@ -399,12 +404,12 @@ class TestIssueLinkService:
             IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
             IssueLink("PROJ-123", "PROJ-789", LinkType.RELATES, LinkDirection.OUTWARD)
         ]
-        
+
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
-        
+
         # Act
         blocks_links = await self.service.get_links_by_type(issue_key, LinkType.BLOCKS)
-        
+
         # Assert
         assert len(blocks_links) == 1
         assert blocks_links[0].link_type == LinkType.BLOCKS
@@ -419,15 +424,15 @@ class TestIssueLinkService:
             link_type=LinkType.BLOCKS,
             direction=LinkDirection.OUTWARD
         )
-        
+
         self.mock_link_port.validate_link = AsyncMock(return_value=True)
         self.mock_link_port.create_link = AsyncMock(
             side_effect=Exception("Unexpected error")
         )
-        
+
         # Act & Assert
         with pytest.raises(IssueLinkError):
             await self.service.create_link(link)
-        
+
         # Verify logging
         self.mock_logger.error.assert_called()

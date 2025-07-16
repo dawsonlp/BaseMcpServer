@@ -3,52 +3,93 @@ HTTP adapter for the Jira Helper MCP server.
 
 This module implements a streamable HTTP adapter that provides MCP tools
 via HTTP endpoints, enabling Docker deployment and multi-server integration
-while maintaining DRY principles by sharing tool definitions with the direct MCP adapter.
+while maintaining DRY principles by using the bulk registration system.
 """
 
-import logging
 import json
-from typing import Any, Dict, Optional
+import logging
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
+from typing import Any
 
+import uvicorn
+from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.routing import Route
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
-import uvicorn
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
-from .mcp_tools import create_mcp_tools, get_tool_schemas
-from .mcp_adapter import JiraHelperContext, jira_lifespan
-from mcp.server.fastmcp import FastMCP
+from adapters.mcp_adapter import JiraHelperContext, jira_lifespan
+from adapters.mcp_bulk_registration import bulk_register_jira_tools
+from adapters.mcp_tool_config import JIRA_TOOLS
 
 logger = logging.getLogger(__name__)
 
 
+def create_mcp_tools(context: JiraHelperContext) -> dict[str, Any]:
+    """
+    Create MCP tools dictionary from bulk registration system.
+
+    Args:
+        context: JiraHelperContext containing all initialized services
+
+    Returns:
+        Dictionary mapping tool names to their functions
+    """
+    tool_tuples = bulk_register_jira_tools(context)
+    tools = {}
+
+    for func, name, description in tool_tuples:
+        tools[name] = func
+
+    return tools
+
+
+def get_tool_schemas() -> dict[str, dict[str, Any]]:
+    """
+    Get tool schemas from the configuration.
+
+    Returns:
+        Dictionary mapping tool names to their schemas
+    """
+    schemas = {}
+
+    for tool_name, config in JIRA_TOOLS.items():
+        schemas[tool_name] = {
+            "description": config["description"],
+            "inputSchema": config.get("input_schema", {
+                "type": "object",
+                "properties": {},
+                "title": f"{tool_name}Arguments"
+            })
+        }
+
+    return schemas
+
+
 class JiraHelperHTTPServer:
     """HTTP server for Jira Helper MCP tools using streamable HTTP transport."""
-    
+
     def __init__(self):
-        self.context: Optional[JiraHelperContext] = None
-        self.tools: Optional[Dict[str, Any]] = None
-        
+        self.context: JiraHelperContext | None = None
+        self.tools: dict[str, Any] | None = None
+
     @asynccontextmanager
     async def initialize(self):
         """Initialize the Jira Helper context and tools."""
         # Create a dummy FastMCP server for lifespan management
         dummy_server = FastMCP("Jira Helper HTTP", lifespan=jira_lifespan)
-        
+
         # Initialize the context using the lifespan manager
         async with jira_lifespan(dummy_server) as context:
             self.context = context
             self.tools = create_mcp_tools(context)
             logger.info("Jira Helper HTTP server initialized successfully")
-            
+
             # Keep the context alive for the duration of the server
             yield
-            
+
     async def health_check(self, request: Request) -> JSONResponse:
         """Health check endpoint."""
         return JSONResponse({
@@ -57,43 +98,43 @@ class JiraHelperHTTPServer:
             "version": "1.0.0",
             "transport": "http"
         })
-        
+
     async def list_tools(self, request: Request) -> JSONResponse:
         """List available MCP tools."""
         if not self.tools:
             return JSONResponse({"error": "Server not initialized"}, status_code=500)
-            
+
         tool_schemas = get_tool_schemas()
         tools_list = []
-        
+
         for tool_name, schema in tool_schemas.items():
             tools_list.append({
                 "name": tool_name,
                 "description": schema["description"],
                 "inputSchema": schema["inputSchema"]
             })
-            
+
         return JSONResponse({
             "tools": tools_list,
             "count": len(tools_list)
         })
-        
+
     async def call_tool(self, request: Request) -> JSONResponse:
         """Call a specific MCP tool."""
         if not self.tools:
             return JSONResponse({"error": "Server not initialized"}, status_code=500)
-            
+
         try:
             # Get tool name from path
             tool_name = request.path_params.get("tool_name")
             if not tool_name:
                 return JSONResponse({"error": "Tool name required"}, status_code=400)
-                
+
             # Get tool function
             tool_func = self.tools.get(tool_name)
             if not tool_func:
                 return JSONResponse({"error": f"Tool '{tool_name}' not found"}, status_code=404)
-                
+
             # Parse request body for tool arguments
             body = await request.body()
             if body:
@@ -103,16 +144,16 @@ class JiraHelperHTTPServer:
                     return JSONResponse({"error": "Invalid JSON in request body"}, status_code=400)
             else:
                 arguments = {}
-                
+
             # Call the tool function
             result = await tool_func(**arguments)
-            
+
             return JSONResponse({
                 "tool": tool_name,
                 "result": result,
                 "success": True
             })
-            
+
         except TypeError as e:
             # Handle invalid arguments
             return JSONResponse({
@@ -125,57 +166,57 @@ class JiraHelperHTTPServer:
                 "error": f"Tool execution failed: {str(e)}",
                 "success": False
             }, status_code=500)
-            
+
     async def get_tool_schema(self, request: Request) -> JSONResponse:
         """Get schema for a specific tool."""
         tool_name = request.path_params.get("tool_name")
         if not tool_name:
             return JSONResponse({"error": "Tool name required"}, status_code=400)
-            
+
         tool_schemas = get_tool_schemas()
         schema = tool_schemas.get(tool_name)
-        
+
         if not schema:
             return JSONResponse({"error": f"Tool '{tool_name}' not found"}, status_code=404)
-            
+
         return JSONResponse({
             "tool": tool_name,
             "schema": schema
         })
-        
+
     async def mcp_endpoint(self, request: Request) -> JSONResponse:
         """MCP protocol endpoint for Cline integration."""
         if not self.tools:
             return JSONResponse({"error": "Server not initialized"}, status_code=500)
-            
+
         try:
             # Parse the MCP request
             body = await request.body()
             if not body:
                 return JSONResponse({"error": "Request body required"}, status_code=400)
-                
+
             try:
                 mcp_request = json.loads(body)
             except json.JSONDecodeError:
                 return JSONResponse({"error": "Invalid JSON in request body"}, status_code=400)
-                
+
             # Handle different MCP methods
             method = mcp_request.get("method")
             params = mcp_request.get("params", {})
             request_id = mcp_request.get("id")
-            
+
             if method == "tools/list":
                 # List available tools
                 tool_schemas = get_tool_schemas()
                 tools_list = []
-                
+
                 for tool_name, schema in tool_schemas.items():
                     tools_list.append({
                         "name": tool_name,
                         "description": schema["description"],
                         "inputSchema": schema["inputSchema"]
                     })
-                    
+
                 return JSONResponse({
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -183,12 +224,12 @@ class JiraHelperHTTPServer:
                         "tools": tools_list
                     }
                 })
-                
+
             elif method == "tools/call":
                 # Call a specific tool
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
-                
+
                 if not tool_name:
                     return JSONResponse({
                         "jsonrpc": "2.0",
@@ -198,7 +239,7 @@ class JiraHelperHTTPServer:
                             "message": "Tool name required"
                         }
                     }, status_code=400)
-                    
+
                 tool_func = self.tools.get(tool_name)
                 if not tool_func:
                     return JSONResponse({
@@ -209,7 +250,7 @@ class JiraHelperHTTPServer:
                             "message": f"Tool '{tool_name}' not found"
                         }
                     }, status_code=404)
-                    
+
                 # Call the tool function
                 try:
                     result = await tool_func(**arguments)
@@ -234,7 +275,7 @@ class JiraHelperHTTPServer:
                             "message": f"Tool execution failed: {str(e)}"
                         }
                     }, status_code=500)
-                    
+
             else:
                 return JSONResponse({
                     "jsonrpc": "2.0",
@@ -244,7 +285,7 @@ class JiraHelperHTTPServer:
                         "message": f"Method '{method}' not found"
                     }
                 }, status_code=404)
-                
+
         except Exception as e:
             logger.error(f"Error in MCP endpoint: {str(e)}")
             return JSONResponse({
@@ -310,5 +351,5 @@ if __name__ == "__main__":
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     run_server()

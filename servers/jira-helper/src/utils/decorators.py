@@ -4,8 +4,6 @@ Decorators to eliminate common service patterns.
 
 import functools
 import inspect
-from typing import Optional, Callable, Any
-import logging
 
 
 def log_operation(operation_name: str = None):
@@ -14,7 +12,7 @@ def log_operation(operation_name: str = None):
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
             op_name = operation_name or func.__name__
-            
+
             try:
                 result = await func(self, *args, **kwargs)
                 self._logger.debug(f"{op_name} completed successfully")
@@ -22,7 +20,7 @@ def log_operation(operation_name: str = None):
             except Exception as e:
                 self._logger.error(f"{op_name} failed: {str(e)}")
                 raise
-        
+
         return wrapper
     return decorator
 
@@ -35,12 +33,12 @@ def validate_issue_key(func):
         sig = inspect.signature(func)
         bound_args = sig.bind(self, *args, **kwargs)
         bound_args.apply_defaults()
-        
+
         # Find and validate issue_key
         if 'issue_key' in bound_args.arguments:
             issue_key = bound_args.arguments['issue_key']
             self._validate_issue_key(issue_key)
-        
+
         return await func(self, *args, **kwargs)
     return wrapper
 
@@ -53,12 +51,12 @@ def validate_project_key(func):
         sig = inspect.signature(func)
         bound_args = sig.bind(self, *args, **kwargs)
         bound_args.apply_defaults()
-        
+
         # Find and validate project_key
         if 'project_key' in bound_args.arguments:
             project_key = bound_args.arguments['project_key']
             self._validate_project_key(project_key)
-        
+
         return await func(self, *args, **kwargs)
     return wrapper
 
@@ -71,12 +69,12 @@ def resolve_instance(func):
         sig = inspect.signature(func)
         bound_args = sig.bind(self, *args, **kwargs)
         bound_args.apply_defaults()
-        
+
         # Find and resolve instance_name
         if 'instance_name' in bound_args.arguments:
             instance_name = bound_args.arguments['instance_name']
             resolved_instance = self._resolve_instance_name(instance_name)
-            
+
             # Update kwargs with resolved instance
             if 'instance_name' in kwargs:
                 kwargs['instance_name'] = resolved_instance
@@ -91,7 +89,7 @@ def resolve_instance(func):
                         args = tuple(args)
                     else:
                         kwargs['instance_name'] = resolved_instance
-        
+
         return await func(self, *args, **kwargs)
     return wrapper
 
@@ -104,7 +102,7 @@ def validate_and_resolve(func):
         sig = inspect.signature(func)
         bound_args = sig.bind(self, *args, **kwargs)
         bound_args.apply_defaults()
-        
+
         if 'instance_name' in bound_args.arguments:
             instance_name = bound_args.arguments['instance_name']
             resolved_instance = self._resolve_instance_name(instance_name)
@@ -120,7 +118,7 @@ def validate_and_resolve(func):
                         args = tuple(args)
                     else:
                         kwargs['instance_name'] = resolved_instance
-        
+
         # Apply logging
         op_name = func.__name__
         try:
@@ -130,5 +128,5 @@ def validate_and_resolve(func):
         except Exception as e:
             self._logger.error(f"{op_name} failed: {str(e)}")
             raise
-    
+
     return wrapper

@@ -2,31 +2,35 @@
 Base adapter class to eliminate infrastructure boilerplate.
 """
 
-from typing import Optional, Callable, Any, Dict
 import logging
 from abc import ABC
+from collections.abc import Callable
+from typing import Any
 
-from domain.ports import JiraClientFactory, ConfigurationProvider
 from domain.exceptions import (
-    JiraConnectionError, JiraAuthenticationError, JiraIssueNotFound,
-    JiraTimeoutError, JiraPermissionError
+    JiraAuthenticationError,
+    JiraConnectionError,
+    JiraIssueNotFound,
+    JiraPermissionError,
+    JiraTimeoutError,
 )
+from domain.ports import ConfigurationProvider, JiraClientFactory
 
 
 class BaseJiraAdapter(ABC):
     """Base class for all Jira infrastructure adapters."""
-    
+
     def __init__(self, client_factory: JiraClientFactory, config_provider: ConfigurationProvider):
         self._client_factory = client_factory
         self._config_provider = config_provider
         self._logger = logging.getLogger(self.__class__.__name__)
-    
+
     async def _execute_jira_operation(
-        self, 
-        operation_name: str, 
+        self,
+        operation_name: str,
         operation: Callable,
-        instance_name: Optional[str] = None,
-        error_mappings: Dict[str, Exception] = None
+        instance_name: str | None = None,
+        error_mappings: dict[str, Exception] = None
     ) -> Any:
         """Execute Jira operation with common error handling."""
         try:
@@ -34,16 +38,16 @@ class BaseJiraAdapter(ABC):
             result = await operation(client)
             self._logger.debug(f"{operation_name} completed successfully")
             return result
-            
+
         except Exception as e:
             error_msg = str(e).lower()
-            
+
             # Apply custom error mappings
             if error_mappings:
                 for pattern, exception_class in error_mappings.items():
                     if pattern in error_msg:
                         raise exception_class
-            
+
             # Common error patterns
             if "does not exist" in error_msg or "not found" in error_msg:
                 raise JiraIssueNotFound("unknown", instance_name or "default")
@@ -55,15 +59,15 @@ class BaseJiraAdapter(ABC):
                 raise JiraAuthenticationError(instance_name or "default")
             elif "connection" in error_msg:
                 raise JiraConnectionError(instance_name or "default")
-            
+
             self._logger.error(f"{operation_name} failed: {str(e)}")
             raise
-    
+
     def _convert_to_domain(self, jira_object: Any, converter_func: Callable) -> Any:
         """Generic conversion from Jira objects to domain objects."""
         return converter_func(jira_object, self._config_provider)
-    
-    def _build_error_mappings(self, custom_mappings: Dict[str, Exception] = None) -> Dict[str, Exception]:
+
+    def _build_error_mappings(self, custom_mappings: dict[str, Exception] = None) -> dict[str, Exception]:
         """Build error mappings with defaults and custom overrides."""
         default_mappings = {
             "issue does not exist": JiraIssueNotFound("unknown", "default"),
@@ -74,22 +78,22 @@ class BaseJiraAdapter(ABC):
             "connection refused": JiraConnectionError("default"),
             "unauthorized": JiraAuthenticationError("default")
         }
-        
+
         if custom_mappings:
             default_mappings.update(custom_mappings)
-        
+
         return default_mappings
-    
+
     async def _execute_with_retry(
         self,
         operation_name: str,
         operation: Callable,
         max_retries: int = 3,
-        instance_name: Optional[str] = None
+        instance_name: str | None = None
     ) -> Any:
         """Execute operation with retry logic for transient failures."""
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
                 return await self._execute_jira_operation(operation_name, operation, instance_name)
@@ -101,9 +105,9 @@ class BaseJiraAdapter(ABC):
                 else:
                     self._logger.error(f"{operation_name} failed after {max_retries} attempts")
                     raise
-            except Exception as e:
+            except Exception:
                 # Don't retry for non-transient errors
                 raise
-        
+
         # This should never be reached, but just in case
         raise last_exception
