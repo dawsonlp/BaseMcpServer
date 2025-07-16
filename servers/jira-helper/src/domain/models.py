@@ -10,6 +10,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 
+from .base import validate_required_fields
+
 
 class IssueType(Enum):
     """Enumeration of Jira issue types."""
@@ -61,6 +63,7 @@ class TimeUnit(Enum):
     WEEKS = "w"
 
 
+@validate_required_fields('name', 'url', 'user', 'token')
 @dataclass
 class JiraInstance:
     """Represents a Jira instance configuration."""
@@ -71,18 +74,8 @@ class JiraInstance:
     description: str = ""
     is_default: bool = False
 
-    def __post_init__(self):
-        """Validate the instance configuration."""
-        if not self.name:
-            raise ValueError("Instance name cannot be empty")
-        if not self.url:
-            raise ValueError("Instance URL cannot be empty")
-        if not self.user:
-            raise ValueError("Instance user cannot be empty")
-        if not self.token:
-            raise ValueError("Instance token cannot be empty")
 
-
+@validate_required_fields('key', 'name', 'id')
 @dataclass
 class JiraProject:
     """Represents a Jira project."""
@@ -93,16 +86,8 @@ class JiraProject:
     lead_email: Optional[str] = None
     url: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the project data."""
-        if not self.key:
-            raise ValueError("Project key cannot be empty")
-        if not self.name:
-            raise ValueError("Project name cannot be empty")
-        if not self.id:
-            raise ValueError("Project ID cannot be empty")
 
-
+@validate_required_fields('id', 'author_name', 'body', 'created')
 @dataclass
 class JiraComment:
     """Represents a Jira issue comment."""
@@ -113,18 +98,8 @@ class JiraComment:
     created: str
     updated: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the comment data."""
-        if not self.id:
-            raise ValueError("Comment ID cannot be empty")
-        if not self.author_name:
-            raise ValueError("Comment author name cannot be empty")
-        if not self.body:
-            raise ValueError("Comment body cannot be empty")
-        if not self.created:
-            raise ValueError("Comment created date cannot be empty")
 
-
+@validate_required_fields('id', 'name', 'to_status')
 @dataclass
 class WorkflowTransition:
     """Represents a Jira workflow transition."""
@@ -133,16 +108,8 @@ class WorkflowTransition:
     to_status: str
     from_status: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the transition data."""
-        if not self.id:
-            raise ValueError("Transition ID cannot be empty")
-        if not self.name:
-            raise ValueError("Transition name cannot be empty")
-        if not self.to_status:
-            raise ValueError("Transition to_status cannot be empty")
 
-
+@validate_required_fields('key', 'id', 'summary', 'status', 'issue_type', 'priority')
 @dataclass
 class JiraIssue:
     """Represents a Jira issue with all its properties."""
@@ -162,21 +129,6 @@ class JiraIssue:
     custom_fields: Dict[str, Any] = field(default_factory=dict)
     comments: List[JiraComment] = field(default_factory=list)
     url: Optional[str] = None
-
-    def __post_init__(self):
-        """Validate the issue data."""
-        if not self.key:
-            raise ValueError("Issue key cannot be empty")
-        if not self.id:
-            raise ValueError("Issue ID cannot be empty")
-        if not self.summary:
-            raise ValueError("Issue summary cannot be empty")
-        if not self.status:
-            raise ValueError("Issue status cannot be empty")
-        if not self.issue_type:
-            raise ValueError("Issue type cannot be empty")
-        if not self.priority:
-            raise ValueError("Issue priority cannot be empty")
 
     def add_comment(self, comment: JiraComment) -> None:
         """Add a comment to the issue."""
@@ -201,6 +153,7 @@ class JiraIssue:
         return len(self.components) > 0
 
 
+@validate_required_fields('id', 'name', 'category', 'color')
 @dataclass
 class WorkflowNode:
     """Represents a node in a workflow graph."""
@@ -209,18 +162,8 @@ class WorkflowNode:
     category: str
     color: str
 
-    def __post_init__(self):
-        """Validate the node data."""
-        if not self.id:
-            raise ValueError("Node ID cannot be empty")
-        if not self.name:
-            raise ValueError("Node name cannot be empty")
-        if not self.category:
-            raise ValueError("Node category cannot be empty")
-        if not self.color:
-            raise ValueError("Node color cannot be empty")
 
-
+@validate_required_fields('from_node', 'to_node', 'label')
 @dataclass
 class WorkflowEdge:
     """Represents an edge in a workflow graph."""
@@ -228,16 +171,8 @@ class WorkflowEdge:
     to_node: str
     label: str
 
-    def __post_init__(self):
-        """Validate the edge data."""
-        if not self.from_node:
-            raise ValueError("Edge from_node cannot be empty")
-        if not self.to_node:
-            raise ValueError("Edge to_node cannot be empty")
-        if not self.label:
-            raise ValueError("Edge label cannot be empty")
 
-
+@validate_required_fields('project_key', 'issue_type')
 @dataclass
 class WorkflowGraph:
     """Represents a complete workflow graph."""
@@ -246,13 +181,6 @@ class WorkflowGraph:
     nodes: List[WorkflowNode] = field(default_factory=list)
     edges: List[WorkflowEdge] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self):
-        """Validate the graph data."""
-        if not self.project_key:
-            raise ValueError("Graph project_key cannot be empty")
-        if not self.issue_type:
-            raise ValueError("Graph issue_type cannot be empty")
 
     def add_node(self, node: WorkflowNode) -> None:
         """Add a node to the graph."""
@@ -287,6 +215,7 @@ class WorkflowGraph:
         return [e for e in self.edges if e.to_node == node_id]
 
 
+@validate_required_fields('field_id', 'name')
 @dataclass
 class CustomFieldMapping:
     """Represents a mapping between custom field ID and human-readable name."""
@@ -294,14 +223,8 @@ class CustomFieldMapping:
     name: str
     description: str = ""
 
-    def __post_init__(self):
-        """Validate the mapping data."""
-        if not self.field_id:
-            raise ValueError("Field ID cannot be empty")
-        if not self.name:
-            raise ValueError("Field name cannot be empty")
 
-
+@validate_required_fields('project_key', 'summary', 'description', 'issue_type')
 @dataclass
 class IssueCreateRequest:
     """Represents a request to create a new Jira issue."""
@@ -313,18 +236,8 @@ class IssueCreateRequest:
     assignee: Optional[str] = None
     labels: List[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        """Validate the create request."""
-        if not self.project_key:
-            raise ValueError("Project key cannot be empty")
-        if not self.summary:
-            raise ValueError("Summary cannot be empty")
-        if not self.description:
-            raise ValueError("Description cannot be empty")
-        if not self.issue_type:
-            raise ValueError("Issue type cannot be empty")
 
-
+@validate_required_fields('issue_key', 'transition_name')
 @dataclass
 class IssueTransitionRequest:
     """Represents a request to transition a Jira issue."""
@@ -332,40 +245,24 @@ class IssueTransitionRequest:
     transition_name: str
     comment: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the transition request."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
-        if not self.transition_name:
-            raise ValueError("Transition name cannot be empty")
 
-
+@validate_required_fields('issue_key')
 @dataclass
 class AssigneeChangeRequest:
     """Represents a request to change an issue's assignee."""
     issue_key: str
     assignee: Optional[str] = None  # None means unassign
 
-    def __post_init__(self):
-        """Validate the assignee change request."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
 
-
+@validate_required_fields('issue_key', 'comment')
 @dataclass
 class CommentAddRequest:
     """Represents a request to add a comment to an issue."""
     issue_key: str
     comment: str
 
-    def __post_init__(self):
-        """Validate the comment add request."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
-        if not self.comment:
-            raise ValueError("Comment cannot be empty")
 
-
+@validate_required_fields('link_type', 'source_issue', 'target_issue')
 @dataclass
 class IssueLink:
     """Represents a link between two Jira issues."""
@@ -377,12 +274,6 @@ class IssueLink:
 
     def __post_init__(self):
         """Validate the issue link."""
-        if not self.link_type:
-            raise ValueError("Link type cannot be empty")
-        if not self.source_issue:
-            raise ValueError("Source issue cannot be empty")
-        if not self.target_issue:
-            raise ValueError("Target issue cannot be empty")
         if self.source_issue == self.target_issue:
             raise ValueError("Cannot link an issue to itself")
         if self.direction not in [LinkDirection.INWARD.value, LinkDirection.OUTWARD.value]:
@@ -401,6 +292,7 @@ class IssueLink:
         return LinkDirection.INWARD.value if self.direction == LinkDirection.OUTWARD.value else LinkDirection.OUTWARD.value
 
 
+@validate_required_fields('issue_key')
 @dataclass
 class IssueUpdate:
     """Represents an update to an existing Jira issue."""
@@ -414,9 +306,6 @@ class IssueUpdate:
 
     def __post_init__(self):
         """Validate and prepare the issue update."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
-        
         # Build fields dictionary from individual properties
         if self.summary is not None:
             self.fields['summary'] = self.summary
@@ -445,6 +334,60 @@ class IssueUpdate:
         return list(self.fields.keys())
 
 
+@validate_required_fields('project_key')
+@dataclass
+class SearchFilters:
+    """Represents search filters for simple project-based searches."""
+    project_key: str
+    status: Optional[str] = None
+    issue_type: Optional[str] = None
+    max_results: int = 50
+    start_at: int = 0
+
+    def __post_init__(self):
+        """Validate the search filters."""
+        if not self.project_key or not self.project_key.strip():
+            raise ValueError("Project key cannot be empty")
+        if self.max_results <= 0:
+            raise ValueError("Max results must be greater than 0")
+        if self.max_results > 1000:
+            raise ValueError("Max results cannot exceed 1000")
+        if self.start_at < 0:
+            raise ValueError("Start at cannot be negative")
+
+    def has_status_filter(self) -> bool:
+        """Check if status filter is applied."""
+        return self.status is not None and self.status.strip() != ""
+
+    def has_issue_type_filter(self) -> bool:
+        """Check if issue type filter is applied."""
+        return self.issue_type is not None and self.issue_type.strip() != ""
+
+    def has_pagination(self) -> bool:
+        """Check if this filter uses pagination."""
+        return self.start_at > 0
+
+    def get_next_page_filters(self) -> 'SearchFilters':
+        """Get filters for the next page of results."""
+        return SearchFilters(
+            project_key=self.project_key,
+            status=self.status,
+            issue_type=self.issue_type,
+            max_results=self.max_results,
+            start_at=self.start_at + self.max_results
+        )
+
+    def get_active_filters(self) -> Dict[str, str]:
+        """Get a dictionary of active (non-None) filters."""
+        filters = {"project": self.project_key}
+        if self.has_status_filter():
+            filters["status"] = self.status
+        if self.has_issue_type_filter():
+            filters["issuetype"] = self.issue_type
+        return filters
+
+
+@validate_required_fields('jql')
 @dataclass
 class SearchQuery:
     """Represents a JQL search query."""
@@ -455,8 +398,6 @@ class SearchQuery:
 
     def __post_init__(self):
         """Validate the search query."""
-        if not self.jql:
-            raise ValueError("JQL query cannot be empty")
         if self.max_results <= 0:
             raise ValueError("Max results must be greater than 0")
         if self.max_results > 1000:
@@ -478,6 +419,7 @@ class SearchQuery:
         )
 
 
+@validate_required_fields('jql')
 @dataclass
 class SearchResult:
     """Represents the result of a JQL search."""
@@ -489,8 +431,6 @@ class SearchResult:
 
     def __post_init__(self):
         """Validate the search result."""
-        if not self.jql:
-            raise ValueError("JQL query cannot be empty")
         if self.total_results < 0:
             raise ValueError("Total results cannot be negative")
         if self.start_at < 0:
@@ -507,6 +447,7 @@ class SearchResult:
         return self.start_at + len(self.issues)
 
 
+@validate_required_fields('issue_key')
 @dataclass
 class IssueUpdateResult:
     """Represents the result of an issue update operation."""
@@ -515,16 +456,12 @@ class IssueUpdateResult:
     updated_fields: List[str] = field(default_factory=list)
     error: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the update result."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
-
     def is_successful(self) -> bool:
         """Check if the update was successful."""
         return self.updated and self.error is None
 
 
+@validate_required_fields('source_issue', 'target_issue', 'link_type')
 @dataclass
 class IssueLinkResult:
     """Represents the result of an issue link operation."""
@@ -535,20 +472,12 @@ class IssueLinkResult:
     link_id: Optional[str] = None
     error: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the link result."""
-        if not self.source_issue:
-            raise ValueError("Source issue cannot be empty")
-        if not self.target_issue:
-            raise ValueError("Target issue cannot be empty")
-        if not self.link_type:
-            raise ValueError("Link type cannot be empty")
-
     def is_successful(self) -> bool:
         """Check if the link creation was successful."""
         return self.created and self.error is None
 
 
+@validate_required_fields('project_key', 'summary', 'description', 'issue_type')
 @dataclass
 class IssueCreateWithLinksRequest:
     """Represents a request to create a new issue with links."""
@@ -560,17 +489,6 @@ class IssueCreateWithLinksRequest:
     assignee: Optional[str] = None
     labels: List[str] = field(default_factory=list)
     links: List[IssueLink] = field(default_factory=list)
-
-    def __post_init__(self):
-        """Validate the create request with links."""
-        if not self.project_key:
-            raise ValueError("Project key cannot be empty")
-        if not self.summary:
-            raise ValueError("Summary cannot be empty")
-        if not self.description:
-            raise ValueError("Description cannot be empty")
-        if not self.issue_type:
-            raise ValueError("Issue type cannot be empty")
 
     def has_links(self) -> bool:
         """Check if this request includes links."""
@@ -652,6 +570,7 @@ class TimeTrackingInfo:
         return self.remaining_estimate_seconds / 3600.0 if self.remaining_estimate_seconds > 0 else 0.0
 
 
+@validate_required_fields('issue_key', 'time_spent')
 @dataclass
 class WorkLogRequest:
     """Represents a request to log work on an issue."""
@@ -665,12 +584,6 @@ class WorkLogRequest:
 
     def __post_init__(self):
         """Validate the work log request."""
-        if not self.issue_key or not self.issue_key.strip():
-            raise ValueError("Issue key cannot be empty")
-        
-        if not self.time_spent or not self.time_spent.strip():
-            raise ValueError("Time spent cannot be empty")
-        
         valid_adjust_options = ["new", "leave", "manual", "auto"]
         if self.adjust_estimate not in valid_adjust_options:
             raise ValueError(f"Adjust estimate must be one of: {', '.join(valid_adjust_options)}")
@@ -690,6 +603,7 @@ class WorkLogRequest:
         return self.adjust_estimate == "manual"
 
 
+@validate_required_fields('issue_key')
 @dataclass
 class TimeEstimateUpdate:
     """Represents a request to update time estimates on an issue."""
@@ -699,9 +613,6 @@ class TimeEstimateUpdate:
 
     def __post_init__(self):
         """Validate the time estimate update."""
-        if not self.issue_key or not self.issue_key.strip():
-            raise ValueError("Issue key cannot be empty")
-        
         if not self.original_estimate and not self.remaining_estimate:
             raise ValueError("At least one estimate must be provided")
 
@@ -714,6 +625,7 @@ class TimeEstimateUpdate:
         return self.remaining_estimate is not None
 
 
+@validate_required_fields('issue_key')
 @dataclass
 class WorkLogResult:
     """Represents the result of a work log operation."""
@@ -725,11 +637,6 @@ class WorkLogResult:
     new_remaining_estimate: Optional[str] = None
     error: Optional[str] = None
 
-    def __post_init__(self):
-        """Validate the work log result."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
-
     def is_successful(self) -> bool:
         """Check if the work log was successful."""
         return self.logged and self.error is None
@@ -739,6 +646,7 @@ class WorkLogResult:
         return self.time_spent_seconds / 3600.0 if self.time_spent_seconds > 0 else 0.0
 
 
+@validate_required_fields('issue_key')
 @dataclass
 class TimeEstimateResult:
     """Represents the result of a time estimate update operation."""
@@ -747,11 +655,6 @@ class TimeEstimateResult:
     original_estimate: Optional[str] = None
     remaining_estimate: Optional[str] = None
     error: Optional[str] = None
-
-    def __post_init__(self):
-        """Validate the time estimate result."""
-        if not self.issue_key:
-            raise ValueError("Issue key cannot be empty")
 
     def is_successful(self) -> bool:
         """Check if the estimate update was successful."""

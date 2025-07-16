@@ -13,8 +13,9 @@ from .models import (
     CommentAddRequest, StatusCategory, IssueLink, IssueUpdate, SearchQuery,
     SearchResult, IssueUpdateResult, IssueLinkResult, IssueCreateWithLinksRequest,
     LinkType, LinkDirection, WorkLog, WorkLogRequest, WorkLogResult,
-    TimeTrackingInfo, TimeEstimateUpdate, TimeEstimateResult
+    TimeTrackingInfo, TimeEstimateUpdate, TimeEstimateResult, SearchFilters
 )
+from .jql_builder import JQLBuilderFactory, validate_jql_safety
 from .ports import (
     JiraRepository, ConfigurationProvider, GraphGenerator, WorkflowAnalyzer,
     Logger, EventPublisher, IssueUpdatePort, IssueLinkPort, IssueSearchPort,
@@ -31,9 +32,11 @@ from .exceptions import (
     TimeTrackingError, InvalidTimeFormatError, WorkLogError, TimeEstimateError,
     NegativeTimeError, WorkLogNotFoundError, TimeTrackingNotEnabledError
 )
+from .base_service import BaseJiraService
+from utils.decorators import validate_issue_key, validate_project_key, log_operation
 
 
-class IssueService:
+class IssueService(BaseJiraService):
     """Domain service for issue-related operations."""
 
     def __init__(
@@ -43,36 +46,21 @@ class IssueService:
         logger: Logger,
         event_publisher: Optional[EventPublisher] = None
     ):
-        self._repository = repository
-        self._config_provider = config_provider
-        self._logger = logger
-        self._event_publisher = event_publisher
+        super().__init__(config_provider, logger, repository=repository, event_publisher=event_publisher)
 
+    @validate_issue_key
+    @log_operation("get_issue")
     async def get_issue(self, issue_key: str, instance_name: Optional[str] = None) -> JiraIssue:
         """Get a single issue by key."""
-        self._validate_issue_key(issue_key)
         instance_name = self._resolve_instance_name(instance_name)
-        
-        try:
-            issue = await self._repository.get_issue(issue_key, instance_name)
-            self._logger.debug(f"Retrieved issue {issue_key} from instance {instance_name}")
-            return issue
-        except Exception as e:
-            self._logger.error(f"Failed to get issue {issue_key}: {str(e)}")
-            raise JiraIssueNotFound(issue_key, instance_name)
+        return await self._repository.get_issue(issue_key, instance_name)
 
+    @validate_issue_key
+    @log_operation("get_issue_with_comments")
     async def get_issue_with_comments(self, issue_key: str, instance_name: Optional[str] = None) -> JiraIssue:
         """Get a single issue with all its comments."""
-        self._validate_issue_key(issue_key)
         instance_name = self._resolve_instance_name(instance_name)
-        
-        try:
-            issue = await self._repository.get_issue_with_comments(issue_key, instance_name)
-            self._logger.debug(f"Retrieved issue {issue_key} with {len(issue.comments)} comments from instance {instance_name}")
-            return issue
-        except Exception as e:
-            self._logger.error(f"Failed to get issue with comments {issue_key}: {str(e)}")
-            raise JiraIssueNotFound(issue_key, instance_name)
+        return await self._repository.get_issue_with_comments(issue_key, instance_name)
 
     async def create_issue(self, request: IssueCreateRequest, instance_name: Optional[str] = None) -> JiraIssue:
         """Create a new issue."""
@@ -1087,6 +1075,57 @@ class SearchService:
             self._logger.error(f"Failed to execute JQL search: {str(e)}")
             raise InvalidJQLError(query.jql, str(e))
 
+    async def search_with_filters(self, filters: SearchFilters, instance_name: Optional[str] = None) -> SearchResult:
+        """
+        Execute a search using simple filters by converting them to JQL.
+        
+        This method provides a clean interface for simple project-based searches
+        while internally using the robust JQL search infrastructure.
+        """
+        self._validate_search_filters(filters)
+        instance_name = self._resolve_instance_name(instance_name)
+        
+        try:
+            # Convert filters to JQL using the builder
+            jql_builder = JQLBuilderFactory.from_search_filters(filters)
+            jql = jql_builder.build()
+            
+            # Additional security validation on generated JQL
+            security_errors = validate_jql_safety(jql)
+            if security_errors:
+                raise JQLSecurityError(jql, "; ".join(security_errors))
+            
+            # Create SearchQuery from filters and generated JQL
+            search_query = SearchQuery(
+                jql=jql,
+                max_results=filters.max_results,
+                start_at=filters.start_at,
+                fields=None  # Use default fields for filter-based searches
+            )
+            
+            # Delegate to the main search method
+            result = await self.search_issues(search_query, instance_name)
+            
+            self._logger.info(
+                f"Filter search for project {filters.project_key} returned {len(result.issues)} issues "
+                f"(JQL: {jql})"
+            )
+            
+            return result
+            
+        except Exception as e:
+            self._logger.error(
+                f"Failed to execute filter search for project {filters.project_key}: {str(e)}"
+            )
+            # Re-raise with context about the filter conversion
+            if isinstance(e, (InvalidJQLError, JQLSecurityError)):
+                raise
+            else:
+                raise InvalidJQLError(
+                    f"Generated from filters: {filters.get_active_filters()}", 
+                    str(e)
+                )
+
     async def validate_jql_syntax(self, jql: str, instance_name: Optional[str] = None) -> List[str]:
         """Validate JQL syntax without executing the query."""
         instance_name = self._resolve_instance_name(instance_name)
@@ -1125,6 +1164,20 @@ class SearchService:
         
         # Validate limits
         limit_errors = self._jql_validator.validate_limits(query.max_results, query.start_at)
+        errors.extend(limit_errors)
+        
+        if errors:
+            raise JiraValidationError(errors)
+
+    def _validate_search_filters(self, filters: SearchFilters) -> None:
+        """Validate search filters parameters."""
+        errors = []
+        
+        if not filters.project_key or not filters.project_key.strip():
+            errors.append("Project key cannot be empty")
+        
+        # Validate limits (reuse existing validator logic)
+        limit_errors = self._jql_validator.validate_limits(filters.max_results, filters.start_at)
         errors.extend(limit_errors)
         
         if errors:

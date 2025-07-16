@@ -5,6 +5,10 @@ PyYAML>=6.0
 uvicorn>=0.35.0
 typer>=0.16.0
 
+# HTTP server dependencies for streamable transport
+starlette>=0.41.0
+uvicorn[standard]>=0.35.0
+
 # Jira integration dependencies
 jira>=3.8.0
 

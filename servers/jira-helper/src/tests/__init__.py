@@ -1,7 +1,9 @@
 """
-Tests for the Jira Helper.
+Test package for jira-helper hexagonal architecture.
 
-This module contains test suites for all layers of the hexagonal architecture,
-including unit tests for domain logic, integration tests for infrastructure,
-and end-to-end tests for use cases.
+This package contains comprehensive tests for all layers of the hexagonal architecture:
+- Domain layer tests (pure business logic)
+- Application layer tests (use cases and services)
+- Infrastructure layer tests (external integrations)
+- Integration tests (end-to-end workflows)
 """
