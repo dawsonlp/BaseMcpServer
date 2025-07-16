@@ -215,7 +215,7 @@ class AddCommentUseCase(BaseCommandUseCase):
 
         def add_comment_operation():
             request = CommentAddRequest(issue_key=issue_key, comment=comment)
-            return self._issue_service.add_comment(request, instance_name)
+            return self._comment_service.add_comment(request, instance_name)
 
         def success_mapper(comment_obj):
             return {
@@ -507,7 +507,7 @@ class UpdateIssueUseCase(BaseCommandUseCase):
                 assignee=assignee,
                 labels=labels
             )
-            return self._issue_service.update_issue(update_request, instance_name)
+            return self._issue_update_service.update_issue(update_request, instance_name)
 
         def success_mapper(updated_issue):
             return {

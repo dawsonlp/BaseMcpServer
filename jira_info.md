@@ -91,6 +91,13 @@ Successfully tested with personal Jira instance:
 - 🚧 Configure log levels per component
 - 🚧 Environment-specific logging settings
 
+**Bug Fix Completed (January 16, 2025):**
+- ✅ Fixed dependency injection issues in AddCommentUseCase and other use cases
+- ✅ Corrected service name mismatches between tool configuration and use case initialization
+- ✅ Updated mcp_adapter.py to use proper dependency names (comment_service, search_service, etc.)
+- ✅ Fixed UpdateIssueUseCase to use issue_update_service instead of issue_service
+- ✅ Deployed fixes via mcp-manager install command
+
 **Next Steps:**
 - Phase 2: File Logging Implementation
 - Phase 3: Log Rotation System  

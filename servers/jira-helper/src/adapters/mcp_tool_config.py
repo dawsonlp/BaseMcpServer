@@ -103,7 +103,7 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
     'update_jira_issue': {
         'use_case_class': UpdateIssueUseCase,
         'description': 'Update an existing Jira issue with new field values.',
-        'dependencies': ['issue_service']
+        'dependencies': ['issue_update_service']
     },
 
     'search_jira_issues': {
