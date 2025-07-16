@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  jira-helper-http:
+    build:
+      context: .
+      dockerfile: Dockerfile.http
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      # Mount config file if it exists
+      - ./config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - jira-helper-network
+
+networks:
+  jira-helper-network:
+    driver: bridge

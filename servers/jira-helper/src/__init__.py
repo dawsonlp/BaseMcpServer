@@ -1,3 +1,1 @@
-"""
-Basic MCP Server Example
-"""
+# This file makes src a proper Python package
