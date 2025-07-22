@@ -542,10 +542,18 @@ class SearchIssuesUseCase(BaseQueryUseCase):
         instance_name: str | None = None
     ):
         """Execute the search issues use case."""
+        import logging
+        import time
+        
+        logger = logging.getLogger(__name__)
+        start_time = time.time()
+        logger.info(f"🎯 SearchIssuesUseCase.execute() ENTRY - JQL: {jql[:100]}... | Instance: {instance_name} | Max Results: {max_results}")
+        
         self._validate_required_params(jql=jql)
 
         def result_mapper(search_result):
-            return {
+            mapping_start = time.time()
+            result = {
                 "jql": jql,
                 "total": search_result.total_results,
                 "start_at": search_result.start_at,
@@ -566,23 +574,35 @@ class SearchIssuesUseCase(BaseQueryUseCase):
                 ],
                 "instance": instance_name
             }
+            mapping_elapsed = time.time() - mapping_start
+            logger.info(f"📋 Result mapping took {mapping_elapsed:.3f}s for {len(search_result.issues)} issues")
+            return result
 
         # Create SearchQuery from parameters
         from domain.models import SearchQuery
+        query_start = time.time()
         search_query = SearchQuery(
             jql=jql,
             max_results=max_results,
             start_at=start_at,
             fields=fields
         )
+        query_elapsed = time.time() - query_start
+        logger.info(f"🔧 SearchQuery creation took {query_elapsed:.3f}s")
 
-        return await self.execute_query(
+        logger.info(f"🔄 Calling search_service.search_issues()...")
+        result = await self.execute_query(
             lambda: self._search_service.search_issues(search_query, instance_name),
             result_mapper,
             jql=jql,
             max_results=max_results,
             instance_name=instance_name
         )
+        
+        total_elapsed = time.time() - start_time
+        logger.info(f"🎯 SearchIssuesUseCase.execute() COMPLETE - Total time: {total_elapsed:.3f}s")
+        
+        return result
 
 
 class ValidateJqlUseCase(BaseQueryUseCase):

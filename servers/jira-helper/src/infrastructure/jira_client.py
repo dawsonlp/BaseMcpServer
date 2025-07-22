@@ -1389,9 +1389,19 @@ class JiraSearchAdapter(IssueSearchPort):
     async def search_issues(self, query: SearchQuery, instance_name: str | None = None) -> SearchResult:
         """Execute a JQL search query."""
         start_time = time.time()
+        logger.info(f"🔍 JiraSearchAdapter.search_issues() ENTRY - JQL: {query.jql[:100]}... | Instance: {instance_name} | Max Results: {query.max_results}")
+        
         try:
+            # Step 1: Get client
+            client_start = time.time()
             client = self._client_factory.create_client(instance_name)
+            client_elapsed = time.time() - client_start
+            logger.info(f"📡 Client creation took {client_elapsed:.3f}s for instance: {instance_name}")
 
+            # Step 2: Execute search with detailed timing
+            search_start = time.time()
+            logger.info(f"🚀 Starting async search with timeout=30.0s...")
+            
             # Execute the search with async wrapper to avoid blocking event loop
             issues = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -1404,14 +1414,24 @@ class JiraSearchAdapter(IssueSearchPort):
                 timeout=30.0
             )
             
-            elapsed = time.time() - start_time
-            logger.info(f"JQL search completed in {elapsed:.2f}s for query: {query.jql[:50]}...")
+            search_elapsed = time.time() - search_start
+            logger.info(f"✅ Jira API search completed in {search_elapsed:.3f}s | Found {len(issues)} issues | Total available: {issues.total}")
+            
+            # Step 3: Convert to domain models
+            convert_start = time.time()
+            logger.info(f"🔄 Converting {len(issues)} issues to domain models...")
 
             # Convert issues to domain models
             domain_issues = []
             for issue in issues:
                 domain_issue = self._convert_issue_to_domain(issue, instance_name)
                 domain_issues.append(domain_issue)
+
+            convert_elapsed = time.time() - convert_start
+            total_elapsed = time.time() - start_time
+            
+            logger.info(f"🔄 Domain conversion took {convert_elapsed:.3f}s")
+            logger.info(f"🏁 JiraSearchAdapter.search_issues() COMPLETE - Total time: {total_elapsed:.3f}s | Client: {client_elapsed:.3f}s | Search: {search_elapsed:.3f}s | Convert: {convert_elapsed:.3f}s")
 
             return SearchResult(
                 jql=query.jql,
