@@ -5,7 +5,9 @@ This module implements the JiraRepository port using the Jira Python library,
 handling all interactions with the Jira REST API.
 """
 
+import asyncio
 import logging
+import time
 from typing import Any
 
 from jira import JIRA
@@ -134,9 +136,18 @@ class JiraApiRepository(JiraRepository):
 
     async def get_projects(self, instance_name: str | None = None) -> list[JiraProject]:
         """Get all projects from a Jira instance."""
+        start_time = time.time()
         try:
             client = self._client_factory.create_client(instance_name)
-            projects = client.projects()
+            
+            # Wrap synchronous call in thread pool to avoid blocking event loop
+            projects = await asyncio.wait_for(
+                asyncio.to_thread(client.projects),
+                timeout=30.0
+            )
+            
+            elapsed = time.time() - start_time
+            logger.info(f"get_projects completed in {elapsed:.2f}s for instance {instance_name}")
 
             result = []
             for project in projects:
@@ -170,9 +181,18 @@ class JiraApiRepository(JiraRepository):
 
     async def get_issue(self, issue_key: str, instance_name: str | None = None) -> JiraIssue:
         """Get a specific issue by key."""
+        start_time = time.time()
         try:
             client = self._client_factory.create_client(instance_name)
-            issue = client.issue(issue_key)
+            
+            # Wrap synchronous call in thread pool to avoid blocking event loop
+            issue = await asyncio.wait_for(
+                asyncio.to_thread(client.issue, issue_key),
+                timeout=30.0
+            )
+            
+            elapsed = time.time() - start_time
+            logger.info(f"get_issue completed in {elapsed:.2f}s for {issue_key}")
 
             return self._convert_issue_to_domain(issue, instance_name)
 
@@ -1368,16 +1388,24 @@ class JiraSearchAdapter(IssueSearchPort):
 
     async def search_issues(self, query: SearchQuery, instance_name: str | None = None) -> SearchResult:
         """Execute a JQL search query."""
+        start_time = time.time()
         try:
             client = self._client_factory.create_client(instance_name)
 
-            # Execute the search
-            issues = client.search_issues(
-                query.jql,
-                startAt=query.start_at,
-                maxResults=query.max_results,
-                fields=query.fields
+            # Execute the search with async wrapper to avoid blocking event loop
+            issues = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.search_issues,
+                    query.jql,
+                    startAt=query.start_at,
+                    maxResults=query.max_results,
+                    fields=query.fields
+                ),
+                timeout=30.0
             )
+            
+            elapsed = time.time() - start_time
+            logger.info(f"JQL search completed in {elapsed:.2f}s for query: {query.jql[:50]}...")
 
             # Convert issues to domain models
             domain_issues = []
