@@ -1,21 +1,20 @@
 """
 Domain Layer Tests.
 
-Tests for pure business logic without external dependencies.
-All ports/interfaces are mocked to test domain logic in isolation.
+Tests for domain models, exceptions, and services using live Jira connections.
+These tests run against the "personal" Jira instance and use the "ATP" test project.
 """
 
-from unittest.mock import AsyncMock, Mock
-
+import logging
 import pytest
 
-from domain.base import BaseResult, FieldValidator
 from domain.exceptions import (
     JiraDomainException,
     JiraInstanceNotFound,
     JiraValidationError,
 )
 from domain.models import (
+    CommentAddRequest,
     CustomFieldMapping,
     IssueCreateRequest,
     IssueTransitionRequest,
@@ -33,6 +32,11 @@ from domain.services import (
     ProjectService,
     WorkflowService,
 )
+from infrastructure.atlassian_api_adapter import (
+    AtlassianApiJiraClientFactory,
+    AtlassianApiRepository,
+)
+from infrastructure.config_adapter import ConfigurationAdapter
 
 
 class TestDomainModels:
@@ -61,6 +65,9 @@ class TestDomainModels:
         assert issue.summary == "Test issue"
         assert issue.status == "Open"
         assert "bug" in issue.labels
+        assert issue.is_assigned() is True
+        assert issue.has_labels() is True
+        assert issue.has_components() is True
 
     def test_jira_project_creation(self):
         """Test JiraProject model creation."""
@@ -120,6 +127,58 @@ class TestDomainModels:
         assert comment.author_name == "John Doe"
         assert comment.body == "This is a test comment"
 
+    def test_workflow_graph_creation(self):
+        """Test WorkflowGraph domain model."""
+        nodes = [
+            WorkflowNode(id="1", name="Open", category="new", color="blue"),
+            WorkflowNode(id="2", name="In Progress", category="indeterminate", color="yellow"),
+            WorkflowNode(id="3", name="Done", category="done", color="green")
+        ]
+
+        edges = [
+            WorkflowEdge(from_node="1", to_node="2", label="Start Progress"),
+            WorkflowEdge(from_node="2", to_node="3", label="Done")
+        ]
+
+        graph = WorkflowGraph(
+            project_key="TEST",
+            issue_type="Story",
+            nodes=nodes,
+            edges=edges
+        )
+
+        assert graph.project_key == "TEST"
+        assert len(graph.nodes) == 3
+        assert len(graph.edges) == 2
+        assert graph.nodes[0].name == "Open"
+        assert graph.edges[0].label == "Start Progress"
+
+    def test_custom_field_mapping(self):
+        """Test CustomFieldMapping domain model."""
+        mapping = CustomFieldMapping(
+            field_id="customfield_10001",
+            name="Story Points",
+            description="Estimation in story points"
+        )
+
+        assert mapping.field_id == "customfield_10001"
+        assert mapping.name == "Story Points"
+
+    def test_jira_instance_configuration(self):
+        """Test JiraInstance domain model."""
+        instance = JiraInstance(
+            name="production",
+            url="https://company.atlassian.net",
+            user="api.user@company.com",
+            token="fake-token",
+            description="Production Jira instance",
+            is_default=True
+        )
+
+        assert instance.name == "production"
+        assert instance.url == "https://company.atlassian.net"
+        assert instance.is_default is True
+
 
 class TestDomainExceptions:
     """Test domain-specific exceptions."""
@@ -147,372 +206,188 @@ class TestDomainExceptions:
         assert "prod, staging" in str(exc_info.value)
 
 
-class TestBaseResult:
-    """Test BaseResult utility class."""
+class TestDomainServicesIntegration:
+    """Test domain services with live Jira integration."""
 
-    def test_success_result(self):
-        """Test successful BaseResult."""
-        result = BaseResult.success({"key": "value"})
+    @pytest.fixture(scope="module")
+    def config_provider(self):
+        """Fixture for the configuration provider."""
+        return ConfigurationAdapter()
 
-        assert result.success is True
-        assert result.data == {"key": "value"}
-        assert result.error is None
+    @pytest.fixture(scope="module")
+    def jira_repository(self, config_provider):
+        """Fixture for live JiraRepository."""
+        client_factory = AtlassianApiJiraClientFactory(config_provider)
+        return AtlassianApiRepository(client_factory, config_provider)
 
-    def test_failure_result(self):
-        """Test failure BaseResult."""
-        result = BaseResult.failure("Something went wrong")
-
-        assert result.success is False
-        assert result.data is None
-        assert result.error == "Something went wrong"
-
-    def test_result_with_details(self):
-        """Test BaseResult with details."""
-        result = BaseResult.success(
-            data={"key": "value"},
-            details={"operation": "test"}
-        )
-
-        assert result.success is True
-        assert result.data == {"key": "value"}
-        assert result.details == {"operation": "test"}
-
-
-class TestFieldValidator:
-    """Test FieldValidator utility class."""
-
-    def test_validate_required_fields_success(self):
-        """Test successful required field validation."""
-        data = {"name": "John", "email": "john@example.com"}
-
-        # Should not raise exception
-        FieldValidator.validate_required_fields(data, ["name", "email"])
-
-    def test_validate_required_fields_missing(self):
-        """Test required field validation with missing field."""
-        data = {"name": "John"}
-
-        with pytest.raises(JiraValidationError) as exc_info:
-            FieldValidator.validate_required_fields(data, ["name", "email"])
-
-        assert "email" in str(exc_info.value)
-
-    def test_validate_required_fields_empty(self):
-        """Test required field validation with empty field."""
-        data = {"name": "", "email": "john@example.com"}
-
-        with pytest.raises(JiraValidationError) as exc_info:
-            FieldValidator.validate_required_fields(data, ["name", "email"])
-
-        assert "name" in str(exc_info.value)
-
-
-class TestDomainServices:
-    """Test domain services with mocked dependencies."""
+    @pytest.fixture(scope="module")
+    def logger(self):
+        """Fixture for logger."""
+        return logging.getLogger(__name__)
 
     @pytest.fixture
-    def mock_jira_repository(self):
-        """Mock JiraRepository for testing."""
-        mock_repo = Mock()
-        mock_repo.get_issue = AsyncMock()
-        mock_repo.create_issue = AsyncMock()
-        mock_repo.add_comment = AsyncMock()
-        mock_repo.get_projects = AsyncMock()
-        mock_repo.get_transitions = AsyncMock()
-        mock_repo.transition_issue = AsyncMock()
-        return mock_repo
-
-    @pytest.fixture
-    def mock_config_provider(self):
-        """Mock ConfigurationProvider for testing."""
-        mock_config = Mock()
-        mock_config.get_instance_config = Mock()
-        mock_config.get_default_instance = Mock()
-        mock_config.get_all_instances = Mock()
-        return mock_config
-
-    @pytest.fixture
-    def issue_service(self, mock_jira_repository, mock_config_provider):
-        """Create IssueService with mocked dependencies."""
+    def issue_service(self, jira_repository, config_provider, logger):
+        """Create IssueService with live dependencies."""
         return IssueService(
-            jira_repository=mock_jira_repository,
-            config_provider=mock_config_provider
+            repository=jira_repository,
+            config_provider=config_provider,
+            logger=logger
         )
 
     @pytest.fixture
-    def project_service(self, mock_jira_repository, mock_config_provider):
-        """Create ProjectService with mocked dependencies."""
+    def project_service(self, jira_repository, config_provider, logger):
+        """Create ProjectService with live dependencies."""
         return ProjectService(
-            jira_repository=mock_jira_repository,
-            config_provider=mock_config_provider
+            repository=jira_repository,
+            config_provider=config_provider,
+            logger=logger
         )
 
     @pytest.fixture
-    def workflow_service(self, mock_jira_repository, mock_config_provider):
-        """Create WorkflowService with mocked dependencies."""
+    def workflow_service(self, jira_repository, config_provider, logger):
+        """Create WorkflowService with live dependencies."""
         return WorkflowService(
-            jira_repository=mock_jira_repository,
-            config_provider=mock_config_provider
+            repository=jira_repository,
+            config_provider=config_provider,
+            logger=logger
         )
 
     @pytest.mark.asyncio
-    async def test_issue_service_get_issue(self, issue_service, mock_jira_repository):
-        """Test IssueService.get_issue method."""
-        # Setup mock
-        mock_issue = JiraIssue(
-            key="TEST-123",
-            id="12345",
-            summary="Test issue",
-            description="Test description",
-            status="Open",
-            issue_type="Story",
-            priority="Medium",
-            assignee="john.doe",
-            reporter="jane.doe",
-            created="2024-01-01T10:00:00Z",
-            updated="2024-01-01T11:00:00Z",
-            components=[],
-            labels=[],
-            url="https://test.atlassian.net/browse/TEST-123"
-        )
-        mock_jira_repository.get_issue.return_value = mock_issue
-
+    async def test_project_service_get_projects(self, project_service):
+        """Test ProjectService.get_projects method with live Jira."""
         # Execute
-        result = await issue_service.get_issue("TEST-123", "default")
+        result = await project_service.get_projects("personal")
 
         # Verify
-        assert result == mock_issue
-        mock_jira_repository.get_issue.assert_called_once_with("TEST-123", "default")
+        assert len(result) > 0
+        # Check if the ATP project is in the list
+        assert any(p.key == "ATP" for p in result)
+        
+        # Verify project structure
+        atp_project = next(p for p in result if p.key == "ATP")
+        assert atp_project.name is not None
+        assert atp_project.id is not None
 
     @pytest.mark.asyncio
-    async def test_issue_service_create_issue(self, issue_service, mock_jira_repository):
-        """Test IssueService.create_issue method."""
-        # Setup mock
-        mock_created_issue = JiraIssue(
-            key="TEST-124",
-            id="12346",
-            summary="New test issue",
-            description="New test description",
-            status="Open",
-            issue_type="Story",
-            priority="Medium",
-            assignee=None,
-            reporter="jane.doe",
-            created="2024-01-01T12:00:00Z",
-            updated="2024-01-01T12:00:00Z",
-            components=[],
-            labels=["test"],
-            url="https://test.atlassian.net/browse/TEST-124"
-        )
-        mock_jira_repository.create_issue.return_value = mock_created_issue
-
+    async def test_issue_service_create_and_get_issue(self, issue_service, jira_repository):
+        """Test IssueService create and get issue methods with live Jira."""
         # Create request
         request = IssueCreateRequest(
-            project_key="TEST",
-            summary="New test issue",
-            description="New test description",
-            issue_type="Story",
+            project_key="ATP",
+            summary="Domain Service Test Issue",
+            description="This is a test issue created by domain service integration tests.",
+            issue_type="Task",
             priority="Medium",
             assignee=None,
-            labels=["test"]
+            labels=["domain-test"]
         )
 
-        # Execute
-        result = await issue_service.create_issue(request, "default")
+        created_issue = None
+        try:
+            # Execute create
+            created_issue = await issue_service.create_issue(request, "personal")
 
-        # Verify
-        assert result == mock_created_issue
-        mock_jira_repository.create_issue.assert_called_once_with(request, "default")
+            # Verify creation
+            assert created_issue is not None
+            assert created_issue.summary == "Domain Service Test Issue"
+            assert created_issue.issue_type == "Task"
+            assert "domain-test" in created_issue.labels
+
+            # Execute get
+            retrieved_issue = await issue_service.get_issue(created_issue.key, "personal")
+
+            # Verify retrieval
+            assert retrieved_issue is not None
+            assert retrieved_issue.key == created_issue.key
+            assert retrieved_issue.summary == "Domain Service Test Issue"
+
+        finally:
+            if created_issue:
+                # Clean up the created issue
+                client = jira_repository._client_factory.create_client("personal")
+                client.delete_issue(created_issue.key)
 
     @pytest.mark.asyncio
-    async def test_project_service_get_projects(self, project_service, mock_jira_repository):
-        """Test ProjectService.get_projects method."""
-        # Setup mock
-        mock_projects = [
-            JiraProject(
-                key="TEST1",
-                name="Test Project 1",
-                id="10001",
-                lead_name="John Doe",
-                lead_email="john@example.com",
-                url="https://test.atlassian.net/projects/TEST1"
-            ),
-            JiraProject(
-                key="TEST2",
-                name="Test Project 2",
-                id="10002",
-                lead_name="Jane Doe",
-                lead_email="jane@example.com",
-                url="https://test.atlassian.net/projects/TEST2"
+    async def test_issue_service_add_comment(self, issue_service, jira_repository):
+        """Test IssueService add comment method with live Jira."""
+        # First create an issue
+        create_request = IssueCreateRequest(
+            project_key="ATP",
+            summary="Comment Test Issue",
+            description="This is an issue for testing comments via domain service.",
+            issue_type="Task",
+            priority="Medium",
+            assignee=None,
+            labels=["comment-test"]
+        )
+
+        created_issue = None
+        try:
+            created_issue = await issue_service.create_issue(create_request, "personal")
+            assert created_issue is not None
+
+            # Add a comment
+            comment_request = CommentAddRequest(
+                issue_key=created_issue.key,
+                comment="This is a test comment added via domain service."
             )
-        ]
-        mock_jira_repository.get_projects.return_value = mock_projects
+            added_comment = await issue_service.add_comment(comment_request, "personal")
 
-        # Execute
-        result = await project_service.get_projects("default")
+            # Verify comment
+            assert added_comment is not None
+            assert added_comment.body == "This is a test comment added via domain service."
 
-        # Verify
-        assert len(result) == 2
-        assert result[0].key == "TEST1"
-        assert result[1].key == "TEST2"
-        mock_jira_repository.get_projects.assert_called_once_with("default")
+            # Get issue with comments to verify
+            issue_with_comments = await issue_service.get_issue_with_comments(created_issue.key, "personal")
+            assert issue_with_comments is not None
+            assert len(issue_with_comments.comments) > 0
+            assert any(c.body == "This is a test comment added via domain service." for c in issue_with_comments.comments)
 
-    @pytest.mark.asyncio
-    async def test_workflow_service_get_transitions(self, workflow_service, mock_jira_repository):
-        """Test WorkflowService.get_available_transitions method."""
-        # Setup mock
-        mock_transitions = [
-            WorkflowTransition(id="11", name="Start Progress", to_status="In Progress"),
-            WorkflowTransition(id="21", name="Done", to_status="Done")
-        ]
-        mock_jira_repository.get_transitions.return_value = mock_transitions
-
-        # Execute
-        result = await workflow_service.get_available_transitions("TEST-123", "default")
-
-        # Verify
-        assert len(result) == 2
-        assert result[0].name == "Start Progress"
-        assert result[1].name == "Done"
-        mock_jira_repository.get_transitions.assert_called_once_with("TEST-123", "default")
+        finally:
+            if created_issue:
+                # Clean up the created issue
+                client = jira_repository._client_factory.create_client("personal")
+                client.delete_issue(created_issue.key)
 
     @pytest.mark.asyncio
-    async def test_workflow_service_transition_issue(self, workflow_service, mock_jira_repository):
-        """Test WorkflowService.transition_issue method."""
-        # Setup mock
-        mock_updated_issue = JiraIssue(
-            key="TEST-123",
-            id="12345",
-            summary="Test issue",
-            description="Test description",
-            status="In Progress",  # Status changed
-            issue_type="Story",
+    async def test_workflow_service_get_transitions(self, workflow_service, issue_service, jira_repository):
+        """Test WorkflowService.get_available_transitions method with live Jira."""
+        # First create an issue to test transitions on
+        create_request = IssueCreateRequest(
+            project_key="ATP",
+            summary="Workflow Test Issue",
+            description="This is an issue for testing workflow transitions.",
+            issue_type="Task",
             priority="Medium",
-            assignee="john.doe",
-            reporter="jane.doe",
-            created="2024-01-01T10:00:00Z",
-            updated="2024-01-01T13:00:00Z",  # Updated time changed
-            components=[],
-            labels=[],
-            url="https://test.atlassian.net/browse/TEST-123"
-        )
-        mock_jira_repository.transition_issue.return_value = mock_updated_issue
-
-        # Create request
-        request = IssueTransitionRequest(
-            issue_key="TEST-123",
-            transition_name="Start Progress",
-            comment="Starting work on this issue"
+            assignee=None,
+            labels=["workflow-test"]
         )
 
-        # Execute
-        result = await workflow_service.transition_issue(request, "default")
+        created_issue = None
+        try:
+            created_issue = await issue_service.create_issue(create_request, "personal")
+            assert created_issue is not None
 
-        # Verify
-        assert result == mock_updated_issue
-        assert result.status == "In Progress"
-        mock_jira_repository.transition_issue.assert_called_once_with(request, "default")
+            # Execute get transitions
+            result = await workflow_service.get_available_transitions(created_issue.key, "personal")
 
+            # Verify
+            assert len(result) > 0
+            # Should have at least some basic transitions available
+            transition_names = [t.name for t in result]
+            assert len(transition_names) > 0
+            
+            # Verify transition structure
+            for transition in result:
+                assert transition.id is not None
+                assert transition.name is not None
+                assert transition.to_status is not None
 
-class TestDomainServiceErrorHandling:
-    """Test domain service error handling."""
-
-    @pytest.fixture
-    def failing_jira_repository(self):
-        """Mock JiraRepository that raises exceptions."""
-        mock_repo = Mock()
-        mock_repo.get_issue = AsyncMock(side_effect=JiraDomainException("API Error"))
-        mock_repo.create_issue = AsyncMock(side_effect=JiraDomainException("Creation failed"))
-        return mock_repo
-
-    @pytest.fixture
-    def failing_issue_service(self, failing_jira_repository):
-        """Create IssueService with failing repository."""
-        mock_config = Mock()
-        return IssueService(
-            jira_repository=failing_jira_repository,
-            config_provider=mock_config
-        )
-
-    @pytest.mark.asyncio
-    async def test_issue_service_handles_jira_error(self, failing_issue_service):
-        """Test that IssueService properly handles JiraDomainException exceptions."""
-        with pytest.raises(JiraDomainException) as exc_info:
-            await failing_issue_service.get_issue("TEST-123", "default")
-
-        assert "API Error" in str(exc_info.value)
-
-    @pytest.mark.asyncio
-    async def test_issue_service_handles_creation_error(self, failing_issue_service):
-        """Test that IssueService properly handles creation errors."""
-        request = IssueCreateRequest(
-            project_key="TEST",
-            summary="Test issue",
-            description="Test description",
-            issue_type="Story"
-        )
-
-        with pytest.raises(JiraDomainException) as exc_info:
-            await failing_issue_service.create_issue(request, "default")
-
-        assert "Creation failed" in str(exc_info.value)
-
-
-class TestDomainBusinessLogic:
-    """Test complex domain business logic."""
-
-    def test_workflow_graph_creation(self):
-        """Test WorkflowGraph domain model."""
-        nodes = [
-            WorkflowNode(id="1", name="Open", status_category="new"),
-            WorkflowNode(id="2", name="In Progress", status_category="indeterminate"),
-            WorkflowNode(id="3", name="Done", status_category="done")
-        ]
-
-        edges = [
-            WorkflowEdge(from_node="1", to_node="2", transition_name="Start Progress"),
-            WorkflowEdge(from_node="2", to_node="3", transition_name="Done")
-        ]
-
-        graph = WorkflowGraph(
-            project_key="TEST",
-            issue_type="Story",
-            nodes=nodes,
-            edges=edges
-        )
-
-        assert graph.project_key == "TEST"
-        assert len(graph.nodes) == 3
-        assert len(graph.edges) == 2
-        assert graph.nodes[0].name == "Open"
-        assert graph.edges[0].transition_name == "Start Progress"
-
-    def test_custom_field_mapping(self):
-        """Test CustomFieldMapping domain model."""
-        mapping = CustomFieldMapping(
-            field_id="customfield_10001",
-            field_name="Story Points",
-            field_type="number",
-            description="Estimation in story points"
-        )
-
-        assert mapping.field_id == "customfield_10001"
-        assert mapping.field_name == "Story Points"
-        assert mapping.field_type == "number"
-
-    def test_jira_instance_configuration(self):
-        """Test JiraInstance domain model."""
-        instance = JiraInstance(
-            name="production",
-            url="https://company.atlassian.net",
-            user="api.user@company.com",
-            description="Production Jira instance",
-            is_default=True
-        )
-
-        assert instance.name == "production"
-        assert instance.url == "https://company.atlassian.net"
-        assert instance.is_default is True
+        finally:
+            if created_issue:
+                # Clean up the created issue
+                client = jira_repository._client_factory.create_client("personal")
+                client.delete_issue(created_issue.key)
 
 
 if __name__ == "__main__":

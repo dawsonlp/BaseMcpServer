@@ -11,18 +11,26 @@ from typing import Any
 from application.use_cases import (
     AddCommentUseCase,
     ChangeAssigneeUseCase,
+    CreateEpicStoryLinkUseCase,
+    CreateIssueLinkUseCase,
     CreateIssueUseCase,
+    CreateIssueWithLinksUseCase,
     GenerateWorkflowGraphUseCase,
     GetCustomFieldMappingsUseCase,
     GetFullIssueDetailsUseCase,
     GetIssueDetailsUseCase,
+    GetIssueLinksUseCase,
     GetIssueTransitionsUseCase,
+    GetTimeTrackingInfoUseCase,
+    GetWorkLogsUseCase,
     ListInstancesUseCase,
     ListProjectsUseCase,
     ListProjectTicketsUseCase,
+    LogWorkUseCase,
     SearchIssuesUseCase,
     TransitionIssueUseCase,
     UpdateIssueUseCase,
+    UpdateTimeEstimatesUseCase,
     ValidateJqlUseCase,
 )
 
@@ -116,6 +124,54 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': ValidateJqlUseCase,
         'description': 'Validate JQL syntax without executing the query.',
         'dependencies': ['search_service']
+    },
+
+    'create_issue_link': {
+        'use_case_class': CreateIssueLinkUseCase,
+        'description': 'Create a link between two Jira issues.',
+        'dependencies': ['issue_link_service']
+    },
+
+    'create_epic_story_link': {
+        'use_case_class': CreateEpicStoryLinkUseCase,
+        'description': 'Create an Epic-Story link between issues.',
+        'dependencies': ['issue_link_service']
+    },
+
+    'get_issue_links': {
+        'use_case_class': GetIssueLinksUseCase,
+        'description': 'Get all links for a specific Jira issue.',
+        'dependencies': ['issue_link_service']
+    },
+
+    'log_work': {
+        'use_case_class': LogWorkUseCase,
+        'description': 'Log work time on a Jira issue.',
+        'dependencies': ['time_tracking_service']
+    },
+
+    'get_work_logs': {
+        'use_case_class': GetWorkLogsUseCase,
+        'description': 'Get work log entries for a Jira issue.',
+        'dependencies': ['time_tracking_service']
+    },
+
+    'get_time_tracking_info': {
+        'use_case_class': GetTimeTrackingInfoUseCase,
+        'description': 'Get time tracking information for a Jira issue.',
+        'dependencies': ['time_tracking_service']
+    },
+
+    'update_time_estimates': {
+        'use_case_class': UpdateTimeEstimatesUseCase,
+        'description': 'Update time estimates for a Jira issue.',
+        'dependencies': ['time_tracking_service']
+    },
+
+    'create_issue_with_links': {
+        'use_case_class': CreateIssueWithLinksUseCase,
+        'description': 'Create a new Jira issue with links to other issues.',
+        'dependencies': ['issue_service', 'issue_link_service']
     }
 }
 
@@ -146,7 +202,15 @@ def get_tool_config(tool_name: str) -> dict[str, Any]:
     if tool_name not in JIRA_TOOLS:
         raise KeyError(f"Tool '{tool_name}' not found in configuration")
 
-    return JIRA_TOOLS[tool_name].copy()
+    config = JIRA_TOOLS[tool_name].copy()
+    # Add instance_name to all tools except list_jira_instances
+    if tool_name != 'list_jira_instances':
+        config.setdefault('parameters', {})['instance_name'] = {
+            'type': 'string',
+            'description': 'The name of the Jira instance to use.',
+            'required': True
+        }
+    return config
 
 
 def validate_tool_config() -> dict[str, Any]:

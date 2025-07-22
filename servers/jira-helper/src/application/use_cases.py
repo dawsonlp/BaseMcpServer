@@ -19,7 +19,7 @@ from domain.models import (
 class ListProjectsUseCase(BaseQueryUseCase):
     """Simplified use case for listing projects."""
 
-    async def execute(self, instance_name: str | None = None):
+    async def execute(self, instance_name: str):
         """Execute the list projects use case."""
         def result_mapper(projects):
             return {
@@ -48,7 +48,7 @@ class ListProjectsUseCase(BaseQueryUseCase):
 class GetIssueDetailsUseCase(BaseQueryUseCase):
     """Simplified use case for getting issue details."""
 
-    async def execute(self, issue_key: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, instance_name: str):
         """Execute the get issue details use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -87,9 +87,9 @@ class GetFullIssueDetailsUseCase(BaseQueryUseCase):
     async def execute(
         self,
         issue_key: str,
-        raw_data: bool = False,
-        format: str = "formatted",
-        instance_name: str | None = None
+        raw_data: bool,
+        format: str,
+        instance_name: str
     ):
         """Execute the get full issue details use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -164,11 +164,11 @@ class CreateIssueUseCase(BaseCommandUseCase):
         project_key: str,
         summary: str,
         description: str,
-        issue_type: str = "Story",
-        priority: str | None = None,
-        assignee: str | None = None,
-        labels: list[str] | None = None,
-        instance_name: str | None = None
+        issue_type: str,
+        priority: str | None,
+        assignee: str | None,
+        labels: list[str] | None,
+        instance_name: str
     ):
         """Execute the create issue use case."""
         self._validate_required_params(
@@ -209,7 +209,7 @@ class CreateIssueUseCase(BaseCommandUseCase):
 class AddCommentUseCase(BaseCommandUseCase):
     """Simplified use case for adding a comment to an issue."""
 
-    async def execute(self, issue_key: str, comment: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, comment: str, instance_name: str):
         """Execute the add comment use case."""
         self._validate_required_params(issue_key=issue_key, comment=comment)
 
@@ -241,8 +241,8 @@ class TransitionIssueUseCase(BaseCommandUseCase):
         self,
         issue_key: str,
         transition_name: str,
-        comment: str | None = None,
-        instance_name: str | None = None
+        comment: str | None,
+        instance_name: str
     ):
         """Execute the transition issue use case."""
         self._validate_required_params(issue_key=issue_key, transition_name=transition_name)
@@ -278,7 +278,7 @@ class TransitionIssueUseCase(BaseCommandUseCase):
 class GetIssueTransitionsUseCase(BaseQueryUseCase):
     """Simplified use case for getting available transitions for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, instance_name: str):
         """Execute the get issue transitions use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -311,8 +311,8 @@ class ChangeAssigneeUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        assignee: str | None = None,
-        instance_name: str | None = None
+        assignee: str | None,
+        instance_name: str
     ):
         """Execute the change assignee use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -345,10 +345,10 @@ class ListProjectTicketsUseCase(BaseQueryUseCase):
     async def execute(
         self,
         project_key: str,
-        status: str | None = None,
-        issue_type: str | None = None,
-        max_results: int = 50,
-        instance_name: str | None = None
+        status: str | None,
+        issue_type: str | None,
+        max_results: int,
+        instance_name: str
     ):
         """Execute the list project tickets use case."""
         self._validate_required_params(project_key=project_key)
@@ -430,7 +430,7 @@ class ListInstancesUseCase(BaseQueryUseCase):
 class GetCustomFieldMappingsUseCase(BaseQueryUseCase):
     """Simplified use case for getting custom field mappings."""
 
-    async def execute(self, reverse: bool = False, instance_name: str | None = None):
+    async def execute(self, reverse: bool, instance_name: str):
         """Execute the get custom field mappings use case."""
         def result_mapper(mappings):
             return {
@@ -454,9 +454,9 @@ class GenerateWorkflowGraphUseCase(BaseQueryUseCase):
     async def execute(
         self,
         project_key: str,
-        issue_type: str = "Story",
-        format: str = "svg",
-        instance_name: str | None = None
+        issue_type: str,
+        format: str,
+        instance_name: str
     ):
         """Execute the generate workflow graph use case."""
         self._validate_required_params(project_key=project_key)
@@ -487,12 +487,12 @@ class UpdateIssueUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        summary: str | None = None,
-        description: str | None = None,
-        priority: str | None = None,
-        assignee: str | None = None,
-        labels: list[str] | None = None,
-        instance_name: str | None = None
+        summary: str | None,
+        description: str | None,
+        priority: str | None,
+        assignee: str | None,
+        labels: list[str] | None,
+        instance_name: str
     ):
         """Execute the update issue use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -536,16 +536,24 @@ class SearchIssuesUseCase(BaseQueryUseCase):
     async def execute(
         self,
         jql: str,
-        max_results: int = 50,
-        start_at: int = 0,
-        fields: list[str] | None = None,
-        instance_name: str | None = None
+        max_results: int,
+        start_at: int,
+        fields: list[str] | None,
+        instance_name: str
     ):
         """Execute the search issues use case."""
+        import logging
+        import time
+        
+        logger = logging.getLogger(__name__)
+        start_time = time.time()
+        logger.info(f"🎯 SearchIssuesUseCase.execute() ENTRY - JQL: {jql[:100]}... | Instance: {instance_name} | Max Results: {max_results}")
+        
         self._validate_required_params(jql=jql)
 
         def result_mapper(search_result):
-            return {
+            mapping_start = time.time()
+            result = {
                 "jql": jql,
                 "total": search_result.total_results,
                 "start_at": search_result.start_at,
@@ -566,38 +574,51 @@ class SearchIssuesUseCase(BaseQueryUseCase):
                 ],
                 "instance": instance_name
             }
+            mapping_elapsed = time.time() - mapping_start
+            logger.info(f"📋 Result mapping took {mapping_elapsed:.3f}s for {len(search_result.issues)} issues")
+            return result
 
         # Create SearchQuery from parameters
         from domain.models import SearchQuery
+        query_start = time.time()
         search_query = SearchQuery(
             jql=jql,
             max_results=max_results,
             start_at=start_at,
             fields=fields
         )
+        query_elapsed = time.time() - query_start
+        logger.info(f"🔧 SearchQuery creation took {query_elapsed:.3f}s")
 
-        return await self.execute_query(
+        logger.info(f"🔄 Calling search_service.search_issues()...")
+        result = await self.execute_query(
             lambda: self._search_service.search_issues(search_query, instance_name),
             result_mapper,
             jql=jql,
             max_results=max_results,
             instance_name=instance_name
         )
+        
+        total_elapsed = time.time() - start_time
+        logger.info(f"🎯 SearchIssuesUseCase.execute() COMPLETE - Total time: {total_elapsed:.3f}s")
+        
+        return result
 
 
 class ValidateJqlUseCase(BaseQueryUseCase):
     """Simplified use case for validating JQL syntax."""
 
-    async def execute(self, jql: str, instance_name: str | None = None):
+    async def execute(self, jql: str, instance_name: str):
         """Execute the validate JQL use case."""
         self._validate_required_params(jql=jql)
 
         def result_mapper(validation_result):
+            # validation_result is already a dict from SearchService.validate_jql()
             return {
                 "jql": jql,
-                "valid": validation_result.valid,
-                "errors": validation_result.errors if hasattr(validation_result, 'errors') else [],
-                "warnings": validation_result.warnings if hasattr(validation_result, 'warnings') else [],
+                "valid": validation_result.get("valid", False),
+                "errors": validation_result.get("errors", []),
+                "warnings": validation_result.get("warnings", []),
                 "instance": instance_name
             }
 
@@ -617,8 +638,8 @@ class CreateIssueLinkUseCase(BaseCommandUseCase):
         source_issue: str,
         target_issue: str,
         link_type: str,
-        direction: str = "outward",
-        instance_name: str | None = None
+        direction: str,
+        instance_name: str
     ):
         """Execute the create issue link use case."""
         self._validate_required_params(
@@ -664,7 +685,7 @@ class CreateEpicStoryLinkUseCase(BaseCommandUseCase):
         self,
         epic_key: str,
         story_key: str,
-        instance_name: str | None = None
+        instance_name: str
     ):
         """Execute the create Epic-Story link use case."""
         self._validate_required_params(epic_key=epic_key, story_key=story_key)
@@ -694,7 +715,7 @@ class CreateEpicStoryLinkUseCase(BaseCommandUseCase):
 class GetIssueLinksUseCase(BaseQueryUseCase):
     """Simplified use case for getting all links for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, instance_name: str):
         """Execute the get issue links use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -730,12 +751,12 @@ class LogWorkUseCase(BaseCommandUseCase):
         self,
         issue_key: str,
         time_spent: str,
-        comment: str = "",
-        started: str | None = None,
-        adjust_estimate: str = "auto",
-        new_estimate: str | None = None,
-        reduce_by: str | None = None,
-        instance_name: str | None = None
+        comment: str,
+        started: str | None,
+        adjust_estimate: str,
+        new_estimate: str | None,
+        reduce_by: str | None,
+        instance_name: str
     ):
         """Execute the log work use case."""
         self._validate_required_params(issue_key=issue_key, time_spent=time_spent)
@@ -777,7 +798,7 @@ class LogWorkUseCase(BaseCommandUseCase):
 class GetWorkLogsUseCase(BaseQueryUseCase):
     """Simplified use case for getting work logs for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, instance_name: str):
         """Execute the get work logs use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -816,7 +837,7 @@ class GetWorkLogsUseCase(BaseQueryUseCase):
 class GetTimeTrackingInfoUseCase(BaseQueryUseCase):
     """Simplified use case for getting time tracking information for an issue."""
 
-    async def execute(self, issue_key: str, instance_name: str | None = None):
+    async def execute(self, issue_key: str, instance_name: str):
         """Execute the get time tracking info use case."""
         self._validate_required_params(issue_key=issue_key)
 
@@ -849,9 +870,9 @@ class UpdateTimeEstimatesUseCase(BaseCommandUseCase):
     async def execute(
         self,
         issue_key: str,
-        original_estimate: str | None = None,
-        remaining_estimate: str | None = None,
-        instance_name: str | None = None
+        original_estimate: str | None,
+        remaining_estimate: str | None,
+        instance_name: str
     ):
         """Execute the update time estimates use case."""
         self._validate_required_params(issue_key=issue_key)
@@ -892,12 +913,12 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
         project_key: str,
         summary: str,
         description: str,
-        issue_type: str = "Story",
-        priority: str | None = None,
-        assignee: str | None = None,
-        labels: list[str] | None = None,
-        links: list[dict[str, str]] | None = None,
-        instance_name: str | None = None
+        issue_type: str,
+        priority: str | None,
+        assignee: str | None,
+        labels: list[str] | None,
+        links: list[dict[str, str]] | None,
+        instance_name: str
     ):
         """Execute the create issue with links use case."""
         self._validate_required_params(

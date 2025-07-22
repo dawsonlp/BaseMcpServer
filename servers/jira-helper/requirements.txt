@@ -10,7 +10,7 @@ starlette>=0.41.0
 uvicorn[standard]>=0.35.0
 
 # Jira integration dependencies
-jira>=3.8.0
+atlassian-python-api>=4.0.4
 
 # Graph visualization dependencies
 graphviz>=0.21
