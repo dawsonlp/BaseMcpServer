@@ -418,3 +418,95 @@ The tradeoffs heavily favor FastMCP for our use case. The minimal loss of direct
 
 - [FastMCP vs Low-Level Server Implementation](readme_fastmcp.md)
 - [MCP Python SDK Documentation](https://modelcontextprotocol.io)
+
+## 2025-01-22: Jira Helper Architectural Review and Refactoring Plan
+
+### Decision
+
+We've conducted a comprehensive architectural review of the jira-helper project and identified critical violations of DRY (Don't Repeat Yourself) and KISS (Keep It Simple, Stupid) principles, along with improper hexagonal architecture implementation. A phased refactoring plan has been developed to address these issues.
+
+### Context
+
+The jira-helper project, while showing good intentions with hexagonal architecture patterns, suffers from several architectural problems:
+
+1. **Service Layer Explosion**: 9 separate service classes with significant code duplication
+2. **DRY Violations**: 8 instances of identical `_resolve_instance_name()` method across services
+3. **KISS Violations**: Over-engineered service layer with excessive abstraction
+4. **Hexagonal Architecture Issues**: Domain services importing infrastructure concerns
+5. **Infrastructure Bloat**: Single 800+ line adapter file violating Single Responsibility Principle
+6. **Domain Model Complexity**: 25+ models with validation logic mixed with data structures
+
+### Reasoning
+
+The refactoring addresses critical maintainability issues:
+
+1. **Code Reduction**: Target 30-40% reduction in total lines of code
+2. **Service Consolidation**: Reduce from 9 services to 3 focused services (JiraService, SearchService, ConfigurationService)
+3. **Eliminate Duplication**: Remove all instances of duplicated methods and validation logic
+4. **Proper Layer Separation**: Move validation from domain to application layer
+5. **Infrastructure Organization**: Split monolithic adapter into focused, single-responsibility components
+
+### Implementation Plan
+
+**Phase 1 (Week 1) - Critical Fixes:**
+- Create BaseJiraService to eliminate method duplication
+- Consolidate 9 services into 3 core services
+- Move validation logic from domain models to application layer
+- Split infrastructure layer into focused components
+
+**Phase 2 (Week 2-3) - Hexagonal Architecture:**
+- Implement proper port/adapter separation
+- Clean application layer responsibilities
+- Remove infrastructure imports from domain layer
+
+**Phase 3 (Month 1-2) - Advanced Optimizations:**
+- Reduce model complexity from 25+ to 12-15 core models
+- Add caching layer for performance
+- Comprehensive testing improvements
+
+### Expected Benefits
+
+**Code Quality Improvements:**
+- **Lines of Code**: Reduce by 800-1000 lines (30-40% reduction)
+- **Service Classes**: From 9 to 3 services (67% reduction)
+- **Code Duplication**: Eliminate 90% of identified duplications
+- **File Organization**: Proper separation of concerns
+
+**Architecture Quality:**
+- **Dependency Direction**: Zero infrastructure imports in domain layer
+- **Single Responsibility**: Each service has one clear purpose
+- **Proper Hexagonal Architecture**: Clean dependency flow following the pattern
+
+**Maintainability:**
+- **Development Speed**: Faster feature development with less boilerplate
+- **Bug Fix Time**: Easier debugging with consolidated services
+- **Onboarding**: Simpler codebase for new developers
+
+### Implementation Guidelines
+
+**Code Quality Standards:**
+- Maximum file size: 400 lines per file
+- Maximum method size: 20 lines per method
+- Cyclomatic complexity: Maximum 10 per method
+- Test coverage: Maintain >90% coverage
+
+**Risk Mitigation:**
+- Comprehensive integration tests before changes
+- Gradual migration with interface compatibility
+- Feature flags for validation changes
+- Rollback plans for each phase
+
+### Tradeoffs
+
+- **Pros**: Significantly improved maintainability, proper architectural patterns, reduced technical debt, faster development cycles
+- **Cons**: Requires 3-4 weeks of refactoring effort, temporary disruption during migration, need for comprehensive testing
+
+The benefits of proper architecture and reduced technical debt far outweigh the short-term refactoring effort. The current architectural issues would compound over time, making future maintenance increasingly difficult.
+
+### References
+
+- [Architectural Refactoring Checklist](servers/jira-helper/ARCHITECTURAL_REFACTORING_CHECKLIST.md)
+- [Phase 1 Implementation Guide](servers/jira-helper/PHASE_1_IMPLEMENTATION_GUIDE.md)
+- [Refactoring Quick Reference](servers/jira-helper/REFACTORING_QUICK_REFERENCE.md)
+- [Hexagonal Architecture Principles](https://alistair.cockburn.us/hexagonal-architecture/)
+- [Clean Architecture Guidelines](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)

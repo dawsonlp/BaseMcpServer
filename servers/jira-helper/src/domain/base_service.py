@@ -1,15 +1,16 @@
 """
-Base service class to eliminate common service boilerplate.
+Base service class for all Jira domain services.
+Eliminates code duplication and provides common functionality.
 """
 
-from abc import ABC
+import logging
+from typing import Any
 
-from .base import FieldValidator
-from .exceptions import JiraInstanceNotFound
+from .exceptions import JiraInstanceNotFound, JiraValidationError
 from .ports import ConfigurationProvider, Logger
 
 
-class BaseJiraService(ABC):
+class BaseJiraService:
     """Base class for all Jira services with common functionality."""
 
     def __init__(
@@ -18,15 +19,20 @@ class BaseJiraService(ABC):
         logger: Logger,
         **kwargs
     ):
+        """Initialize base service with common dependencies."""
         self._config_provider = config_provider
         self._logger = logger
-
-        # Store additional dependencies
+        
+        # Store additional dependencies passed by subclasses
         for key, value in kwargs.items():
             setattr(self, f"_{key}", value)
 
     def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use - SINGLE IMPLEMENTATION."""
+        """
+        Resolve instance name to use.
+        
+        This method eliminates duplication across 8+ service classes.
+        """
         if instance_name:
             return instance_name
 
@@ -38,38 +44,48 @@ class BaseJiraService(ABC):
         return default_instance
 
     def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key - SINGLE IMPLEMENTATION."""
-        FieldValidator.validate_issue_key(issue_key)
+        """
+        Validate issue key format.
+        
+        This method eliminates duplication across multiple service classes.
+        """
+        if not issue_key or not issue_key.strip():
+            raise JiraValidationError(["Issue key cannot be empty"])
 
-    def _validate_project_key(self, project_key: str) -> None:
-        """Validate project key - SINGLE IMPLEMENTATION."""
-        FieldValidator.validate_project_key(project_key)
+        if "-" not in issue_key:
+            raise JiraValidationError([
+                "Issue key must contain project key and number (e.g., PROJ-123)"
+            ])
+
+    def _validate_non_empty_string(self, value: str, field_name: str) -> None:
+        """Validate that a string field is not empty."""
+        if not value or not value.strip():
+            raise JiraValidationError([f"{field_name} cannot be empty"])
+
+    def _validate_positive_integer(self, value: int, field_name: str) -> None:
+        """Validate that an integer field is positive."""
+        if value <= 0:
+            raise JiraValidationError([f"{field_name} must be greater than 0"])
 
     def _validate_max_results(self, max_results: int) -> None:
-        """Validate max results - SINGLE IMPLEMENTATION."""
-        FieldValidator.validate_max_results(max_results)
+        """Validate max results parameter."""
+        if max_results <= 0:
+            raise JiraValidationError(["Max results must be greater than 0"])
 
-    async def _execute_with_logging(
-        self,
-        operation_name: str,
-        operation,
-        success_message: str = None,
-        error_message: str = None
-    ):
-        """Execute operation with consistent logging and error handling."""
-        try:
-            result = await operation()
+        if max_results > 1000:
+            raise JiraValidationError(["Max results cannot exceed 1000"])
 
-            if success_message:
-                self._logger.info(success_message)
-            else:
-                self._logger.debug(f"{operation_name} completed successfully")
+    def _log_operation_start(self, operation: str, **context) -> None:
+        """Log the start of an operation with context."""
+        context_str = ", ".join(f"{k}={v}" for k, v in context.items())
+        self._logger.info(f"Starting {operation}: {context_str}")
 
-            return result
+    def _log_operation_success(self, operation: str, **context) -> None:
+        """Log successful completion of an operation."""
+        context_str = ", ".join(f"{k}={v}" for k, v in context.items())
+        self._logger.info(f"Completed {operation}: {context_str}")
 
-        except Exception as e:
-            if error_message:
-                self._logger.error(f"{error_message}: {str(e)}")
-            else:
-                self._logger.error(f"{operation_name} failed: {str(e)}")
-            raise
+    def _log_operation_error(self, operation: str, error: Exception, **context) -> None:
+        """Log operation failure with context."""
+        context_str = ", ".join(f"{k}={v}" for k, v in context.items())
+        self._logger.error(f"Failed {operation}: {context_str} - {str(error)}")
