@@ -141,14 +141,6 @@ class IssueService(BaseJiraService):
             raise
 
 
-    def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key format."""
-        if not issue_key or not issue_key.strip():
-            raise JiraValidationError(["Issue key cannot be empty"])
-
-        if "-" not in issue_key:
-            raise JiraValidationError(["Issue key must contain project key and number (e.g., PROJ-123)"])
-
     def _validate_create_request(self, request: IssueCreateRequest) -> None:
         """Validate issue creation request."""
         errors = []
@@ -178,33 +170,7 @@ class IssueService(BaseJiraService):
         if errors:
             raise JiraValidationError(errors)
 
-    def _validate_project_key(self, project_key: str) -> None:
-        """Validate project key."""
-        if not project_key or not project_key.strip():
-            raise JiraValidationError(["Project key cannot be empty"])
-
-    def _validate_max_results(self, max_results: int) -> None:
-        """Validate max results parameter."""
-        if max_results <= 0:
-            raise JiraValidationError(["Max results must be greater than 0"])
-
-        if max_results > 1000:
-            raise JiraValidationError(["Max results cannot exceed 1000"])
-
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
-
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class TimeTrackingService:
+class TimeTrackingService(BaseJiraService):
     """Domain service for time tracking operations."""
 
     def __init__(
@@ -216,12 +182,14 @@ class TimeTrackingService:
         logger: Logger,
         event_publisher: EventPublisher | None = None
     ):
-        self._time_tracking_port = time_tracking_port
-        self._repository = repository
-        self._config_provider = config_provider
-        self._time_format_validator = time_format_validator
-        self._logger = logger
-        self._event_publisher = event_publisher
+        super().__init__(
+            config_provider,
+            logger,
+            time_tracking_port=time_tracking_port,
+            repository=repository,
+            time_format_validator=time_format_validator,
+            event_publisher=event_publisher
+        )
 
     async def log_work(self, work_log_request: WorkLogRequest, instance_name: str | None = None) -> WorkLogResult:
         """Log work on an issue with validation."""
@@ -429,25 +397,7 @@ class TimeTrackingService:
         if validation_errors:
             raise InvalidTimeFormatError(time_string, "; ".join(validation_errors))
 
-    def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key format."""
-        if not issue_key or not issue_key.strip():
-            raise JiraValidationError(["Issue key cannot be empty"])
-
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
-
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class WorkflowService:
+class WorkflowService(BaseJiraService):
     """Domain service for workflow-related operations."""
 
     def __init__(
@@ -457,10 +407,12 @@ class WorkflowService:
         logger: Logger,
         event_publisher: EventPublisher | None = None
     ):
-        self._repository = repository
-        self._config_provider = config_provider
-        self._logger = logger
-        self._event_publisher = event_publisher
+        super().__init__(
+            config_provider,
+            logger,
+            repository=repository,
+            event_publisher=event_publisher
+        )
 
     async def get_available_transitions(self, issue_key: str, instance_name: str | None = None) -> list[WorkflowTransition]:
         """Get available transitions for an issue."""
@@ -529,11 +481,6 @@ class WorkflowService:
             self._logger.error(f"Failed to change assignee for issue {request.issue_key}: {str(e)}")
             raise
 
-    def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key format."""
-        if not issue_key or not issue_key.strip():
-            raise JiraValidationError(["Issue key cannot be empty"])
-
     def _validate_transition_request(self, request: IssueTransitionRequest) -> None:
         """Validate transition request."""
         errors = []
@@ -552,20 +499,8 @@ class WorkflowService:
         if not request.issue_key or not request.issue_key.strip():
             raise JiraValidationError(["Issue key cannot be empty"])
 
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
 
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class ProjectService:
+class ProjectService(BaseJiraService):
     """Domain service for project-related operations."""
 
     def __init__(
@@ -574,9 +509,7 @@ class ProjectService:
         config_provider: ConfigurationProvider,
         logger: Logger
     ):
-        self._repository = repository
-        self._config_provider = config_provider
-        self._logger = logger
+        super().__init__(config_provider, logger, repository=repository)
 
     async def get_projects(self, instance_name: str | None = None) -> list[JiraProject]:
         """Get all projects from a Jira instance."""
@@ -602,20 +535,8 @@ class ProjectService:
             self._logger.error(f"Failed to get custom field mappings from instance {instance_name}: {str(e)}")
             raise
 
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
 
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class VisualizationService:
+class VisualizationService(BaseJiraService):
     """Domain service for workflow visualization."""
 
     def __init__(
@@ -626,11 +547,13 @@ class VisualizationService:
         workflow_analyzer: WorkflowAnalyzer,
         logger: Logger
     ):
-        self._repository = repository
-        self._config_provider = config_provider
-        self._graph_generator = graph_generator
-        self._workflow_analyzer = workflow_analyzer
-        self._logger = logger
+        super().__init__(
+            config_provider,
+            logger,
+            repository=repository,
+            graph_generator=graph_generator,
+            workflow_analyzer=workflow_analyzer
+        )
 
     async def generate_workflow_graph(
         self,
@@ -730,25 +653,12 @@ class VisualizationService:
             "metadata": workflow.metadata
         }
 
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
 
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class InstanceService:
+class InstanceService(BaseJiraService):
     """Domain service for instance management."""
 
     def __init__(self, config_provider: ConfigurationProvider, logger: Logger):
-        self._config_provider = config_provider
-        self._logger = logger
+        super().__init__(config_provider, logger)
 
     def get_instances(self) -> list[JiraInstance]:
         """Get all configured Jira instances."""
@@ -775,7 +685,7 @@ class InstanceService:
             raise
 
 
-class IssueLinkService:
+class IssueLinkService(BaseJiraService):
     """Domain service for issue linking operations."""
 
     def __init__(
@@ -787,12 +697,14 @@ class IssueLinkService:
         logger: Logger,
         event_publisher: EventPublisher | None = None
     ):
-        self._link_port = link_port
-        self._repository = repository
-        self._config_provider = config_provider
-        self._link_type_mapper = link_type_mapper
-        self._logger = logger
-        self._event_publisher = event_publisher
+        super().__init__(
+            config_provider,
+            logger,
+            link_port=link_port,
+            repository=repository,
+            link_type_mapper=link_type_mapper,
+            event_publisher=event_publisher
+        )
 
     async def create_link(self, issue_link: IssueLink, instance_name: str | None = None) -> IssueLinkResult:
         """Create a link between two issues with validation."""
@@ -939,25 +851,7 @@ class IssueLinkService:
             # If we can't validate link types, log warning but continue
             self._logger.warning(f"Could not validate link type {link_type} for instance {instance_name}")
 
-    def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key format."""
-        if not issue_key or not issue_key.strip():
-            raise JiraValidationError(["Issue key cannot be empty"])
-
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
-
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class IssueUpdateService:
+class IssueUpdateService(BaseJiraService):
     """Domain service for issue update operations."""
 
     def __init__(
@@ -968,11 +862,13 @@ class IssueUpdateService:
         logger: Logger,
         event_publisher: EventPublisher | None = None
     ):
-        self._update_port = update_port
-        self._repository = repository
-        self._config_provider = config_provider
-        self._logger = logger
-        self._event_publisher = event_publisher
+        super().__init__(
+            config_provider,
+            logger,
+            update_port=update_port,
+            repository=repository,
+            event_publisher=event_publisher
+        )
 
     async def update_issue(self, update_request: IssueUpdate, instance_name: str | None = None) -> IssueUpdateResult:
         """Update an existing issue with validation."""
@@ -1048,25 +944,7 @@ class IssueUpdateService:
         if validation_errors:
             raise JiraValidationError(validation_errors)
 
-    def _validate_issue_key(self, issue_key: str) -> None:
-        """Validate issue key format."""
-        if not issue_key or not issue_key.strip():
-            raise JiraValidationError(["Issue key cannot be empty"])
-
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
-
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
-
-
-class SearchService:
+class SearchService(BaseJiraService):
     """Domain service for JQL search operations."""
 
     def __init__(
@@ -1077,11 +955,13 @@ class SearchService:
         logger: Logger,
         trilliant_sync_adapter=None
     ):
-        self._search_port = search_port
-        self._config_provider = config_provider
-        self._jql_validator = jql_validator
-        self._logger = logger
-        self._trilliant_sync_adapter = trilliant_sync_adapter
+        super().__init__(
+            config_provider,
+            logger,
+            search_port=search_port,
+            jql_validator=jql_validator,
+            trilliant_sync_adapter=trilliant_sync_adapter
+        )
 
     async def search_issues(self, query: SearchQuery, instance_name: str | None = None) -> SearchResult:
         """Execute a JQL search with validation."""
@@ -1361,15 +1241,3 @@ class SearchService:
                     raise InvalidJQLError(jql, str(e))
                 else:
                     raise
-
-    def _resolve_instance_name(self, instance_name: str | None) -> str:
-        """Resolve instance name to use."""
-        if instance_name:
-            return instance_name
-
-        default_instance = self._config_provider.get_default_instance_name()
-        if not default_instance:
-            available_instances = list(self._config_provider.get_instances().keys())
-            raise JiraInstanceNotFound("default", available_instances)
-
-        return default_instance
