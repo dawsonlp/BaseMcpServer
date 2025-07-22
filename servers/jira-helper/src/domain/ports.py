@@ -40,42 +40,42 @@ class JiraRepository(ABC):
     """Interface for Jira data operations."""
 
     @abstractmethod
-    async def get_projects(self, instance_name: str | None = None) -> list[JiraProject]:
+    async def get_projects(self, instance_name: str) -> list[JiraProject]:
         """Get all projects from a Jira instance."""
         pass
 
     @abstractmethod
-    async def get_issue(self, issue_key: str, instance_name: str | None = None) -> JiraIssue:
+    async def get_issue(self, issue_key: str, instance_name: str) -> JiraIssue:
         """Get a specific issue by key."""
         pass
 
     @abstractmethod
-    async def get_issue_with_comments(self, issue_key: str, instance_name: str | None = None) -> JiraIssue:
+    async def get_issue_with_comments(self, issue_key: str, instance_name: str) -> JiraIssue:
         """Get a specific issue with all its comments."""
         pass
 
     @abstractmethod
-    async def create_issue(self, request: IssueCreateRequest, instance_name: str | None = None) -> JiraIssue:
+    async def create_issue(self, request: IssueCreateRequest, instance_name: str) -> JiraIssue:
         """Create a new issue."""
         pass
 
     @abstractmethod
-    async def add_comment(self, request: CommentAddRequest, instance_name: str | None = None) -> JiraComment:
+    async def add_comment(self, request: CommentAddRequest, instance_name: str) -> JiraComment:
         """Add a comment to an issue."""
         pass
 
     @abstractmethod
-    async def get_available_transitions(self, issue_key: str, instance_name: str | None = None) -> list[WorkflowTransition]:
+    async def get_available_transitions(self, issue_key: str, instance_name: str) -> list[WorkflowTransition]:
         """Get available transitions for an issue."""
         pass
 
     @abstractmethod
-    async def transition_issue(self, request: IssueTransitionRequest, instance_name: str | None = None) -> JiraIssue:
+    async def transition_issue(self, request: IssueTransitionRequest, instance_name: str) -> JiraIssue:
         """Transition an issue through workflow."""
         pass
 
     @abstractmethod
-    async def change_assignee(self, request: AssigneeChangeRequest, instance_name: str | None = None) -> JiraIssue:
+    async def change_assignee(self, request: AssigneeChangeRequest, instance_name: str) -> JiraIssue:
         """Change the assignee of an issue."""
         pass
 
@@ -83,21 +83,21 @@ class JiraRepository(ABC):
     async def search_issues(
         self,
         project_key: str,
-        status: str | None = None,
-        issue_type: str | None = None,
-        max_results: int = 50,
-        instance_name: str | None = None
+        status: str | None,
+        issue_type: str | None,
+        max_results: int,
+        instance_name: str
     ) -> list[JiraIssue]:
         """Search for issues in a project with filters."""
         pass
 
     @abstractmethod
-    async def get_custom_field_mappings(self, reverse: bool = False, instance_name: str | None = None) -> list[CustomFieldMapping]:
+    async def get_custom_field_mappings(self, reverse: bool, instance_name: str) -> list[CustomFieldMapping]:
         """Get custom field mappings."""
         pass
 
     @abstractmethod
-    async def get_workflow_data(self, project_key: str, issue_type: str, instance_name: str | None = None) -> dict[str, Any]:
+    async def get_workflow_data(self, project_key: str, issue_type: str, instance_name: str) -> dict[str, Any]:
         """Get workflow data for a project and issue type."""
         pass
 

@@ -6,10 +6,35 @@ to eliminate boilerplate and simplify tool management.
 """
 
 import logging
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP
+
+# Configure logging with file output for detailed performance analysis
+log_file = "/tmp/jira_helper_debug.log"
+file_handler = logging.FileHandler(log_file, mode='a')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
+
+# Test logging immediately
+startup_logger = logging.getLogger("mcp_adapter_startup")
+startup_logger.info("🚀 MCP ADAPTER STARTUP - Logging configured for performance analysis")
+startup_logger.info(f"📁 Debug log file: {log_file}")
+
+# Force flush
+file_handler.flush()
+console_handler.flush()
 
 from adapters.mcp_bulk_registration import (
     bulk_register_jira_tools,
@@ -57,15 +82,15 @@ from infrastructure.graph_generator import (
     LoggerAdapter,
     WorkflowAnalyzerImpl,
 )
-from infrastructure.jira_client import (
-    JiraApiRepository,
-    JiraClientFactoryImpl,
-    JiraIssueLinkAdapter,
-    JiraIssueUpdateAdapter,
-    JiraJQLValidator,
-    JiraSearchAdapter,
-    JiraTimeFormatValidator,
-    JiraTimeTrackingAdapter,
+from infrastructure.atlassian_api_adapter import (
+    AtlassianApiJiraClientFactory,
+    AtlassianApiRepository,
+    AtlassianIssueLinkAdapter,
+    AtlassianIssueUpdateAdapter,
+    AtlassianJQLValidator,
+    AtlassianSearchAdapter,
+    AtlassianTimeFormatValidator,
+    AtlassianTimeTrackingAdapter,
 )
 
 logger = logging.getLogger(__name__)
@@ -163,18 +188,18 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
     try:
         # Initialize infrastructure layer
         config_provider = ConfigurationAdapter()
-        client_factory = JiraClientFactoryImpl(config_provider)
-        repository = JiraApiRepository(client_factory, config_provider)
+        client_factory = AtlassianApiJiraClientFactory(config_provider)
+        repository = AtlassianApiRepository(client_factory, config_provider)
         graph_generator = GraphvizGenerator()
         workflow_analyzer = WorkflowAnalyzerImpl()
         logger_adapter = LoggerAdapter()
 
         # Initialize infrastructure adapters
-        issue_update_adapter = JiraIssueUpdateAdapter(client_factory, config_provider)
-        issue_link_adapter = JiraIssueLinkAdapter(client_factory, config_provider)
-        search_adapter = JiraSearchAdapter(client_factory, config_provider)
-        time_tracking_adapter = JiraTimeTrackingAdapter(client_factory, config_provider)
-        time_format_validator = JiraTimeFormatValidator()
+        issue_update_adapter = AtlassianIssueUpdateAdapter(config_provider)
+        issue_link_adapter = AtlassianIssueLinkAdapter(config_provider, client_factory)
+        search_adapter = AtlassianSearchAdapter(config_provider, client_factory)
+        time_tracking_adapter = AtlassianTimeTrackingAdapter(config_provider, client_factory)
+        time_format_validator = AtlassianTimeFormatValidator()
 
         # Initialize domain services
         issue_service = IssueService(repository, config_provider, logger_adapter)
@@ -188,7 +213,7 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         # Initialize new domain services
         issue_update_service = IssueUpdateService(issue_update_adapter, repository, config_provider, logger_adapter)
         issue_link_service = IssueLinkService(issue_link_adapter, repository, config_provider, None, logger_adapter)
-        search_service = SearchService(search_adapter, config_provider, JiraJQLValidator(), logger_adapter)
+        search_service = SearchService(search_adapter, config_provider, AtlassianJQLValidator(), logger_adapter)
         time_tracking_service = TimeTrackingService(time_tracking_adapter, repository, config_provider, time_format_validator, logger_adapter)
 
         # Initialize use cases with keyword arguments for BaseUseCase compatibility
@@ -210,7 +235,10 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         create_issue_link_use_case = CreateIssueLinkUseCase(issue_link_service=issue_link_service)
         create_epic_story_link_use_case = CreateEpicStoryLinkUseCase(issue_link_service=issue_link_service)
         get_issue_links_use_case = GetIssueLinksUseCase(issue_link_service=issue_link_service)
+        
+        # Add force_async to the search_issues_use_case
         search_issues_use_case = SearchIssuesUseCase(search_service=search_service)
+        
         log_work_use_case = LogWorkUseCase(time_tracking_service=time_tracking_service)
         get_work_logs_use_case = GetWorkLogsUseCase(time_tracking_service=time_tracking_service)
         get_time_tracking_info_use_case = GetTimeTrackingInfoUseCase(time_tracking_service=time_tracking_service)
