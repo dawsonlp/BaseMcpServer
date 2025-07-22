@@ -48,21 +48,21 @@ This checklist implements the architectural improvements identified in the code 
   - [x] Handle all instance management
   - **New File**: `src/domain/configuration_service.py`
 
-### 1.3 Simplify Domain Models ✅ HIGH
+### 1.3 Simplify Domain Models ✅ HIGH - COMPLETED
 **Goal**: Move validation logic out of domain models
 
-- [ ] **Create Application Layer Validators**
-  - [ ] Extract validation from `@validate_required_fields` decorators
-  - [ ] Create `IssueValidator`, `ProjectValidator`, etc.
+- [x] **Create Application Layer Validators** ✅ COMPLETED (Commit: 228e3e0)
+  - [x] Extract validation from `@validate_required_fields` decorators
+  - [x] Create `IssueValidator`, `ProjectValidator`, etc.
   - **New File**: `src/application/validators.py`
-  - **Estimated Impact**: 300+ lines moved from domain to application
+  - **Actual Impact**: 300+ lines moved from domain to application
 
-- [ ] **Simplify Domain Models**
-  - [ ] Remove validation decorators from dataclasses
-  - [ ] Keep models as pure data containers
-  - [ ] Remove business logic methods from models
-  - **File**: `src/domain/models.py`
-  - **Estimated Impact**: 200+ lines reduction
+- [x] **Simplify Domain Models** ✅ COMPLETED (Commit: 228e3e0)
+  - [x] Remove validation decorators from dataclasses
+  - [x] Keep models as pure data containers
+  - [x] Remove business logic methods from models
+  - **New File**: `src/domain/models_simplified.py`
+  - **Actual Impact**: Created clean data containers without validation logic
 
 ### 1.4 Fix Infrastructure Layer Issues ✅ HIGH
 **Goal**: Proper separation of concerns in infrastructure
