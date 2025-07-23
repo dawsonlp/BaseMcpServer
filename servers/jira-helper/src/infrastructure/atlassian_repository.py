@@ -318,10 +318,123 @@ class AtlassianApiRepository(JiraRepository):
         max_results: int,
         instance_name: str
     ) -> list[JiraIssue]:
-        raise NotImplementedError
+        """Search for issues in a project with filters."""
+        try:
+            client = self._client_factory.create_client(instance_name)
+            
+            # Build JQL query from parameters
+            jql_parts = [f"project = {project_key}"]
+            
+            if status:
+                jql_parts.append(f"status = \"{status}\"")
+            
+            if issue_type:
+                jql_parts.append(f"issuetype = \"{issue_type}\"")
+            
+            jql_parts.append("ORDER BY created DESC")
+            jql = " AND ".join(jql_parts)
+            
+            # Execute search
+            search_results = await asyncio.to_thread(
+                client.jql,
+                jql,
+                limit=max_results
+            )
+            
+            # Convert results to domain objects
+            issues = []
+            for issue_data in search_results.get("issues", []):
+                issue = self._converter.convert_issue_to_domain(issue_data, instance_name)
+                issues.append(issue)
+            
+            logger.info(f"Found {len(issues)} issues for project {project_key}")
+            return issues
+            
+        except Exception as e:
+            logger.error(f"Failed to search issues in project {project_key}: {str(e)}")
+            raise
 
     async def get_custom_field_mappings(self, reverse: bool, instance_name: str) -> list[Any]:
-        raise NotImplementedError
+        """Get custom field mappings."""
+        try:
+            client = self._client_factory.create_client(instance_name)
+            
+            # Get all fields from Jira
+            fields_data = await asyncio.to_thread(client.get_all_fields)
+            
+            from domain.models import CustomFieldMapping
+            mappings = []
+            
+            for field_data in fields_data:
+                # Only include custom fields (they start with 'customfield_')
+                if field_data.get("id", "").startswith("customfield_"):
+                    if reverse:
+                        # Map from name to ID
+                        mapping = CustomFieldMapping(
+                            field_name=field_data.get("name", ""),
+                            field_id=field_data.get("id", ""),
+                            description=field_data.get("description", "")
+                        )
+                    else:
+                        # Map from ID to name (default)
+                        mapping = CustomFieldMapping(
+                            field_id=field_data.get("id", ""),
+                            field_name=field_data.get("name", ""),
+                            description=field_data.get("description", "")
+                        )
+                    mappings.append(mapping)
+            
+            logger.info(f"Retrieved {len(mappings)} custom field mappings")
+            return mappings
+            
+        except Exception as e:
+            logger.error(f"Failed to get custom field mappings: {str(e)}")
+            raise
 
     async def get_workflow_data(self, project_key: str, issue_type: str, instance_name: str) -> dict[str, Any]:
-        raise NotImplementedError
+        """Get workflow data for a project and issue type."""
+        try:
+            client = self._client_factory.create_client(instance_name)
+            
+            # Get project information
+            project_data = await asyncio.to_thread(client.project, project_key)
+            
+            # Get issue type schemes for the project
+            issue_type_schemes = await asyncio.to_thread(
+                client.get_project_issue_type_scheme,
+                project_key
+            )
+            
+            # Get workflow scheme for the project
+            workflow_schemes = await asyncio.to_thread(
+                client.get_project_workflow_scheme,
+                project_key
+            )
+            
+            # Combine the data
+            workflow_data = {
+                "project": {
+                    "key": project_data.get("key"),
+                    "name": project_data.get("name"),
+                    "id": project_data.get("id")
+                },
+                "issue_type": issue_type,
+                "issue_type_schemes": issue_type_schemes,
+                "workflow_schemes": workflow_schemes,
+                "statuses": [],
+                "transitions": []
+            }
+            
+            # Try to get statuses for the project
+            try:
+                statuses_data = await asyncio.to_thread(client.get_project_statuses, project_key)
+                workflow_data["statuses"] = statuses_data
+            except Exception as e:
+                logger.warning(f"Could not get statuses for project {project_key}: {str(e)}")
+            
+            logger.info(f"Retrieved workflow data for project {project_key}, issue type {issue_type}")
+            return workflow_data
+            
+        except Exception as e:
+            logger.error(f"Failed to get workflow data for project {project_key}: {str(e)}")
+            raise

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from domain.base import BaseResult
+from .error_mappers import ErrorMapper, create_context
+from .validators import ValidationResult
 
 T = TypeVar('T')
 
@@ -104,6 +106,55 @@ class BaseUseCase:
         """Build context dictionary for result details."""
         return {k: v for k, v in kwargs.items() if v is not None}
 
+    def _validate_with_validator(self, validator: Callable, data: Any, operation: str | None = None) -> ValidationResult:
+        """
+        Validate data using a validator function.
+        
+        Args:
+            validator: Validator function to use
+            data: Data to validate
+            operation: Operation name for context
+            
+        Returns:
+            ValidationResult with validation outcome
+        """
+        try:
+            return validator(data)
+        except Exception as e:
+            self._logger.error(f"Validation failed for {operation or 'operation'}: {str(e)}")
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"Validation error: {str(e)}"]
+            )
+
+    def _map_infrastructure_error(self, error: Exception, **context) -> Exception:
+        """
+        Map infrastructure error to domain error using error mapper.
+        
+        Args:
+            error: Original infrastructure error
+            **context: Additional context for error mapping
+            
+        Returns:
+            Mapped domain error
+        """
+        error_context = create_context()
+        
+        # Add common context
+        for key, value in context.items():
+            if key == "instance_name":
+                error_context.with_instance(value)
+            elif key == "issue_key":
+                error_context.with_issue_key(value)
+            elif key == "operation":
+                error_context.with_operation(value)
+            elif key == "jql":
+                error_context.with_jql(value)
+            elif key == "timeout_seconds":
+                error_context.with_timeout(value)
+        
+        return ErrorMapper.map_infrastructure_error(error, error_context.build())
+
 
 class BaseQueryUseCase(BaseUseCase):
     """Base class for query use cases (read operations)."""
@@ -148,6 +199,48 @@ class BaseCommandUseCase(BaseUseCase):
         return await self.execute_with_result(
             command_operation,
             success_mapper=success_mapper,
+            error_mapper=lambda e: str(self._map_infrastructure_error(e, **context)),
+            **context
+        )
+
+    async def execute_with_validation(
+        self,
+        command_operation: Callable,
+        validator: Callable,
+        data: Any,
+        success_mapper: Callable | None = None,
+        **context
+    ) -> UseCaseResult[Any]:
+        """
+        Execute command with integrated validation using application validators.
+        
+        Args:
+            command_operation: The command to execute
+            validator: Validator function from application layer
+            data: Data to validate
+            success_mapper: Optional success result mapper
+            **context: Additional context for error mapping
+            
+        Returns:
+            UseCaseResult with validation and error mapping
+        """
+        # Validate input data
+        operation_name = context.get("operation", "command")
+        validation_result = self._validate_with_validator(validator, data, operation_name)
+        
+        if not validation_result.is_valid:
+            self._logger.warning(f"Validation failed for {operation_name}: {validation_result.errors}")
+            return UseCaseResult(
+                success=False,
+                error=f"Validation failed: {'; '.join(validation_result.errors)}",
+                details=context
+            )
+        
+        # Execute command with error mapping
+        return await self.execute_with_result(
+            command_operation,
+            success_mapper=success_mapper,
+            error_mapper=lambda e: str(self._map_infrastructure_error(e, **context)),
             **context
         )
 
