@@ -43,110 +43,24 @@ def get_jinja_env() -> Environment:
     )
 
 
-def generate_wrapper_script(server: LocalServer) -> Path:
-    """Generate a wrapper script for a local server."""
-    # Check if the server is local
-    if not isinstance(server, LocalServer):
-        raise ValueError(f"Server '{server.name}' is not a local server")
-    
-    # Create bin directory if it doesn't exist
-    bin_dir = get_bin_dir()
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Get the wrapper script path
-    wrapper_path = bin_dir / f"{server.name}.sh"
-    
-    # Get the server directory
-    server_dir = server.source_dir.parent
-    
-    # Get the virtual environment activation script path
-    if sys.platform == "win32":
-        venv_activate = server.venv_dir / "Scripts" / "activate"
-    else:
-        venv_activate = server.venv_dir / "bin" / "activate"
-    
-    # Check if the activation script exists
-    if not venv_activate.exists():
-        raise ValueError(f"Virtual environment activation script not found: {venv_activate}")
-    
-    # Find the path to mcp-manager executable
-    mcp_manager_path = shutil.which("mcp-manager")
-    
-    # Render the template
-    env = get_jinja_env()
-    template = env.get_template("wrapper.sh.j2")
-    wrapper_content = template.render(
-        server=server,
-        server_dir=server_dir,
-        source_dir=server.source_dir,
-        venv_activate=venv_activate,
-        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        mcp_manager_path=mcp_manager_path,
-    )
-    
-    # Write the wrapper script
-    wrapper_path.write_text(wrapper_content)
-    
-    # Make the wrapper script executable
-    wrapper_path.chmod(wrapper_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    
-    console.print(f"Generated wrapper script: [bold]{wrapper_path}[/bold]")
-    return wrapper_path
-
-
-def generate_wrapper_scripts(overwrite: bool = False) -> int:
-    """Generate wrapper scripts for all local servers."""
-    # Load the server registry
-    registry = ServerRegistry.load(get_registry_path())
-    
-    # Count generated scripts
-    count = 0
-    
-    # Generate wrapper scripts for local servers
-    for name, server in registry.servers.items():
-        if isinstance(server, LocalServer):
-            # Skip if wrapper already exists and overwrite is False
-            wrapper_path = get_bin_dir() / f"{name}.sh"
-            if wrapper_path.exists() and not overwrite:
-                console.print(f"Skipping existing wrapper script: [bold]{wrapper_path}[/bold]")
-                continue
-            
-            try:
-                # Generate the wrapper script
-                wrapper_path = generate_wrapper_script(server)
-                
-                # Update the server
-                server.wrapper_path = wrapper_path
-                registry.update_server(name, server)
-                
-                count += 1
-            except Exception as e:
-                console.print(f"[bold red]Error generating wrapper for {name}:[/bold red] {e}")
-    
-    # Save the registry
-    registry.save(get_registry_path())
-    
-    return count
-
-
 def configure_vscode_cline(backup: bool = True) -> None:
     """Configure VS Code Cline integration."""
     # Load the server registry
     registry = ServerRegistry.load(get_registry_path())
-    
+
     # Get the VS Code Cline settings path
     settings_path = get_vscode_cline_settings_path()
     settings_dir = settings_path.parent
-    
+
     # Create the settings directory if it doesn't exist
     settings_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Back up existing settings if they exist
     if settings_path.exists() and backup:
         backup_path = settings_path.with_suffix(f".backup.{datetime.now().strftime('%Y%m%d%H%M%S')}")
         shutil.copy2(settings_path, backup_path)
         console.print(f"Backed up existing settings to: [bold]{backup_path}[/bold]")
-    
+
     # Load existing settings or create new ones
     if settings_path.exists():
         try:
@@ -156,25 +70,38 @@ def configure_vscode_cline(backup: bool = True) -> None:
             settings = {}
     else:
         settings = {}
-    
+
     # Ensure mcpServers exists
     if "mcpServers" not in settings:
         settings["mcpServers"] = {}
-    
+
     # Add/update servers
     for name, server in registry.servers.items():
         if isinstance(server, LocalServer):
-            # Skip if no wrapper script
-            if not server.wrapper_path or not Path(server.wrapper_path).exists():
-                # Generate a wrapper script
-                wrapper_path = generate_wrapper_script(server)
-                server.wrapper_path = wrapper_path
-                registry.update_server(name, server)
-            
-            # Add/update the server
+            # Determine the Python executable path in the server's virtual environment
+            if sys.platform == "win32":
+                python_executable = server.venv_dir / "Scripts" / "python.exe"
+            else:
+                python_executable = server.venv_dir / "bin" / "python"
+
+            if not python_executable.exists():
+                console.print(f"[bold red]Error:[/bold red] Python executable not found for server '{name}' at '{python_executable}'")
+                continue
+
+            # Determine the main script path
+            main_script_path = server.source_dir / "main.py"
+            if not main_script_path.exists():
+                console.print(f"[bold red]Error:[/bold red] main.py not found for server '{name}' at '{main_script_path}'")
+                continue
+
+            # Add/update the server configuration for direct Python execution
             settings["mcpServers"][name] = {
-                "command": "/bin/bash",
-                "args": [str(server.wrapper_path)],
+                "command": str(python_executable),
+                "args": [str(main_script_path), "stdio"],  # Pass 'stdio' as a default argument
+                "options": {
+                    "cwd": str(server.source_dir),
+                    "env": {"PYTHONPATH": str(server.source_dir)}
+                },
                 "disabled": server.disabled,
                 "autoApprove": server.auto_approve,
             }
@@ -186,8 +113,8 @@ def configure_vscode_cline(backup: bool = True) -> None:
                 "disabled": server.disabled,
                 "autoApprove": server.auto_approve,
             }
-    
-    # Save the registry with updated wrapper paths
+
+    # Save the registry
     registry.save(get_registry_path())
     
     # Save the settings

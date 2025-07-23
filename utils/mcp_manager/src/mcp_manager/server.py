@@ -41,7 +41,6 @@ class LocalServer(ServerBase):
     source_dir: Path
     venv_dir: Path
     requirements_file: Optional[Path] = None
-    wrapper_path: Optional[Path] = None
     port: Optional[int] = None  # Only used for LOCAL_SSE
     
     @validator('server_type')
