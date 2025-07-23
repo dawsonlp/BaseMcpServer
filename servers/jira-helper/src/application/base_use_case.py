@@ -97,10 +97,14 @@ class BaseUseCase:
         return await self.execute_with_result(operation, **context)
 
     def _validate_required_params(self, **params) -> None:
-        """Validate that required parameters are provided."""
-        for key, value in params.items():
-            if value is None or (isinstance(value, str) and not value.strip()):
-                raise ValueError(f"Parameter '{key}' is required and cannot be empty")
+        """Validate that required parameters are provided using universal validator."""
+        from application.validation import validate
+        
+        # Extract parameter names as required fields
+        required_fields = list(params.keys())
+        
+        # Use universal validator
+        validate(required=required_fields, **params)
 
     def _build_context(self, **kwargs) -> dict[str, Any]:
         """Build context dictionary for result details."""

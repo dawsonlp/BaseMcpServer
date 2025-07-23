@@ -15,25 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class AtlassianTimeFormatValidator:
-    """Time format validator for Jira time tracking."""
+    """Minimal time format validator - let Jira do the real validation."""
 
     def validate_time_format(self, time_str: str) -> list[str]:
-        """Validate time format (e.g., '2h 30m', '1d 4h')."""
+        """Only validate obviously malformed input - let Jira validate the format."""
         errors = []
         
         if not isinstance(time_str, str) or not time_str.strip():
             errors.append("Time string cannot be empty")
-            return errors
-        
-        # Check for valid Jira time format patterns
-        time_str = time_str.lower().strip()
-        
-        # Valid patterns: 1d, 2h, 30m, 1w, or combinations like "1d 2h 30m"
-        # Fixed regex: allow optional spaces between units and at the end
-        valid_pattern = re.compile(r'^(\d+[wdhm])(\s+\d+[wdhm])*\s*$')
-        
-        if not valid_pattern.match(time_str):
-            errors.append("Invalid time format. Use formats like '2h 30m', '1d', '45m'")
         
         return errors
 
