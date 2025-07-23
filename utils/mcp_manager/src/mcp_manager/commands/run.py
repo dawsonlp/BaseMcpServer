@@ -72,16 +72,29 @@ def run_server(name: str, transport: str) -> None:
     console.print(f"Press Ctrl+C to stop the server\n")
     
     try:
+        # Find the main.py file - check both root and src/ directory
+        main_py_path = None
+        if (server.source_dir / "main.py").exists():
+            main_py_path = server.source_dir / "main.py"
+            working_dir = server.source_dir
+        elif (server.source_dir / "src" / "main.py").exists():
+            main_py_path = server.source_dir / "src" / "main.py"
+            working_dir = server.source_dir / "src"
+            # Add src to PYTHONPATH for proper imports
+            env["PYTHONPATH"] = f"{server.source_dir / 'src'}:{env.get('PYTHONPATH', '')}"
+        else:
+            raise ValueError(f"Could not find main.py in {server.source_dir} or {server.source_dir / 'src'}")
+        
         cmd = [
             str(python_path),
-            str(server.source_dir / "main.py"),
+            str(main_py_path),
             transport
         ]
         
         subprocess.run(
             cmd,
             env=env,
-            cwd=server.source_dir,
+            cwd=working_dir,
             check=True,
         )
     except KeyboardInterrupt:

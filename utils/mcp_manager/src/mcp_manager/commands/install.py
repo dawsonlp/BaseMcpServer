@@ -30,6 +30,17 @@ from mcp_manager.server import (
 console = Console()
 
 
+def create_config_from_example(server_dir: Path, source_dir: Path) -> None:
+    """Create a config.yaml file from config.yaml.example if it doesn't exist."""
+    config_example_path = source_dir / "config.yaml.example"
+    config_path = server_dir / "config.yaml"
+    
+    if config_example_path.exists() and not config_path.exists():
+        shutil.copy2(config_example_path, config_path)
+        console.print(f"Created config.yaml from config.yaml.example")
+        console.print(f"[yellow]Please edit {config_path} with your actual credentials[/yellow]")
+
+
 def find_requirements_file(source_dir: Path) -> Optional[Path]:
     """Find a requirements.txt file in the source directory or its parent."""
     # Check for requirements.txt in the source directory
@@ -96,11 +107,20 @@ def install_local_server(
         # Install using a dedicated virtual environment to simulate pipx
         console.print(f"Installing server '{name}' as a standalone application...")
         server_dir = get_server_dir(name)
-        if server_dir.exists():
-            if force:
-                shutil.rmtree(server_dir)
-            else:
-                raise ValueError(f"Server directory already exists: {server_dir}")
+        
+        # Backup existing config if it exists and we're forcing
+        config_backup = None
+        if server_dir.exists() and force:
+            config_path = server_dir / "config.yaml"
+            if config_path.exists():
+                # Read the existing config to restore it later
+                with open(config_path, 'r') as f:
+                    config_backup = f.read()
+                console.print(f"[yellow]Backing up existing config.yaml[/yellow]")
+            shutil.rmtree(server_dir)
+        elif server_dir.exists():
+            raise ValueError(f"Server directory already exists: {server_dir}")
+        
         server_dir.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -128,6 +148,22 @@ def install_local_server(
             # TODO: A more robust way to get package and executable name
             package_name = source_dir.name
             executable_name = name
+
+            # Restore backed-up config if we have one, otherwise create from example
+            config_path = server_dir / "config.yaml"
+            if config_backup:
+                with open(config_path, 'w') as f:
+                    f.write(config_backup)
+                console.print(f"[green]Restored existing config.yaml[/green]")
+            else:
+                # Create config file from example if it doesn't exist
+                create_config_from_example(server_dir, source_dir)
+                
+                # Also copy the config.yaml if it exists in source (and no config exists yet)
+                source_config_path = source_dir / "config.yaml"
+                if source_config_path.exists() and not config_path.exists():
+                    shutil.copy2(source_config_path, config_path)
+                    console.print(f"Copied existing config.yaml from source")
 
             console.print(f"Server '{name}' installed successfully as a standalone application.")
             

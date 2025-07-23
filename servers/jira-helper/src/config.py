@@ -28,6 +28,12 @@ def find_config_file():
         logger.info(f"Using production config: {production_config}")
         return str(production_config)
 
+    # Server-specific config
+    server_config = Path.home() / ".mcp_servers" / "servers" / "jira-helper" / "config.yaml"
+    if server_config.exists():
+        logger.info(f"Using server-specific config: {server_config}")
+        return str(server_config)
+
     # Local development config
     local_config = Path.cwd() / "config.yaml"
     if local_config.exists():

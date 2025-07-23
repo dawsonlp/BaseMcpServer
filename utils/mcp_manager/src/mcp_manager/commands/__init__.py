@@ -1,5 +1,1 @@
-"""
-Command implementations for MCP Manager.
-
-This package contains the implementation of all MCP Manager commands.
-"""
+from . import add, configure, install, list, run

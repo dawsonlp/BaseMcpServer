@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-manager"
@@ -23,5 +23,7 @@ dependencies = [
 [project.scripts]
 mcp-manager = "mcp_manager.cli:app"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/mcp_manager"]
+[tool.setuptools]
+packages = ["mcp_manager", "mcp_manager.commands"]
+package-dir = {"" = "src"}
+include-package-data = true
