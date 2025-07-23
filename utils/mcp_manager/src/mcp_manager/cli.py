@@ -68,6 +68,9 @@ def install_local(
     force: bool = typer.Option(
         False, "--force", "-f", help="Force installation, overwriting existing server"
     ),
+    pipx: bool = typer.Option(
+        False, "--pipx", help="Install using pipx instead of a virtual environment"
+    ),
 ):
     """Install a local MCP server from a directory."""
     from mcp_manager.commands.install import install_local_server
@@ -78,7 +81,7 @@ def install_local(
         raise typer.Exit(1)
     
     try:
-        install_local_server(name, source, port, force)
+        install_local_server(name, source, port, force, pipx)
         console.print(f"[bold green]Success:[/bold green] MCP server '{name}' installed.")
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")

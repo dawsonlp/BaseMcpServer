@@ -8,6 +8,7 @@ using hexagonal architecture with proper separation of concerns.
 import logging
 import sys
 from pathlib import Path
+import typer
 
 # Add the src directory to the Python path
 src_dir = Path(__file__).parent
@@ -15,47 +16,27 @@ sys.path.insert(0, str(src_dir))
 
 from adapters.mcp_adapter import mcp
 
-# Configure logging with explicit file handler and immediate flushing
+# Configure logging
 log_file = "/tmp/jira_helper_debug.log"
-
-# Create file handler with immediate flushing
-file_handler = logging.FileHandler(log_file, mode='a')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-
-# Create console handler
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-
-# Configure root logger
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
-
-# Test logging immediately with explicit flushing
-test_logger = logging.getLogger("startup_test")
-test_logger.info("🚀 LOGGING TEST - MCP Server starting up with file logging enabled")
-test_logger.info(f"📁 Log file location: {log_file}")
-
-# Force flush
-file_handler.flush()
-console_handler.flush()
-
-# Also write directly to file as backup
-with open(log_file, 'a') as f:
-    import datetime
-    f.write(f"{datetime.datetime.now()} - DIRECT_WRITE - MCP Server main.py loaded\n")
-    f.flush()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, mode='a'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
+app = typer.Typer()
 
-def main():
+@app.command()
+def main(transport: str = typer.Argument("stdio", help="The transport to use (stdio or sse)")):
     """Main entry point for the Jira Helper MCP server."""
     try:
-        logger.info("Starting Jira Helper MCP server with hexagonal architecture...")
+        logger.info(f"Starting Jira Helper MCP server with transport: {transport}")
+        # The mcp object will be configured to use the specified transport
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
@@ -63,6 +44,5 @@ def main():
         logger.error(f"Server failed to start: {str(e)}")
         raise
 
-
 if __name__ == "__main__":
-    main()
+    app()
