@@ -306,6 +306,15 @@ class TimeTrackingService(BaseJiraService):
         """Validate time format without performing any operations."""
         try:
             validation_errors = self._time_format_validator.validate_time_format(time_string)
+            
+            # Ensure we always return a list, never a boolean
+            if not isinstance(validation_errors, (list, tuple)):
+                self._logger.warning(f"Validator returned non-list type: {type(validation_errors)} = {validation_errors!r}")
+                if validation_errors:  # If it's truthy
+                    return [str(validation_errors)]
+                else:  # If it's falsy
+                    return []
+            
             return validation_errors
         except Exception as e:
             self._logger.error(f"Failed to validate time format '{time_string}': {str(e)}")
@@ -394,8 +403,18 @@ class TimeTrackingService(BaseJiraService):
     async def _validate_time_format(self, time_string: str) -> None:
         """Validate time format and raise exception if invalid."""
         validation_errors = await self.validate_time_format(time_string)
+        
+        # Ensure validation_errors is always a list and handle any corruption
+        if not isinstance(validation_errors, (list, tuple)):
+            # If validation_errors is not a list/tuple, convert it properly
+            if validation_errors:  # If it's truthy (like True, non-empty string, etc.)
+                validation_errors = [str(validation_errors)]
+            else:  # If it's falsy (like False, None, empty string, etc.)
+                validation_errors = []
+        
         if validation_errors:
-            raise InvalidTimeFormatError(time_string, "; ".join(validation_errors))
+            error_message = "; ".join(str(e) for e in validation_errors)
+            raise InvalidTimeFormatError(time_string, f"Valid Jira time format (e.g., '2h 30m', '1d', '45m'). Errors: {error_message}")
 
 class WorkflowService(BaseJiraService):
     """Domain service for workflow-related operations."""

@@ -32,7 +32,7 @@ from domain.services import (
     ProjectService,
     WorkflowService,
 )
-from infrastructure.atlassian_api_adapter import (
+from infrastructure.atlassian_repository import (
     AtlassianApiJiraClientFactory,
     AtlassianApiRepository,
 )

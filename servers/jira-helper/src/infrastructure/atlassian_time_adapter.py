@@ -29,7 +29,8 @@ class AtlassianTimeFormatValidator:
         time_str = time_str.lower().strip()
         
         # Valid patterns: 1d, 2h, 30m, 1w, or combinations like "1d 2h 30m"
-        valid_pattern = re.compile(r'^(\d+[wdhm]\s*)+$')
+        # Fixed regex: allow optional spaces between units and at the end
+        valid_pattern = re.compile(r'^(\d+[wdhm])(\s+\d+[wdhm])*\s*$')
         
         if not valid_pattern.match(time_str):
             errors.append("Invalid time format. Use formats like '2h 30m', '1d', '45m'")
@@ -95,7 +96,11 @@ class AtlassianTimeFormatValidator:
         if minutes > 0:
             parts.append(f"{minutes}m")
         
-        return " ".join(parts) if parts else "0m"
+        # Ensure we always have at least one part
+        if not parts:
+            return "0m"
+        
+        return " ".join(parts)
 
 
 class AtlassianTimeTrackingAdapter:
@@ -114,8 +119,12 @@ class AtlassianTimeTrackingAdapter:
             # Convert time string to seconds
             time_seconds = self._time_validator.parse_time_to_seconds(work_log_request.time_spent)
             
-            # Use current time if not specified
-            started = work_log_request.started if hasattr(work_log_request, 'started') and work_log_request.started else datetime.now().isoformat()
+            # Use current time if not specified, format for Jira API
+            if hasattr(work_log_request, 'started') and work_log_request.started:
+                started = work_log_request.started
+            else:
+                # Format: "yyyy-MM-dd'T'HH:mm:ss.SSSZ" (Jira expects this exact format)
+                started = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0000")
             
             # Log work using atlassian-python-api
             result = await asyncio.to_thread(

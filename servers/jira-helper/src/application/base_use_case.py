@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from domain.base import BaseResult
+from domain.results import ValidationResult
 from .error_mappers import ErrorMapper, create_context
-from .validators import ValidationResult
 
 T = TypeVar('T')
 
@@ -230,9 +230,19 @@ class BaseCommandUseCase(BaseUseCase):
         
         if not validation_result.is_valid:
             self._logger.warning(f"Validation failed for {operation_name}: {validation_result.errors}")
+            
+            # Safely handle errors - ensure it's always iterable
+            if hasattr(validation_result, 'errors') and validation_result.errors:
+                if isinstance(validation_result.errors, (list, tuple)):
+                    error_message = f"Validation failed: {'; '.join(str(e) for e in validation_result.errors)}"
+                else:
+                    error_message = f"Validation failed: {str(validation_result.errors)}"
+            else:
+                error_message = "Validation failed: Unknown validation error"
+            
             return UseCaseResult(
                 success=False,
-                error=f"Validation failed: {'; '.join(validation_result.errors)}",
+                error=error_message,
                 details=context
             )
         

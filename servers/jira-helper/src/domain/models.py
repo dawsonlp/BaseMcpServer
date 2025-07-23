@@ -585,7 +585,9 @@ class WorkLogRequest:
         """Validate the work log request."""
         valid_adjust_options = ["new", "leave", "manual", "auto"]
         if self.adjust_estimate not in valid_adjust_options:
-            raise ValueError(f"Adjust estimate must be one of: {', '.join(valid_adjust_options)}")
+            # Ensure we have a proper list for joining
+            options_str = ", ".join(str(option) for option in valid_adjust_options)
+            raise ValueError(f"Adjust estimate must be one of: {options_str}")
 
         if self.adjust_estimate == "new" and not self.new_estimate:
             raise ValueError("New estimate is required when adjust_estimate is 'new'")

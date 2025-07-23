@@ -82,13 +82,17 @@ from infrastructure.graph_generator import (
     LoggerAdapter,
     WorkflowAnalyzerImpl,
 )
-from infrastructure.atlassian_api_adapter import (
+from infrastructure.atlassian_repository import (
     AtlassianApiJiraClientFactory,
     AtlassianApiRepository,
-    AtlassianIssueLinkAdapter,
-    AtlassianIssueUpdateAdapter,
+)
+from infrastructure.atlassian_link_adapter import AtlassianIssueLinkAdapter
+from infrastructure.atlassian_update_adapter import AtlassianIssueUpdateAdapter
+from infrastructure.atlassian_search_adapter import (
     AtlassianJQLValidator,
     AtlassianSearchAdapter,
+)
+from infrastructure.atlassian_time_adapter import (
     AtlassianTimeFormatValidator,
     AtlassianTimeTrackingAdapter,
 )
