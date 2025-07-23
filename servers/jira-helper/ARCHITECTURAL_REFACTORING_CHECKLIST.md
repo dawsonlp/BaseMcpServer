@@ -184,18 +184,28 @@ This checklist implements the architectural improvements identified in the code 
   - **Expected Impact**: Standardized results without losing type information
 
 ### 3.4 Strengthen Type Safety ✅ MEDIUM
-**Goal**: Improve type checking and developer experience
+**Goal**: Improve type checking and developer experience while respecting Jira configurability
 
-- [ ] **Enhanced Enum Usage**
-  - [ ] Replace remaining string literals with enums
-  - [ ] Add validation methods to enums
-  - [ ] Create enum factory methods for parsing
+- [ ] **Safe Enums Only (Fixed Jira Values)**
+  - [ ] `StatusCategory` enum - Only 3 fixed categories (To Do, In Progress, Done)
+  - [ ] `LinkDirection` enum - Fixed inward/outward directions
+  - [ ] `TimeUnit` enum - Standardized time units (h, d, w, m)
+  - [ ] **Avoid enums for**: IssueType, Priority, Status, LinkType (these are configurable!)
   - **Files**: `src/domain/models_simplified.py`
+
+- [ ] **Flexible Value Objects for Configurable Values**
+  - [ ] `IssueType` value object - Handles custom issue types with common constants
+  - [ ] `Priority` value object - Handles custom priorities with validation
+  - [ ] `Status` value object - Handles custom statuses with category mapping
+  - [ ] `LinkType` value object - Handles custom link types with direction support
+  - **Expected Impact**: Type safety without breaking on Jira configuration changes
+  - **Files**: `src/domain/value_objects.py`
 
 - [ ] **Add Type Guards and Validation**
   - [ ] Create type guard functions for value objects
   - [ ] Add runtime validation for critical types
   - [ ] Implement parsing utilities with proper error handling
+  - [ ] Add configuration-aware validation (fetch valid values from Jira)
   - **New File**: `src/domain/type_guards.py`
 
 ## Implementation Guidelines
