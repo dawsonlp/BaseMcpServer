@@ -93,34 +93,51 @@ def install_local_server(
             raise ValueError(f"Server with name '{name}' already exists")
 
     if pipx:
-        # Install using pipx
-        console.print(f"Installing server '{name}' using pipx from {source_dir}...")
-        try:
-            # Pipx needs a pyproject.toml to install a local package
-            if not (source_dir / "pyproject.toml").exists():
-                raise FileNotFoundError("A pyproject.toml file is required for pipx installation.")
+        # Install using a dedicated virtual environment to simulate pipx
+        console.print(f"Installing server '{name}' as a standalone application...")
+        server_dir = get_server_dir(name)
+        if server_dir.exists():
+            if force:
+                shutil.rmtree(server_dir)
+            else:
+                raise ValueError(f"Server directory already exists: {server_dir}")
+        server_dir.mkdir(parents=True, exist_ok=True)
 
-            # Run pipx install
-            result = subprocess.run(
-                ["pipx", "install", str(source_dir)],
+        try:
+            if not (source_dir / "pyproject.toml").exists():
+                raise FileNotFoundError("A pyproject.toml file is required for pipx-style installation.")
+
+            # Create a copy of the environment and remove PIPX_DEFAULT_PYTHON
+            env = os.environ.copy()
+            env.pop("PIPX_DEFAULT_PYTHON", None)
+
+            # Create a virtual environment
+            venv_dir = server_dir / ".venv"
+            virtualenv.cli_run([str(venv_dir)])
+
+            # Install the package in editable mode
+            pip_path = venv_dir / "bin" / "pip"
+            subprocess.run(
+                [str(pip_path), "install", "-e", str(source_dir)],
                 check=True,
                 capture_output=True,
                 text=True,
+                env=env,
             )
-            console.print(result.stdout)
-            
+
             # TODO: A more robust way to get package and executable name
             package_name = source_dir.name
             executable_name = name
 
-            console.print(f"Server '{name}' installed successfully via pipx.")
+            console.print(f"Server '{name}' installed successfully as a standalone application.")
             
             # Register the server
             server = LocalServer(
                 name=name,
-                server_type=ServerType.LOCAL_STDIO,  # Defaulting to stdio
+                server_type=ServerType.LOCAL_STDIO,
                 installation_type=InstallationType.PIPX,
                 source_dir=source_dir,
+                venv_dir=venv_dir,
                 package_name=package_name,
                 executable_name=executable_name,
                 created_at=datetime.now(),
@@ -131,7 +148,7 @@ def install_local_server(
             console.print(f"Server '{name}' registered with pipx installation type.")
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            console.print(f"[bold red]Error installing with pipx:[/bold red] {e}")
+            console.print(f"[bold red]Error installing as a standalone application:[/bold red] {e}")
             if isinstance(e, subprocess.CalledProcessError):
                 console.print(e.stderr)
             raise

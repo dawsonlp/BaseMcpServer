@@ -84,9 +84,13 @@ def configure_vscode_cline(backup: bool = True) -> None:
                     console.print(f"[bold red]Error:[/bold red] Executable name not set for pipx-installed server '{name}'")
                     continue
                 
-                executable_path = shutil.which(server.executable_name)
-                if not executable_path:
-                    console.print(f"[bold red]Error:[/bold red] Executable '{server.executable_name}' not found in PATH for server '{name}'")
+                if not server.venv_dir:
+                    console.print(f"[bold red]Error:[/bold red] venv_dir not set for pipx-installed server '{name}'")
+                    continue
+
+                executable_path = server.venv_dir / "bin" / server.executable_name
+                if not executable_path.exists():
+                    console.print(f"[bold red]Error:[/bold red] Executable '{executable_path}' not found for server '{name}'")
                     continue
 
                 settings["mcpServers"][name] = {
