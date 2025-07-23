@@ -24,6 +24,13 @@ class ServerType(str, Enum):
     REMOTE_SSE = "remote_sse"
 
 
+class InstallationType(str, Enum):
+    """Enum for the installation type of a local server."""
+    
+    VENV = "venv"
+    PIPX = "pipx"
+
+
 class ServerBase(BaseModel):
     """Base model for all types of MCP servers."""
     
@@ -38,9 +45,17 @@ class ServerBase(BaseModel):
 class LocalServer(ServerBase):
     """Model for locally installed MCP servers."""
     
+    installation_type: InstallationType = InstallationType.VENV
     source_dir: Path
-    venv_dir: Path
+    
+    # Fields for 'venv' installation type
+    venv_dir: Optional[Path] = None
     requirements_file: Optional[Path] = None
+    
+    # Fields for 'pipx' installation type
+    package_name: Optional[str] = None
+    executable_name: Optional[str] = None
+    
     port: Optional[int] = None  # Only used for LOCAL_SSE
     
     @validator('server_type')

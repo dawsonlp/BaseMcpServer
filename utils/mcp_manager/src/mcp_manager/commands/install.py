@@ -19,6 +19,7 @@ from datetime import datetime
 from mcp_manager.server import (
     LocalServer,
     ServerType,
+    InstallationType,
     ServerRegistry,
     get_mcp_home,
     get_server_dir,
@@ -66,138 +67,130 @@ def install_requirements(venv_dir: Path, requirements_file: Path) -> None:
     )
 
 
-def install_local_server(name: str, source_dir: Path, port: Optional[int] = None, force: bool = False) -> None:
+def install_local_server(
+    name: str,
+    source_dir: Path,
+    port: Optional[int] = None,
+    force: bool = False,
+    pipx: bool = False,
+) -> None:
     """Install a local MCP server from a directory."""
     # Validate server name
     if not name.isalnum() and not (name.replace("-", "").isalnum() and "-" in name):
         raise ValueError(
             f"Server name must be alphanumeric or contain only hyphens, got '{name}'"
         )
-    
+
     # Check if server exists in registry
     registry = ServerRegistry.load(get_registry_path())
     if name in registry.servers:
         if force:
             console.print(f"[yellow]Warning:[/yellow] Overwriting existing server: {name}")
-            # Remove from registry
+            # TODO: Add uninstall logic here before reinstalling
             registry.remove_server(name)
             registry.save(get_registry_path())
         else:
             raise ValueError(f"Server with name '{name}' already exists")
-    
-    # Create server directory
-    server_dir = get_server_dir(name)
-    if server_dir.exists():
-        if force:
-            # Remove existing server directory
-            shutil.rmtree(server_dir)
-        else:
-            raise ValueError(f"Server directory already exists: {server_dir}")
-    
-    server_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Detect server type based on port
-    server_type = ServerType.LOCAL_SSE if port else ServerType.LOCAL_STDIO
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        # Create proper structure for the server - fixed to avoid nested src/src and use actual copies
-        task = progress.add_task(f"Copying source files...", total=1)
-        
-        # Determine correct structure based on source dir
-        server_code_dir = server_dir / "code"
-        server_code_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Check if the source directory has a src subdirectory
-        source_src_dir = source_dir / "src"
-        
-        if source_src_dir.exists() and source_src_dir.is_dir():
-            # Case 1: Source has /src subdirectory - copy src's contents to code/
-            console.print(f"Copying source files from {source_src_dir}")
-            for item in source_src_dir.iterdir():
-                if item.is_dir():
-                    console.print(f"Copying directory: {item.name}")
-                    # Use symlinks=False to ensure actual file copies, not symlinks
-                    shutil.copytree(item, server_code_dir / item.name, 
-                                   dirs_exist_ok=True, symlinks=False)
-                else:
-                    console.print(f"Copying file: {item.name}")
-                    shutil.copy2(item, server_code_dir / item.name)
-        else:
-            # Case 2: Source is directly the code - copy source_dir contents to code/
-            console.print(f"Copying source files from {source_dir}")
-            for item in source_dir.iterdir():
-                # Skip setup/config files that shouldn't be in the code directory
-                if item.name in ['.env', '.env.example', 'docker', 'run.sh', 'setup.sh', 
-                               'README.md', 'readme_fastmcp.md', 'requirements.txt']:
-                    continue
-                    
-                if item.is_dir():
-                    console.print(f"Copying directory: {item.name}")
-                    # Use symlinks=False to ensure actual file copies, not symlinks
-                    shutil.copytree(item, server_code_dir / item.name, 
-                                   dirs_exist_ok=True, symlinks=False)
-                else:
-                    console.print(f"Copying file: {item.name}")
-                    shutil.copy2(item, server_code_dir / item.name)
+
+    if pipx:
+        # Install using pipx
+        console.print(f"Installing server '{name}' using pipx from {source_dir}...")
+        try:
+            # Pipx needs a pyproject.toml to install a local package
+            if not (source_dir / "pyproject.toml").exists():
+                raise FileNotFoundError("A pyproject.toml file is required for pipx installation.")
+
+            # Run pipx install
+            result = subprocess.run(
+                ["pipx", "install", str(source_dir)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            console.print(result.stdout)
             
-        progress.update(task, advance=1)
-        
-        # Create a virtual environment
-        task = progress.add_task(f"Creating virtual environment...", total=1)
-        venv_dir = server_dir / ".venv"
-        virtualenv.cli_run([str(venv_dir)])
-        progress.update(task, advance=1)
-        
-        # Find requirements file
-        task = progress.add_task(f"Finding requirements file...", total=1)
-        requirements_file = find_requirements_file(source_dir)
-        progress.update(task, advance=1)
-        
-        # Install requirements if found
-        if requirements_file:
-            task = progress.add_task(f"Installing requirements from {requirements_file}...", total=1)
-            install_requirements(venv_dir, requirements_file)
-            progress.update(task, advance=1)
-        else:
-            console.print("[yellow]Warning:[/yellow] No requirements.txt file found.")
-        
-        # Register the server
-        task = progress.add_task(f"Registering server...", total=1)
-        registry = ServerRegistry.load(get_registry_path())
-        
-        server = LocalServer(
-            name=name,
-            server_type=server_type,
-            source_dir=server_code_dir,  # Updated to use our code directory
-            venv_dir=venv_dir,
-            requirements_file=requirements_file,
-            port=port,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        
-        registry.add_server(server)
-        registry.save(get_registry_path())
-        progress.update(task, advance=1)
-        
-        # Generate wrapper script
-        task = progress.add_task(f"Generating wrapper script...", total=1)
-        from mcp_manager.commands.configure import generate_wrapper_script
-        wrapper_path = generate_wrapper_script(server)
-        
-        # Update server with wrapper path
-        registry = ServerRegistry.load(get_registry_path())
-        server = registry.get_server(name)
-        if isinstance(server, LocalServer):
-            server.wrapper_path = wrapper_path
-            registry.update_server(name, server)
+            # TODO: A more robust way to get package and executable name
+            package_name = source_dir.name
+            executable_name = name
+
+            console.print(f"Server '{name}' installed successfully via pipx.")
+            
+            # Register the server
+            server = LocalServer(
+                name=name,
+                server_type=ServerType.LOCAL_STDIO,  # Defaulting to stdio
+                installation_type=InstallationType.PIPX,
+                source_dir=source_dir,
+                package_name=package_name,
+                executable_name=executable_name,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            registry.add_server(server)
             registry.save(get_registry_path())
-        
-        progress.update(task, advance=1)
+            console.print(f"Server '{name}' registered with pipx installation type.")
+
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            console.print(f"[bold red]Error installing with pipx:[/bold red] {e}")
+            if isinstance(e, subprocess.CalledProcessError):
+                console.print(e.stderr)
+            raise
+    else:
+        # Install using virtual environment (venv)
+        server_dir = get_server_dir(name)
+        if server_dir.exists():
+            if force:
+                shutil.rmtree(server_dir)
+            else:
+                raise ValueError(f"Server directory already exists: {server_dir}")
+        server_dir.mkdir(parents=True, exist_ok=True)
+
+        server_type = ServerType.LOCAL_SSE if port else ServerType.LOCAL_STDIO
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"Copying source files...", total=1)
+            server_code_dir = server_dir / "code"
+            server_code_dir.mkdir(parents=True, exist_ok=True)
+            source_src_dir = source_dir / "src"
+
+            if source_src_dir.exists() and source_src_dir.is_dir():
+                shutil.copytree(source_src_dir, server_code_dir, dirs_exist_ok=True, symlinks=False)
+            else:
+                shutil.copytree(source_dir, server_code_dir, dirs_exist_ok=True, symlinks=False)
+            progress.update(task, advance=1)
+
+            task = progress.add_task(f"Creating virtual environment...", total=1)
+            venv_dir = server_dir / ".venv"
+            virtualenv.cli_run([str(venv_dir)])
+            progress.update(task, advance=1)
+
+            requirements_file = find_requirements_file(source_dir)
+            if requirements_file:
+                task = progress.add_task(f"Installing requirements...", total=1)
+                install_requirements(venv_dir, requirements_file)
+                progress.update(task, advance=1)
+            else:
+                console.print("[yellow]Warning:[/yellow] No requirements.txt file found.")
+
+            task = progress.add_task(f"Registering server...", total=1)
+            server = LocalServer(
+                name=name,
+                server_type=server_type,
+                installation_type=InstallationType.VENV,
+                source_dir=server_code_dir,
+                venv_dir=venv_dir,
+                requirements_file=requirements_file,
+                port=port,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            registry.add_server(server)
+            registry.save(get_registry_path())
+            progress.update(task, advance=1)
 
 
 def install_git_server(name: str, repo_url: str, repo_path: str = ".", branch: str = "main", force: bool = False) -> None:
