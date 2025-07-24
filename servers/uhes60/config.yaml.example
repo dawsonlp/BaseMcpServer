@@ -1,0 +1,11 @@
+# UHES60 MCP Server Configuration
+
+# Server settings
+name: "uhes60-mcp"
+version: "1.0.0"
+
+# Resource settings
+greetings_file: "greetings.txt"
+
+# Default greeting style (formal, casual, enthusiastic)
+default_style: "casual"

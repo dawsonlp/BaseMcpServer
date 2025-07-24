@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uhes60-mcp"
+version = "1.0.0"
+description = "UHES60 MCP server demonstrating tools, prompts, and resources"
+authors = [{name = "Larry Dawson", email = "larry.dawson@gmail.com"}]
+dependencies = [
+    "mcp>=1.12.1",
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0"
+]
+requires-python = ">=3.11"
+
+[project.scripts]
+uhes60-mcp = "main:main"
+
+[tool.setuptools]
+packages = ["domain", "application", "infrastructure", "adapters"]
+package-dir = {"" = "src"}

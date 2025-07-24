@@ -1,0 +1,21 @@
+# Greeting Examples
+
+## Formal Greetings
+- Good morning, [Name]. I hope this message finds you well.
+- Dear [Name], I trust you are having a productive day.
+- Greetings, [Name]. It's a pleasure to connect with you.
+
+## Casual Greetings
+- Hey [Name]! How's it going?
+- Hi [Name], hope you're doing well!
+- What's up, [Name]?
+
+## Enthusiastic Greetings
+- Hello there, [Name]! Great to see you! 🎉
+- Hey [Name]! Fantastic to connect with you! ✨
+- Hi [Name]! Hope you're having an amazing day! 🌟
+
+## Tips
+- Match the greeting style to the context and relationship
+- Consider cultural differences when choosing greeting styles
+- Personalize greetings when possible for better connection
