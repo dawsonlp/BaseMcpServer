@@ -9,13 +9,13 @@ from typing import Any
 
 from utils.decorators import log_operation, validate_issue_key
 
-from .base_service import BaseJiraService
-from .exceptions import (
+from domain.base_service import BaseJiraService
+from domain.exceptions import (
     JiraTransitionNotAvailable,
     JiraValidationError,
     JiraWorkflowError,
 )
-from .models import (
+from domain.models import (
     AssigneeChangeRequest,
     CommentAddRequest,
     CustomFieldMapping,
@@ -26,7 +26,7 @@ from .models import (
     JiraProject,
     WorkflowTransition,
 )
-from .ports import (
+from domain.ports import (
     ConfigurationProvider,
     EventPublisher,
     JiraRepository,

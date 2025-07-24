@@ -8,7 +8,7 @@ import asyncio
 import logging
 
 from domain.ports import ConfigurationProvider, JiraClientFactory
-from .converters import JiraIssueConverter
+from infrastructure.converters import JiraIssueConverter
 
 logger = logging.getLogger(__name__)
 

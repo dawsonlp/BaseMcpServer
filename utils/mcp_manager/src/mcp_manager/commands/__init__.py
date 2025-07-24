@@ -1,1 +1,1 @@
-from . import add, configure, install, list, run
+from mcp_manager.commands import add, configure, install, list, run

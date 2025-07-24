@@ -9,57 +9,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from .base import validate_required_fields
-
-
-class IssueType(Enum):
-    """Enumeration of Jira issue types."""
-    STORY = "Story"
-    TASK = "Task"
-    EPIC = "Epic"
-    BUG = "Bug"
-    SUBTASK = "Sub-task"
-
-
-class Priority(Enum):
-    """Enumeration of Jira priorities."""
-    HIGHEST = "Highest"
-    HIGH = "High"
-    MEDIUM = "Medium"
-    LOW = "Low"
-    LOWEST = "Lowest"
-
-
-class StatusCategory(Enum):
-    """Enumeration of Jira status categories."""
-    TODO = "To Do"
-    IN_PROGRESS = "In Progress"
-    DONE = "Done"
-
-
-class LinkType(Enum):
-    """Enumeration of Jira issue link types."""
-    EPIC_STORY = "Epic-Story"
-    PARENT_CHILD = "Parent-Child"
-    BLOCKS = "Blocks"
-    CLONES = "Clones"
-    DUPLICATES = "Duplicates"
-    RELATES = "Relates"
-    CUSTOM = "Custom"
-
-
-class LinkDirection(Enum):
-    """Enumeration of link directions."""
-    INWARD = "inward"
-    OUTWARD = "outward"
-
-
-class TimeUnit(Enum):
-    """Enumeration of time units for work logging."""
-    MINUTES = "m"
-    HOURS = "h"
-    DAYS = "d"
-    WEEKS = "w"
+from domain.base import validate_required_fields
+from domain.enums import LinkDirection
 
 
 @validate_required_fields('name', 'url', 'user', 'token')
@@ -280,11 +231,11 @@ class IssueLink:
 
     def is_epic_link(self) -> bool:
         """Check if this is an Epic-Story link."""
-        return self.link_type == LinkType.EPIC_STORY.value
+        return self.link_type == "Epic-Story"
 
     def is_parent_child_link(self) -> bool:
         """Check if this is a Parent-Child link."""
-        return self.link_type == LinkType.PARENT_CHILD.value
+        return self.link_type == "Parent-Child"
 
     def get_reverse_direction(self) -> str:
         """Get the reverse direction of this link."""

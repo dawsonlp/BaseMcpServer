@@ -9,8 +9,8 @@ from typing import Any
 
 from utils.decorators import log_operation, validate_issue_key
 
-from .base_service import BaseJiraService
-from .exceptions import (
+from domain.base_service import BaseJiraService
+from domain.exceptions import (
     CircularLinkError,
     EpicLinkError,
     InvalidJQLError,
@@ -34,8 +34,8 @@ from .exceptions import (
     WorkLogError,
     WorkLogNotFoundError,
 )
-from .jql_builder import JQLBuilderFactory, validate_jql_safety
-from .models import (
+from domain.jql_builder import JQLBuilderFactory, validate_jql_safety
+from domain.models import (
     AssigneeChangeRequest,
     CommentAddRequest,
     CustomFieldMapping,
@@ -49,8 +49,6 @@ from .models import (
     JiraInstance,
     JiraIssue,
     JiraProject,
-    LinkDirection,
-    LinkType,
     SearchFilters,
     SearchQuery,
     SearchResult,
@@ -63,7 +61,8 @@ from .models import (
     WorkLogRequest,
     WorkLogResult,
 )
-from .ports import (
+from domain.enums import LinkDirection
+from domain.ports import (
     ConfigurationProvider,
     EventPublisher,
     GraphGenerator,
@@ -750,7 +749,7 @@ class IssueLinkService(BaseJiraService):
     async def create_epic_story_link(self, epic_key: str, story_key: str, instance_name: str | None = None) -> IssueLinkResult:
         """Create a specific Epic-Story link."""
         epic_link = IssueLink(
-            link_type=LinkType.EPIC_STORY.value,
+            link_type="Epic-Story",
             source_issue=epic_key,
             target_issue=story_key,
             direction=LinkDirection.OUTWARD.value
@@ -767,7 +766,7 @@ class IssueLinkService(BaseJiraService):
     async def create_parent_child_link(self, parent_key: str, child_key: str, instance_name: str | None = None) -> IssueLinkResult:
         """Create a specific Parent-Child link."""
         parent_link = IssueLink(
-            link_type=LinkType.PARENT_CHILD.value,
+            link_type="Parent-Child",
             source_issue=parent_key,
             target_issue=child_key,
             direction=LinkDirection.OUTWARD.value

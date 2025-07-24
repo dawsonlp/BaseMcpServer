@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 from domain.base import BaseResult
 from domain.results import ValidationResult
-from .error_mappers import ErrorMapper, create_context
+from application.error_mappers import ErrorMapper, create_context
 
 T = TypeVar('T')
 

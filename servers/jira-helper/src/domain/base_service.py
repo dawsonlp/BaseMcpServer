@@ -6,8 +6,8 @@ Eliminates code duplication and provides common functionality.
 import logging
 from typing import Any
 
-from .exceptions import JiraInstanceNotFound, JiraValidationError
-from .ports import ConfigurationProvider, Logger
+from domain.exceptions import JiraInstanceNotFound, JiraValidationError
+from domain.ports import ConfigurationProvider, Logger
 
 
 class BaseJiraService:

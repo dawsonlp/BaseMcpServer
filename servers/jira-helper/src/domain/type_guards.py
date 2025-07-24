@@ -8,12 +8,12 @@ for value objects and domain types, enhancing type safety.
 import re
 from typing import Any, TypeGuard
 
-from .value_objects import (
+from domain.value_objects import (
     IssueKey, ProjectKey, TimeSpan, JqlQuery, InstanceName,
-    IssueType, Priority, Status, LinkType
 )
-from .enums import StatusCategory, LinkDirection, TimeUnit, WorkLogAdjustment
-from .shared_data import UserInfo, TimeTracking, IssueMetadata
+from domain.enums import StatusCategory, LinkDirection, TimeUnit, WorkLogAdjustment
+
+from domain.shared_data import UserInfo, TimeTracking, IssueMetadata
 
 
 def is_issue_key(value: Any) -> TypeGuard[IssueKey]:
@@ -72,62 +72,6 @@ def is_instance_name(value: Any) -> TypeGuard[InstanceName]:
     try:
         pattern = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$')
         return bool(pattern.match(value.name))
-    except (AttributeError, TypeError):
-        return False
-
-
-def is_issue_type(value: Any) -> TypeGuard[IssueType]:
-    """Type guard to check if a value is a valid IssueType."""
-    if not isinstance(value, IssueType):
-        return False
-    
-    try:
-        return bool(value.name and value.name.strip())
-    except (AttributeError, TypeError):
-        return False
-
-
-def is_priority(value: Any) -> TypeGuard[Priority]:
-    """Type guard to check if a value is a valid Priority."""
-    if not isinstance(value, Priority):
-        return False
-    
-    try:
-        return bool(value.name and value.name.strip())
-    except (AttributeError, TypeError):
-        return False
-
-
-def is_status(value: Any) -> TypeGuard[Status]:
-    """Type guard to check if a value is a valid Status."""
-    if not isinstance(value, Status):
-        return False
-    
-    try:
-        # Check name is valid
-        if not (value.name and value.name.strip()):
-            return False
-        
-        # Check category is one of the three fixed categories
-        valid_categories = {"To Do", "In Progress", "Done"}
-        return value.category in valid_categories
-    except (AttributeError, TypeError):
-        return False
-
-
-def is_link_type(value: Any) -> TypeGuard[LinkType]:
-    """Type guard to check if a value is a valid LinkType."""
-    if not isinstance(value, LinkType):
-        return False
-    
-    try:
-        # Check name is valid
-        if not (value.name and value.name.strip()):
-            return False
-        
-        # Check direction is valid
-        valid_directions = {"inward", "outward"}
-        return value.direction in valid_directions
     except (AttributeError, TypeError):
         return False
 
@@ -311,58 +255,6 @@ def safe_instance_name(value: Any) -> InstanceName | None:
             return value if is_instance_name(value) else None
         elif isinstance(value, str):
             return InstanceName.from_string(value) if validate_instance_name_string(value) else None
-        else:
-            return None
-    except (ValueError, TypeError):
-        return None
-
-
-def safe_issue_type(value: Any) -> IssueType | None:
-    """Safely convert a value to IssueType, returning None on failure."""
-    try:
-        if isinstance(value, IssueType):
-            return value if is_issue_type(value) else None
-        elif isinstance(value, str) and value.strip():
-            return IssueType.from_string(value)
-        else:
-            return None
-    except (ValueError, TypeError):
-        return None
-
-
-def safe_priority(value: Any) -> Priority | None:
-    """Safely convert a value to Priority, returning None on failure."""
-    try:
-        if isinstance(value, Priority):
-            return value if is_priority(value) else None
-        elif isinstance(value, str) and value.strip():
-            return Priority.from_string(value)
-        else:
-            return None
-    except (ValueError, TypeError):
-        return None
-
-
-def safe_status(value: Any, category: str = "To Do") -> Status | None:
-    """Safely convert a value to Status, returning None on failure."""
-    try:
-        if isinstance(value, Status):
-            return value if is_status(value) else None
-        elif isinstance(value, str) and value.strip():
-            return Status.from_string(value, category)
-        else:
-            return None
-    except (ValueError, TypeError):
-        return None
-
-
-def safe_link_type(value: Any, direction: str = "outward") -> LinkType | None:
-    """Safely convert a value to LinkType, returning None on failure."""
-    try:
-        if isinstance(value, LinkType):
-            return value if is_link_type(value) else None
-        elif isinstance(value, str) and value.strip():
-            return LinkType.from_string(value, direction)
         else:
             return None
     except (ValueError, TypeError):

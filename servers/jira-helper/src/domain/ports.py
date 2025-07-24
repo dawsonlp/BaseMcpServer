@@ -8,7 +8,7 @@ These are the contracts between the domain layer and the infrastructure layer.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from .models import (
+from domain.models import (
     AssigneeChangeRequest,
     CommentAddRequest,
     CustomFieldMapping,

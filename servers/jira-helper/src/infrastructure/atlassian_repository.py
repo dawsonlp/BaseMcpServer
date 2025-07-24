@@ -20,7 +20,7 @@ from domain.exceptions import (
 )
 from domain.models import CommentAddRequest, IssueCreateRequest, JiraIssue, JiraProject, JiraComment
 from domain.ports import ConfigurationProvider, JiraClientFactory, JiraRepository
-from .converters import JiraIssueConverter
+from infrastructure.converters import JiraIssueConverter
 
 logger = logging.getLogger(__name__)
 

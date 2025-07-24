@@ -4,7 +4,8 @@ Tests for IssueLink domain model.
 
 import pytest
 
-from domain.models import IssueLink, LinkDirection, LinkType
+from domain.models import IssueLink
+from domain.enums import LinkDirection
 
 
 class TestIssueLink:
@@ -15,13 +16,13 @@ class TestIssueLink:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
         assert link.source_issue == "PROJ-123"
         assert link.target_issue == "PROJ-456"
-        assert link.link_type == LinkType.BLOCKS.value
+        assert link.link_type == "Blocks"
         assert link.direction == LinkDirection.OUTWARD.value
 
     def test_create_epic_story_link(self):
@@ -29,11 +30,11 @@ class TestIssueLink:
         link = IssueLink(
             source_issue="EPIC-1",
             target_issue="STORY-1",
-            link_type=LinkType.EPIC_STORY.value,
+            link_type="Epic-Story",
             direction=LinkDirection.OUTWARD.value
         )
 
-        assert link.link_type == LinkType.EPIC_STORY.value
+        assert link.link_type == "Epic-Story"
         assert link.is_epic_link()
 
     def test_create_parent_child_link(self):
@@ -41,11 +42,11 @@ class TestIssueLink:
         link = IssueLink(
             source_issue="PARENT-1",
             target_issue="CHILD-1",
-            link_type=LinkType.PARENT_CHILD.value,
+            link_type="Parent-Child",
             direction=LinkDirection.OUTWARD.value
         )
 
-        assert link.link_type == LinkType.PARENT_CHILD.value
+        assert link.link_type == "Parent-Child"
         assert link.is_parent_child_link()
 
     def test_prevent_self_linking(self):
@@ -54,7 +55,7 @@ class TestIssueLink:
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="PROJ-123",
-                link_type=LinkType.BLOCKS.value,
+                link_type="Blocks",
                 direction=LinkDirection.OUTWARD.value
             )
 
@@ -64,7 +65,7 @@ class TestIssueLink:
             IssueLink(
                 source_issue="invalid-key",
                 target_issue="PROJ-456",
-                link_type=LinkType.BLOCKS,
+                link_type="Blocks",
                 direction=LinkDirection.OUTWARD
             )
 
@@ -73,14 +74,14 @@ class TestIssueLink:
         link1 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
         link2 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
@@ -91,14 +92,14 @@ class TestIssueLink:
         link1 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
         link2 = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-789",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
@@ -109,7 +110,7 @@ class TestIssueLink:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS.value,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD.value
         )
 
@@ -122,7 +123,7 @@ class TestIssueLink:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.RELATES.value,
+            link_type="Relates",
             direction=LinkDirection.OUTWARD.value
         )
         # Should not raise any exceptions
@@ -134,7 +135,7 @@ class TestIssueLink:
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="PROJ-456",
-                link_type=LinkType.BLOCKS.value,
+                link_type="Blocks",
                 direction="invalid_direction"
             )
 
@@ -154,7 +155,7 @@ class TestIssueLink:
             IssueLink(
                 source_issue="",
                 target_issue="PROJ-456",
-                link_type=LinkType.BLOCKS.value,
+                link_type="Blocks",
                 direction=LinkDirection.OUTWARD.value
             )
 
@@ -163,50 +164,9 @@ class TestIssueLink:
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="",
-                link_type=LinkType.BLOCKS.value,
+                link_type="Blocks",
                 direction=LinkDirection.OUTWARD.value
             )
-
-
-class TestLinkType:
-    """Test cases for LinkType enum."""
-
-    def test_all_link_types_defined(self):
-        """Test that all expected link types are defined."""
-        expected_types = [
-            "BLOCKS", "RELATES", "EPIC_STORY", "PARENT_CHILD",
-            "DUPLICATES", "CLONES", "CUSTOM"
-        ]
-
-        for link_type in expected_types:
-            assert hasattr(LinkType, link_type)
-
-    def test_link_type_string_values(self):
-        """Test link type string representations."""
-        assert LinkType.BLOCKS.value == "Blocks"
-        assert LinkType.RELATES.value == "Relates"
-        assert LinkType.EPIC_STORY.value == "Epic-Story"
-        assert LinkType.PARENT_CHILD.value == "Parent-Child"
-        assert LinkType.DUPLICATES.value == "Duplicates"
-        assert LinkType.CLONES.value == "Clones"
-        assert LinkType.CUSTOM.value == "Custom"
-
-    def test_link_type_enum_access(self):
-        """Test accessing link types through enum."""
-        # Test that we can access all defined link types
-        link_types = [
-            LinkType.BLOCKS,
-            LinkType.RELATES,
-            LinkType.EPIC_STORY,
-            LinkType.PARENT_CHILD,
-            LinkType.DUPLICATES,
-            LinkType.CLONES,
-            LinkType.CUSTOM
-        ]
-
-        for link_type in link_types:
-            assert isinstance(link_type.value, str)
-            assert len(link_type.value) > 0
 
 
 class TestLinkDirection:
@@ -234,7 +194,7 @@ class TestLinkDirection:
             link = IssueLink(
                 source_issue="PROJ-123",
                 target_issue="PROJ-456",
-                link_type=LinkType.BLOCKS.value,
+                link_type="Blocks",
                 direction=direction
             )
             assert link.direction == direction

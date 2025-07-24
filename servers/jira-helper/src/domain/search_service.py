@@ -7,19 +7,19 @@ separate from the consolidated JiraService.
 
 from typing import Any
 
-from .base_service import BaseJiraService
-from .exceptions import (
+from domain.base_service import BaseJiraService
+from domain.exceptions import (
     InvalidJQLError,
     JiraValidationError,
     JQLSecurityError,
 )
-from .jql_builder import JQLBuilderFactory, validate_jql_safety
-from .models import (
+from domain.jql_builder import JQLBuilderFactory, validate_jql_safety
+from domain.models import (
     SearchFilters,
     SearchQuery,
     SearchResult,
 )
-from .ports import (
+from domain.ports import (
     ConfigurationProvider,
     IssueSearchPort,
     JQLValidator,

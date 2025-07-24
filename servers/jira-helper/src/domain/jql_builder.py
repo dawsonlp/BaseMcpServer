@@ -7,7 +7,7 @@ from simple search filters, with proper validation and sanitization.
 
 import re
 
-from .models import SearchFilters
+from domain.models import SearchFilters
 
 
 class JQLBuilder:

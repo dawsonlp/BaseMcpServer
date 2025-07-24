@@ -8,8 +8,8 @@ larger domain models, reducing duplication while preserving type safety.
 from dataclasses import dataclass, field
 from typing import Any
 
-from .value_objects import TimeSpan, IssueKey, ProjectKey, InstanceName
-from .enums import StatusCategory
+from domain.value_objects import TimeSpan, IssueKey, ProjectKey, InstanceName
+from domain.enums import StatusCategory
 
 
 @dataclass

@@ -13,7 +13,8 @@ from domain.exceptions import (
     IssueLinkError,
     LinkNotFoundError,
 )
-from domain.models import IssueLink, IssueLinkResult, LinkDirection, LinkType
+from domain.models import IssueLink, IssueLinkResult
+from domain.enums import LinkDirection
 from domain.services import IssueLinkService
 
 
@@ -39,7 +40,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
@@ -71,7 +72,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-123",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
@@ -86,7 +87,7 @@ class TestIssueLinkService:
         valid_link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.RELATES,
+            link_type="Relates",
             direction=LinkDirection.OUTWARD
         )
 
@@ -107,7 +108,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
@@ -170,13 +171,13 @@ class TestIssueLinkService:
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="PROJ-456",
-                link_type=LinkType.BLOCKS,
+                link_type="Blocks",
                 direction=LinkDirection.OUTWARD
             ),
             IssueLink(
                 source_issue="PROJ-789",
                 target_issue="PROJ-123",
-                link_type=LinkType.RELATES,
+                link_type="Relates",
                 direction=LinkDirection.INWARD
             )
         ]
@@ -251,7 +252,7 @@ class TestIssueLinkService:
         outward_link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
@@ -273,7 +274,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
@@ -320,14 +321,14 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-A",
             target_issue="PROJ-C",  # This would complete the cycle
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 
         # Mock existing links that would create a cycle
         existing_links = [
-            IssueLink("PROJ-A", "PROJ-B", LinkType.BLOCKS, LinkDirection.OUTWARD),
-            IssueLink("PROJ-B", "PROJ-C", LinkType.BLOCKS, LinkDirection.OUTWARD)
+            IssueLink("PROJ-A", "PROJ-B", "Blocks", LinkDirection.OUTWARD),
+            IssueLink("PROJ-B", "PROJ-C", "Blocks", LinkDirection.OUTWARD)
         ]
 
         self.mock_link_port.get_links = AsyncMock(return_value=existing_links)
@@ -343,7 +344,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="EPIC-1",
             target_issue="TASK-1",  # Epic should link to Story, not Task
-            link_type=LinkType.EPIC_STORY,
+            link_type="Epic-Story",
             direction=LinkDirection.OUTWARD
         )
 
@@ -361,8 +362,8 @@ class TestIssueLinkService:
         # Arrange
         issue_key = "PROJ-123"
         all_links = [
-            IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
-            IssueLink("PROJ-789", "PROJ-123", LinkType.RELATES, LinkDirection.INWARD)
+            IssueLink("PROJ-123", "PROJ-456", "Blocks", LinkDirection.OUTWARD),
+            IssueLink("PROJ-789", "PROJ-123", "Relates", LinkDirection.INWARD)
         ]
 
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
@@ -381,8 +382,8 @@ class TestIssueLinkService:
         # Arrange
         issue_key = "PROJ-123"
         all_links = [
-            IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
-            IssueLink("PROJ-789", "PROJ-123", LinkType.RELATES, LinkDirection.INWARD)
+            IssueLink("PROJ-123", "PROJ-456", "Blocks", LinkDirection.OUTWARD),
+            IssueLink("PROJ-789", "PROJ-123", "Relates", LinkDirection.INWARD)
         ]
 
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
@@ -401,18 +402,18 @@ class TestIssueLinkService:
         # Arrange
         issue_key = "PROJ-123"
         all_links = [
-            IssueLink("PROJ-123", "PROJ-456", LinkType.BLOCKS, LinkDirection.OUTWARD),
-            IssueLink("PROJ-123", "PROJ-789", LinkType.RELATES, LinkDirection.OUTWARD)
+            IssueLink("PROJ-123", "PROJ-456", "Blocks", LinkDirection.OUTWARD),
+            IssueLink("PROJ-123", "PROJ-789", "Relates", LinkDirection.OUTWARD)
         ]
 
         self.mock_link_port.get_links = AsyncMock(return_value=all_links)
 
         # Act
-        blocks_links = await self.service.get_links_by_type(issue_key, LinkType.BLOCKS)
+        blocks_links = await self.service.get_links_by_type(issue_key, "Blocks")
 
         # Assert
         assert len(blocks_links) == 1
-        assert blocks_links[0].link_type == LinkType.BLOCKS
+        assert blocks_links[0].link_type == "Blocks"
 
     @pytest.mark.asyncio
     async def test_error_handling_and_logging(self):
@@ -421,7 +422,7 @@ class TestIssueLinkService:
         link = IssueLink(
             source_issue="PROJ-123",
             target_issue="PROJ-456",
-            link_type=LinkType.BLOCKS,
+            link_type="Blocks",
             direction=LinkDirection.OUTWARD
         )
 

@@ -5,9 +5,9 @@ This service consolidates InstanceService with configuration logic
 into a single, focused service.
 """
 
-from .base_service import BaseJiraService
-from .models import JiraInstance
-from .ports import ConfigurationProvider, Logger
+from domain.base_service import BaseJiraService
+from domain.models import JiraInstance
+from domain.ports import ConfigurationProvider, Logger
 
 
 class ConfigurationService(BaseJiraService):
