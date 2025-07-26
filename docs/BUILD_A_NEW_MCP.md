@@ -113,11 +113,9 @@ version = "1.0.0"
 description = "Hello World MCP server demonstrating tools, prompts, and resources"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 dependencies = [
-    "mcp>=1.0.0",
-    "pydantic>=2.0.0",
-    "pyyaml>=6.0",
-    "typer>=0.9.0",
-    "rich>=13.0.0"
+    "mcp>=1.12.1",
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0"
 ]
 requires-python = ">=3.11"
 
@@ -138,8 +136,6 @@ mcp>=1.12.1
 pydantic>=2.11.7
 pyyaml>=6.0
 typer>=0.16.0
-rich>=14.0.0
-httpx>=0.28.1 
 ```
 
 ## Implementing the Domain Layer
@@ -490,47 +486,59 @@ Hello World MCP Server
 A simple MCP server demonstrating tools, prompts, and resources.
 """
 
-import asyncio
+import logging
 import sys
 from pathlib import Path
 import typer
-from mcp.server.stdio import stdio_server
 
-# Import our MCP server instance
+# Add the src directory to the Python path
+src_dir = Path(__file__).parent
+sys.path.insert(0, str(src_dir))
+
 from adapters.mcp_adapter import mcp
 
-app = typer.Typer(help="Hello World MCP Server")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+app = typer.Typer()
 
 @app.command()
-def main(
-    transport: str = typer.Argument("stdio", help="Transport type (stdio or sse)")
-):
-    """Run the Hello World MCP server."""
-    if transport == "stdio":
-        # Run with stdio transport (for Cline/VSCode)
-        asyncio.run(stdio_server())
-    elif transport == "sse":
-        # Run with SSE transport (for web/HTTP clients)
-        from mcp.server.sse import sse_server
-        asyncio.run(sse_server(host="0.0.0.0", port=8000))
-    else:
-        typer.echo(f"Unknown transport: {transport}")
-        raise typer.Exit(1)
+def main(transport: str = typer.Argument("stdio", help="The transport to use (stdio or sse)")):
+    """Main entry point for the Hello World MCP server."""
+    try:
+        logger.info(f"Starting Hello World MCP server with transport: {transport}")
+        # The mcp object will be configured to use the specified transport
+        mcp.run()
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server failed to start: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     app()
 ```
 
-### 2. MCP Protocol Implementation
+### 2. MCP Protocol Implementation with FastMCP
 
 Create `src/adapters/mcp_adapter.py`:
 
 ```python
-from mcp.server import Server
-from mcp.types import Tool, TextContent, Prompt, PromptMessage, Resource
-from typing import Any, Dict, List
-import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Dict
+import json
+
+from mcp.server.fastmcp import FastMCP
 
 # Import our application layers
 from domain.services import GreetingService
@@ -538,102 +546,79 @@ from application.use_cases import SayHelloUseCase
 from infrastructure.file_adapter import FileAdapter
 from infrastructure.config_adapter import ConfigAdapter
 
-# Create the MCP server instance
-mcp = Server("hello-world-mcp")
 
-# Initialize services
-greeting_service = GreetingService()
-say_hello_use_case = SayHelloUseCase(greeting_service)
+class HelloWorldContext:
+    """Context object containing all initialized services."""
 
-# Initialize infrastructure
-current_dir = Path(__file__).parent.parent.parent
-resources_dir = current_dir / "resources"
-file_adapter = FileAdapter(resources_dir)
-config_adapter = ConfigAdapter(current_dir / "config.yaml")
+    def __init__(
+        self,
+        greeting_service: GreetingService,
+        say_hello_use_case: SayHelloUseCase,
+        file_adapter: FileAdapter,
+        config_adapter: ConfigAdapter,
+    ):
+        self.greeting_service = greeting_service
+        self.say_hello_use_case = say_hello_use_case
+        self.file_adapter = file_adapter
+        self.config_adapter = config_adapter
 
-@mcp.list_tools()
-async def list_tools() -> List[Tool]:
-    """List all available MCP tools."""
-    return [
-        Tool(
-            name="say_hello",
-            description="Generate a personalized greeting for someone",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the person to greet"
-                    },
-                    "style": {
-                        "type": "string",
-                        "enum": ["formal", "casual", "enthusiastic"],
-                        "description": "The style of greeting (default: casual)"
-                    }
-                },
-                "required": ["name"]
-            }
-        )
-    ]
 
-@mcp.call_tool()
-async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-    """Handle MCP tool calls."""
-    try:
-        if name == "say_hello":
-            result = await say_hello_use_case.execute(arguments)
-            
-            if result.success:
-                return [TextContent(
-                    type="text",
-                    text=json.dumps(result.data, indent=2)
-                )]
-            else:
-                return [TextContent(
-                    type="text",
-                    text=f"Error: {result.error.message}"
-                )]
-        else:
-            return [TextContent(
-                type="text",
-                text=f"Unknown tool: {name}"
-            )]
-    except Exception as e:
-        return [TextContent(
-            type="text",
-            text=f"Error executing tool '{name}': {str(e)}"
-        )]
+@asynccontextmanager
+async def hello_world_lifespan(server: FastMCP) -> AsyncIterator[HelloWorldContext]:
+    """Manage application lifecycle with dependency injection."""
+    
+    # Initialize services
+    greeting_service = GreetingService()
+    say_hello_use_case = SayHelloUseCase(greeting_service)
+    
+    # Initialize infrastructure
+    current_dir = Path(__file__).parent.parent.parent
+    resources_dir = current_dir / "resources"
+    file_adapter = FileAdapter(resources_dir)
+    config_adapter = ConfigAdapter(current_dir / "config.yaml")
+    
+    # Create context
+    context = HelloWorldContext(
+        greeting_service=greeting_service,
+        say_hello_use_case=say_hello_use_case,
+        file_adapter=file_adapter,
+        config_adapter=config_adapter,
+    )
+    
+    # Register tools with the server
+    register_tools(server, context)
+    
+    yield context
 
-@mcp.list_prompts()
-async def list_prompts() -> List[Prompt]:
-    """List all available prompts."""
-    return [
-        Prompt(
-            name="greeting_template",
-            description="Generate greeting templates for different occasions",
-            arguments=[
-                {
-                    "name": "occasion",
-                    "description": "The occasion for the greeting (e.g., 'meeting', 'email', 'birthday')",
-                    "required": False
-                },
-                {
-                    "name": "style",
-                    "description": "The style of greeting (formal, casual, enthusiastic)",
-                    "required": False
-                }
-            ]
-        )
-    ]
 
-@mcp.get_prompt()
-async def get_prompt(name: str, arguments: Dict[str, Any]) -> PromptMessage:
-    """Handle prompt requests."""
-    if name == "greeting_template":
-        occasion = arguments.get("occasion", "general")
-        style = arguments.get("style", "casual")
+def register_tools(server: FastMCP, context: HelloWorldContext):
+    """Register all MCP tools with the server."""
+    
+    @server.tool()
+    async def say_hello(name: str, style: str = "casual") -> Dict[str, Any]:
+        """Generate a personalized greeting for someone.
         
-        templates = greeting_service.get_available_templates()
+        Args:
+            name: The name of the person to greet
+            style: The style of greeting (formal, casual, enthusiastic)
+        """
+        arguments = {"name": name, "style": style}
+        result = await context.say_hello_use_case.execute(arguments)
+        
+        if result.success:
+            return result.data
+        else:
+            return {"error": result.error.message, "success": False}
+    
+    @server.prompt()
+    async def greeting_template(occasion: str = "general", style: str = "casual") -> str:
+        """Generate greeting templates for different occasions.
+        
+        Args:
+            occasion: The occasion for the greeting (e.g., 'meeting', 'email', 'birthday')
+            style: The style of greeting (formal, casual, enthusiastic)
+        """
+        templates = context.greeting_service.get_available_templates()
         
         # Find template matching the requested style
         selected_template = None
@@ -645,7 +630,7 @@ async def get_prompt(name: str, arguments: Dict[str, Any]) -> PromptMessage:
         if not selected_template:
             selected_template = templates[0]  # Default to first template
         
-        prompt_text = f"""Here's a {selected_template.style.value} greeting template for {occasion}:
+        return f"""Here's a {selected_template.style.value} greeting template for {occasion}:
 
 Template: {selected_template.template}
 Variables: {', '.join(selected_template.variables)}
@@ -655,34 +640,11 @@ Description: {selected_template.description}
 You can customize this template by replacing the variables with actual values.
 For example, replace {{name}} with the person's actual name.
 """
-        
-        return PromptMessage(
-            role="user",
-            content=TextContent(type="text", text=prompt_text)
-        )
-    else:
-        return PromptMessage(
-            role="user",
-            content=TextContent(type="text", text=f"Unknown prompt: {name}")
-        )
-
-@mcp.list_resources()
-async def list_resources() -> List[Resource]:
-    """List all available resources."""
-    return [
-        Resource(
-            uri="file://greetings.txt",
-            name="Greeting Examples",
-            description="A collection of greeting examples in different styles",
-            mimeType="text/plain"
-        )
-    ]
-
-@mcp.read_resource()
-async def read_resource(uri: str) -> str:
-    """Handle resource requests."""
-    if uri == "file://greetings.txt":
-        result = file_adapter.read_text_file("greetings.txt")
+    
+    @server.resource("file://greetings.txt")
+    async def greetings_resource() -> str:
+        """A collection of greeting examples in different styles."""
+        result = context.file_adapter.read_text_file("greetings.txt")
         
         if result.success:
             return result.data
@@ -710,8 +672,10 @@ async def read_resource(uri: str) -> str:
 - Consider cultural differences when choosing greeting styles
 - Personalize greetings when possible for better connection
 """
-    else:
-        return f"Unknown resource: {uri}"
+
+
+# Create the FastMCP server with lifespan management
+mcp = FastMCP("Hello World MCP", lifespan=hello_world_lifespan)
 ```
 
 ## Configuration Management
@@ -770,8 +734,8 @@ Create `tests/test_domain.py`:
 
 ```python
 import pytest
-from src.domain.services import GreetingService
-from src.domain.models import GreetingStyle
+from domain.services import GreetingService
+from domain.models import GreetingStyle
 
 def test_greeting_service_creates_casual_greeting():
     service = GreetingService()
