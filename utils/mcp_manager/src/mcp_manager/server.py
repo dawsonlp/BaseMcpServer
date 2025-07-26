@@ -180,6 +180,18 @@ def get_vscode_cline_settings_path() -> Path:
         return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
 
 
+def get_claude_desktop_settings_path() -> Path:
+    """Get the path to the Claude Desktop settings file."""
+    import sys
+    
+    if sys.platform == "darwin":  # macOS
+        return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+    elif sys.platform == "win32":  # Windows
+        return Path.home() / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
+    else:  # Linux and others
+        return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+
+
 def create_directory_structure() -> None:
     """Create the MCP directory structure if it doesn't exist."""
     # Create main directories

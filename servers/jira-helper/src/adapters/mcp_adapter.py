@@ -18,14 +18,10 @@ file_handler = logging.FileHandler(log_file, mode='a')
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-
+# Note: No stdout handler when using stdio transport to avoid corrupting MCP protocol
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
 root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
 
 # Test logging immediately
 startup_logger = logging.getLogger("mcp_adapter_startup")
@@ -34,7 +30,6 @@ startup_logger.info(f"📁 Debug log file: {log_file}")
 
 # Force flush
 file_handler.flush()
-console_handler.flush()
 
 from adapters.mcp_bulk_registration import (
     bulk_register_jira_tools,

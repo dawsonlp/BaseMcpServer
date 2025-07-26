@@ -164,17 +164,17 @@ def run(
 
 @app.command()
 def configure(
-    target: str = typer.Argument(..., help="Target to configure (vscode, cline)"),
+    target: str = typer.Argument(..., help="Target to configure (cline, claude-desktop)"),
     backup: bool = typer.Option(
         True, "--backup/--no-backup", help="Create a backup of existing configuration"
     ),
 ):
-    """Configure editor integration."""
+    """Configure editor/client integration."""
     from mcp_manager.commands.configure import configure_editor
     
     try:
         configure_editor(target, backup)
-        console.print(f"[bold green]Success:[/bold green] Editor integration for '{target}' configured.")
+        console.print(f"[bold green]Success:[/bold green] {target} integration configured.")
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
@@ -229,15 +229,24 @@ INSTALLING MCP SERVERS:
 3. Install from a Git repository:
    mcp-manager install git my-server --repo https://github.com/user/repo --path src
 
-CONFIGURING VSCODE/CLINE INTEGRATION:
------------------------------------
-1. Configure VS Code integration:
-   mcp-manager configure vscode
+CONFIGURING CLIENT INTEGRATION:
+------------------------------
+1. Configure Cline extension integration in VS Code:
+   mcp-manager configure cline
    
    This will:
-   - Register all your MCP servers with VS Code's Cline extension
-   - Generate wrapper scripts for all local servers
-   - Update the VS Code Cline settings file
+   - Register all your MCP servers with the Cline extension in VS Code
+   - Update the Cline settings file with your server configurations
+   - Create backups of existing settings (use --no-backup to skip)
+
+2. Configure Claude Desktop integration:
+   mcp-manager configure claude-desktop
+   
+   This will:
+   - Register all your local MCP servers with Claude Desktop
+   - Update the Claude Desktop configuration file
+   - Create backups of existing settings (use --no-backup to skip)
+   - Note: Only local servers are supported (remote servers are skipped)
 
 RUNNING MCP SERVERS:
 ------------------
