@@ -185,6 +185,38 @@ class IssueCreateRequest:
     priority: str | None = None
     assignee: str | None = None
     labels: list[str] = field(default_factory=list)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate the issue create request."""
+        # Validate custom fields structure if provided
+        if self.custom_fields:
+            self._validate_custom_fields()
+
+    def _validate_custom_fields(self) -> None:
+        """Validate custom fields structure."""
+        if not isinstance(self.custom_fields, dict):
+            raise ValueError("Custom fields must be a dictionary")
+        
+        for field_id, field_value in self.custom_fields.items():
+            if not isinstance(field_id, str):
+                raise ValueError(f"Custom field ID must be a string, got {type(field_id)}")
+            
+            if not field_id.startswith("customfield_"):
+                raise ValueError(f"Custom field ID must start with 'customfield_', got '{field_id}'")
+            
+            # Field value can be various types depending on the field type
+            # We'll let Jira validate the specific structure
+            if field_value is None:
+                raise ValueError(f"Custom field value cannot be None for field '{field_id}'")
+
+    def has_custom_fields(self) -> bool:
+        """Check if this request includes custom fields."""
+        return len(self.custom_fields) > 0
+
+    def get_custom_field_ids(self) -> list[str]:
+        """Get list of custom field IDs in this request."""
+        return list(self.custom_fields.keys())
 
 
 @validate_required_fields('issue_key', 'transition_name')

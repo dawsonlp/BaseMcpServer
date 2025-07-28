@@ -15,30 +15,30 @@ Adding custom fields support to jira-helper MCP server to enable ticket creation
 ## In Progress Tasks 🔄
 
 ### Phase 2: Custom Fields Support for Issue Creation
-- [ ] **Domain Model Enhancement**
-  - [ ] Add `custom_fields: dict[str, Any]` parameter to `IssueCreateRequest` dataclass
-  - [ ] Add validation for custom field structure
-  - [ ] Maintain backward compatibility
+- [x] **Domain Model Enhancement**
+  - [x] Add `custom_fields: dict[str, Any]` parameter to `IssueCreateRequest` dataclass
+  - [x] Add validation for custom field structure
+  - [x] Maintain backward compatibility
 
-- [ ] **Repository Layer Integration**
-  - [ ] Modify `AtlassianApiRepository.create_issue()` to merge custom fields into Jira API payload
-  - [ ] Test custom field integration with Jira API
-  - [ ] Preserve existing field handling (priority, assignee, labels)
+- [x] **Repository Layer Integration**
+  - [x] Modify `AtlassianApiRepository.create_issue()` to merge custom fields into Jira API payload
+  - [x] Add enhanced error handling for custom field issues
+  - [x] Preserve existing field handling (priority, assignee, labels)
 
-- [ ] **Use Case Layer Updates**
-  - [ ] Update `CreateIssueUseCase.execute()` to accept `custom_fields` parameter
-  - [ ] Update `CreateIssueWithLinksUseCase.execute()` to accept `custom_fields` parameter
-  - [ ] Pass custom fields through to `IssueCreateRequest`
+- [x] **Use Case Layer Updates**
+  - [x] Update `CreateIssueUseCase.execute()` to accept `custom_fields` parameter
+  - [x] Update `CreateIssueWithLinksUseCase.execute()` to accept `custom_fields` parameter
+  - [x] Pass custom fields through to `IssueCreateRequest`
 
-- [ ] **Testing & Validation**
-  - [ ] Test with US60 project and "Roadmap Project" custom field
-  - [ ] Verify backward compatibility with existing calls
-  - [ ] Test both `create_jira_ticket` and `create_issue_with_links` tools
+- [x] **Testing & Validation**
+  - [x] Test with US60 project and "Roadmap Project" custom field - ✅ US60-25 created successfully
+  - [x] Verify backward compatibility with existing calls - ✅ Error correctly shows missing required field
+  - [x] Test both `create_jira_ticket` and `create_issue_with_links` tools - ✅ Both tools working
 
-- [ ] **Deployment**
-  - [ ] Redeploy server with mcp-manager
-  - [ ] Verify tools expose new `custom_fields` parameter
-  - [ ] Test end-to-end ticket creation in US60 project
+- [x] **Deployment**
+  - [x] Redeploy server with mcp-manager - ✅ Successfully deployed with --pipx
+  - [x] Verify tools expose new `custom_fields` parameter - ✅ Parameter available and working
+  - [x] Test end-to-end ticket creation in US60 project - ✅ US60-25 created with custom field
 
 ## Pending Tasks 📋
 

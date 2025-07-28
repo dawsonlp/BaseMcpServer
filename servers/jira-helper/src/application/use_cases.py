@@ -5,6 +5,7 @@ This module demonstrates the massive code reduction achieved by using
 the BaseUseCase pattern to eliminate boilerplate in application layer.
 """
 
+from typing import Any
 
 from application.base_use_case import BaseCommandUseCase, BaseQueryUseCase
 from domain.models import (
@@ -168,6 +169,7 @@ class CreateIssueUseCase(BaseCommandUseCase):
         priority: str | None,
         assignee: str | None,
         labels: list[str] | None,
+        custom_fields: dict[str, Any] | None,
         instance_name: str
     ):
         """Execute the create issue use case."""
@@ -185,7 +187,8 @@ class CreateIssueUseCase(BaseCommandUseCase):
                 issue_type=issue_type,
                 priority=priority,
                 assignee=assignee,
-                labels=labels or []
+                labels=labels or [],
+                custom_fields=custom_fields or {}
             )
             return self._issue_service.create_issue(request, instance_name)
 
@@ -194,7 +197,8 @@ class CreateIssueUseCase(BaseCommandUseCase):
                 "created": True,
                 "key": issue.key,
                 "id": issue.id,
-                "url": issue.url
+                "url": issue.url,
+                "custom_fields_applied": len(custom_fields) if custom_fields else 0
             }
 
         return await self.execute_command(
@@ -917,6 +921,7 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
         priority: str | None,
         assignee: str | None,
         labels: list[str] | None,
+        custom_fields: dict[str, Any] | None,
         links: list[dict[str, str]] | None,
         instance_name: str
     ):
@@ -936,7 +941,8 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
                 issue_type=issue_type,
                 priority=priority,
                 assignee=assignee,
-                labels=labels or []
+                labels=labels or [],
+                custom_fields=custom_fields or {}
             )
 
             issue = await self._issue_service.create_issue(create_request, instance_name)
@@ -983,6 +989,7 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
                 "url": issue.url,
                 "links_created": len(created_links),
                 "links": created_links,
+                "custom_fields_applied": len(custom_fields) if custom_fields else 0,
                 "instance": instance_name
             }
 

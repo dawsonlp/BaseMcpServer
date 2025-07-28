@@ -171,12 +171,22 @@ class AtlassianApiRepository(JiraRepository):
                 "description": request.description,
                 "issuetype": {"name": request.issue_type},
             }
+            
+            # Add standard optional fields
             if request.priority:
                 issue_dict["priority"] = {"name": request.priority}
             if request.assignee:
                 issue_dict["assignee"] = {"name": request.assignee}
             if request.labels:
                 issue_dict["labels"] = request.labels
+
+            # Add custom fields to the payload
+            if request.has_custom_fields():
+                for field_id, field_value in request.custom_fields.items():
+                    issue_dict[field_id] = field_value
+                    logger.debug(f"Added custom field {field_id} with value: {field_value}")
+
+            logger.debug(f"Creating issue with payload: {issue_dict}")
 
             created_issue_data = await asyncio.to_thread(
                 client.issue_create, fields=issue_dict
@@ -189,7 +199,15 @@ class AtlassianApiRepository(JiraRepository):
 
             return self._converter.convert_issue_to_domain(full_issue_data, instance_name)
         except Exception as e:
-            logger.error(f"Failed to create issue: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"Failed to create issue: {error_msg}")
+            
+            # Provide more helpful error messages for custom field issues
+            if "customfield_" in error_msg and "required" in error_msg.lower():
+                logger.error("This appears to be a custom field validation error. Check that all required custom fields are provided.")
+            elif "customfield_" in error_msg:
+                logger.error("This appears to be a custom field format error. Check the custom field values match the expected format.")
+            
             raise
 
     async def add_comment(self, request: CommentAddRequest, instance_name: str) -> JiraComment:
