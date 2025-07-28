@@ -371,7 +371,7 @@ class AtlassianApiRepository(JiraRepository):
                     if reverse:
                         # Map from name to ID
                         mapping = CustomFieldMapping(
-                            field_name=field_data.get("name", ""),
+                            name=field_data.get("name", ""),
                             field_id=field_data.get("id", ""),
                             description=field_data.get("description", "")
                         )
@@ -379,7 +379,7 @@ class AtlassianApiRepository(JiraRepository):
                         # Map from ID to name (default)
                         mapping = CustomFieldMapping(
                             field_id=field_data.get("id", ""),
-                            field_name=field_data.get("name", ""),
+                            name=field_data.get("name", ""),
                             description=field_data.get("description", "")
                         )
                     mappings.append(mapping)
