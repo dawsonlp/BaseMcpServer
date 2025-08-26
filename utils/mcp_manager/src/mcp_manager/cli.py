@@ -180,6 +180,18 @@ def configure(
         raise typer.Exit(1)
 
 
+@app.command("config-info")
+def config_info():
+    """Show comprehensive MCP configuration information and status."""
+    from mcp_manager.commands.config_info import config_info_main
+    
+    try:
+        config_info_main()
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
+
+
 @app.command()
 def generate_wrappers(
     overwrite: bool = typer.Option(
@@ -247,6 +259,17 @@ CONFIGURING CLIENT INTEGRATION:
    - Update the Claude Desktop configuration file
    - Create backups of existing settings (use --no-backup to skip)
    - Note: Only local servers are supported (remote servers are skipped)
+
+CONFIGURATION STATUS:
+-------------------
+1. View comprehensive configuration status:
+   mcp-manager config-info
+   
+   This will show:
+   - Configuration file locations and status
+   - All configured MCP servers across applications
+   - Which servers are managed by mcp-manager vs manually configured
+   - Configuration inconsistencies and orphaned entries
 
 RUNNING MCP SERVERS:
 ------------------
