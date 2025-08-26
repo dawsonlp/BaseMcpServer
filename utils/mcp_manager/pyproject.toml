@@ -12,16 +12,16 @@ authors = [
     {name = "MCP Server Team", email = "example@example.com"},
 ]
 dependencies = [
-    "typer>=0.9.0",           # CLI framework
-    "pydantic>=2.11.3",       # Data validation
-    "rich>=13.7.0",           # Rich text and formatting
-    "virtualenv>=20.25.0",    # Virtual environment management
-    "jinja2>=3.1.3",          # Template rendering
+    "typer>=0.16.1",           # CLI framework
+    "pydantic>=2.11.7",       # Data validation
+    "rich>=14.1.0",           # Rich text and formatting
+    "virtualenv>=20.34.0",    # Virtual environment management
+    "jinja2>=3.1.6",          # Template rendering
     "httpx>=0.28.1",          # HTTP client for testing connections
 ]
 
 [project.scripts]
-mcp-manager = "mcp_manager.cli:app"
+mcpmanager = "mcp_manager.cli:app"
 
 [tool.setuptools]
 packages = ["mcp_manager", "mcp_manager.commands"]
