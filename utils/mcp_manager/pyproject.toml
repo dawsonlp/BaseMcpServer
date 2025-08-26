@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-manager = "mcp_manager.cli:app"
+mcpmanager = "mcp_manager.cli:app"
 
 [tool.setuptools]
 packages = ["mcp_manager", "mcp_manager.commands"]
