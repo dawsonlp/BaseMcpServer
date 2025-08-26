@@ -145,7 +145,7 @@ class ServerRegistry(BaseModel):
 
 def get_mcp_home() -> Path:
     """Get the MCP home directory."""
-    return Path.home() / ".mcp_servers"
+    return Path.home() / ".config" / "mcp-manager"
 
 
 def get_server_dir(name: str) -> Path:
@@ -192,8 +192,34 @@ def get_claude_desktop_settings_path() -> Path:
         return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
 
 
+def migrate_from_old_location() -> bool:
+    """Migrate existing data from ~/.mcp_servers to ~/.config/mcp-manager."""
+    old_home = Path.home() / ".mcp_servers"
+    new_home = get_mcp_home()
+    
+    # If old directory exists and new directory doesn't exist (or is empty)
+    if old_home.exists() and not new_home.exists():
+        try:
+            # Create parent directory
+            new_home.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy the entire old directory to new location
+            shutil.copytree(old_home, new_home)
+            
+            print(f"✓ Migrated MCP manager data from {old_home} to {new_home}")
+            return True
+        except Exception as e:
+            print(f"⚠ Warning: Failed to migrate data from {old_home}: {e}")
+            return False
+    
+    return False
+
+
 def create_directory_structure() -> None:
     """Create the MCP directory structure if it doesn't exist."""
+    # First, try to migrate from old location
+    migrate_from_old_location()
+    
     # Create main directories
     get_mcp_home().mkdir(parents=True, exist_ok=True)
     get_server_dir("").parent.mkdir(parents=True, exist_ok=True)
