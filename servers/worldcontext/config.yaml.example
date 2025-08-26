@@ -1,0 +1,11 @@
+# WorldContext MCP Server Configuration
+
+server:
+  name: "worldcontext"
+  host: "localhost"
+  port: 7501
+  api_key: "example_key"
+
+api_keys:
+  alphavantage: "YOUR_ALPHAVANTAGE_API_KEY_HERE"
+  newsapi: "YOUR_NEWSAPI_KEY_HERE"
