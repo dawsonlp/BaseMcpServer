@@ -142,7 +142,7 @@ class TestIssueLink:
     def test_empty_fields_validation(self):
         """Test validation of empty fields."""
         # Empty link type
-        with pytest.raises(ValueError, match="Link type cannot be empty"):
+        with pytest.raises(ValueError, match="link_type cannot be empty"):
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="PROJ-456",
@@ -151,7 +151,7 @@ class TestIssueLink:
             )
 
         # Empty source issue
-        with pytest.raises(ValueError, match="Source issue cannot be empty"):
+        with pytest.raises(ValueError, match="source_issue cannot be empty"):
             IssueLink(
                 source_issue="",
                 target_issue="PROJ-456",
@@ -160,7 +160,7 @@ class TestIssueLink:
             )
 
         # Empty target issue
-        with pytest.raises(ValueError, match="Target issue cannot be empty"):
+        with pytest.raises(ValueError, match="target_issue cannot be empty"):
             IssueLink(
                 source_issue="PROJ-123",
                 target_issue="",

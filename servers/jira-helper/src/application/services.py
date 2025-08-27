@@ -37,108 +37,103 @@ class ValidationService:
     """
     Centralized input validation service.
 
-    Provides consistent validation logic across all use cases and application services.
+    Provides basic sanity checks only. Lets Jira be the authoritative source
+    for business rule validation (formats, constraints, etc).
     """
 
     @staticmethod
     def validate_issue_key(issue_key: str) -> None:
-        """Validate Jira issue key format."""
+        """Basic validation for issue key - let Jira validate format specifics."""
         if not issue_key:
             raise JiraValidationError(["Issue key is required"])
 
         if not isinstance(issue_key, str):
             raise JiraValidationError(["Issue key must be a string"])
 
-        # Basic Jira key format: PROJECT-123
-        if '-' not in issue_key:
-            raise JiraValidationError(["Issue key must be in format 'PROJECT-123'"])
+        if len(issue_key.strip()) == 0:
+            raise JiraValidationError(["Issue key cannot be empty"])
 
-        parts = issue_key.split('-')
-        if len(parts) != 2:
-            raise JiraValidationError(["Issue key must be in format 'PROJECT-123'"])
-
-        project_key, issue_number = parts
-        if not project_key.isalpha():
-            raise JiraValidationError(["Project key must contain only letters"])
-
-        if not issue_number.isdigit():
-            raise JiraValidationError(["Issue number must be numeric"])
+        # Reasonable sanity limit - let Jira decide actual format rules
+        if len(issue_key) > 100:
+            raise JiraValidationError(["Issue key is unreasonably long"])
 
     @staticmethod
     def validate_project_key(project_key: str) -> None:
-        """Validate Jira project key format."""
+        """Basic validation for project key - let Jira validate format specifics."""
         if not project_key:
             raise JiraValidationError(["Project key is required"])
 
         if not isinstance(project_key, str):
             raise JiraValidationError(["Project key must be a string"])
 
-        if not project_key.isalpha():
-            raise JiraValidationError(["Project key must contain only letters"])
+        if len(project_key.strip()) == 0:
+            raise JiraValidationError(["Project key cannot be empty"])
 
-        if len(project_key) < 2 or len(project_key) > 10:
-            raise JiraValidationError(["Project key must be 2-10 characters long"])
+        # Reasonable sanity limit - let Jira decide actual format rules
+        if len(project_key) > 50:
+            raise JiraValidationError(["Project key is unreasonably long"])
 
     @staticmethod
     def validate_instance_name(instance_name: str | None) -> None:
-        """Validate instance name if provided."""
+        """Basic validation for instance name."""
         if instance_name is not None:
             if not isinstance(instance_name, str):
                 raise JiraValidationError(["Instance name must be a string"])
 
-            if not instance_name.strip():
+            if len(instance_name.strip()) == 0:
                 raise JiraValidationError(["Instance name cannot be empty"])
 
     @staticmethod
     def validate_summary(summary: str) -> None:
-        """Validate issue summary."""
+        """Basic validation for summary - let Jira validate length limits."""
         if not summary:
             raise JiraValidationError(["Summary is required"])
 
         if not isinstance(summary, str):
             raise JiraValidationError(["Summary must be a string"])
 
-        if len(summary.strip()) < 5:
-            raise JiraValidationError(["Summary must be at least 5 characters long"])
+        if len(summary.strip()) == 0:
+            raise JiraValidationError(["Summary cannot be empty"])
 
-        if len(summary) > 255:
-            raise JiraValidationError(["Summary must be less than 255 characters"])
+        # Very generous limit - let Jira decide actual constraints
+        if len(summary) > 1000:
+            raise JiraValidationError(["Summary is unreasonably long"])
 
     @staticmethod
     def validate_description(description: str) -> None:
-        """Validate issue description."""
+        """Basic validation for description."""
         if not description:
             raise JiraValidationError(["Description is required"])
 
         if not isinstance(description, str):
             raise JiraValidationError(["Description must be a string"])
 
-        if len(description.strip()) < 10:
-            raise JiraValidationError(["Description must be at least 10 characters long"])
+        if len(description.strip()) == 0:
+            raise JiraValidationError(["Description cannot be empty"])
 
     @staticmethod
     def validate_comment(comment: str) -> None:
-        """Validate comment text."""
+        """Basic validation for comment text."""
         if not comment:
             raise JiraValidationError(["Comment is required"])
 
         if not isinstance(comment, str):
             raise JiraValidationError(["Comment must be a string"])
 
-        if len(comment.strip()) < 3:
-            raise JiraValidationError(["Comment must be at least 3 characters long"])
+        if len(comment.strip()) == 0:
+            raise JiraValidationError(["Comment cannot be empty"])
 
     @staticmethod
     def validate_transition_name(transition_name: str) -> None:
-        """Validate workflow transition name."""
+        """Basic validation for transition name."""
         if not transition_name:
             raise JiraValidationError(["Transition name is required"])
 
         if not isinstance(transition_name, str):
             raise JiraValidationError(["Transition name must be a string"])
 
-        if len(transition_name.strip()) < 2:
-            raise JiraValidationError(["Transition name must be at least 2 characters long"])
+        if len(transition_name.strip()) == 0:
+            raise JiraValidationError(["Transition name cannot be empty"])
 
 
 class JiraApplicationService:
