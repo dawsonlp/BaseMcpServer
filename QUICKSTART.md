@@ -1,11 +1,11 @@
-# Quick Start Guide: `mcpmanager` and `jira-helper`
+# Quick Start Guide: `mcp-manager` and `jira-helper`
 
-This guide provides a streamlined set of instructions for developers to get up and running with the `mcpmanager` tool and the `jira-helper` MCP server.
+This guide provides a streamlined set of instructions for developers to get up and running with the `mcp-manager` tool and the `jira-helper` MCP server.
 
 ## 1. Prerequisites
 
 -   Python 3.11+
--   `pipx` (for installing `mcpmanager`)
+-   `pipx` (for installing `mcp-manager`)
 
 If you don't have `pipx`, you can install it with:
 ```bash
@@ -13,9 +13,9 @@ pip install pipx
 pipx ensurepath
 ```
 
-## 2. Install `mcpmanager`
+## 2. Install `mcp-manager`
 
-Install the `mcpmanager` CLI tool globally using `pipx`. This will make it available system-wide:
+Install the `mcp-manager` CLI tool globally using `pipx`. This will make it available system-wide:
 
 ```bash
 # Install from local source directory
@@ -25,18 +25,20 @@ pipx install ./utils/mcp_manager
 pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
 ```
 
-Verify the installation using the shorter command name:
+Verify the installation using the primary command name:
 ```bash
-mcpmanager --version
-mcpmanager --help
+mcp-manager --version
+mcp-manager --help
 ```
+
+**Note:** For backward compatibility, `mcpmanager` (without hyphen) still works as an alias.
 
 ## 3. Install the `jira-helper` Server
 
-Use `mcpmanager` to install the `jira-helper` server in an isolated environment:
+Use `mcp-manager` to install the `jira-helper` server in an isolated environment:
 
 ```bash
-mcpmanager install local jira-helper --source servers/jira-helper --force
+mcp-manager install local jira-helper --source servers/jira-helper --force
 ```
 *   `--source`: Points to the directory containing the server's source code.
 *   `--force`: Overwrites any existing server with the same name.
@@ -93,7 +95,7 @@ The `jira-helper` server is configured via a `config.yaml` file where you add co
 Configure VS Code Cline to use the `jira-helper` server:
 
 ```bash
-mcpmanager configure vscode
+mcp-manager config cline
 ```
 
 This automatically updates your VS Code settings to include the `jira-helper` server.
@@ -103,7 +105,7 @@ This automatically updates your VS Code settings to include the `jira-helper` se
 Check your complete MCP configuration status:
 
 ```bash
-mcpmanager config-info
+mcp-manager info system
 ```
 
 This command displays:
@@ -130,9 +132,9 @@ When using Jira tools in your editor, you can specify which instance to use:
 
 If you encounter issues:
 
-1. **Check configuration status**: `mcpmanager config-info`
-2. **List installed servers**: `mcpmanager list`
-3. **Test server directly**: `mcpmanager run jira-helper`
+1. **Check configuration status**: `mcp-manager info system`
+2. **List installed servers**: `mcp-manager list`
+3. **Test server directly**: `mcp-manager server start jira-helper`
 4. **Verify Jira credentials**: Check your API tokens and URLs
 5. **Restart VS Code** after configuration changes
 

@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from adapters.mcp_result_adapter import (
+from mcp_commons import (
     create_mcp_adapter,
-    get_adapter_stats,
-    validate_use_case_result,
+    validate_use_case_result
 )
+from mcp_commons.adapters import get_adapter_stats
 from application.base_use_case import UseCaseResult
 
 
@@ -108,7 +108,7 @@ class TestCreateMcpAdapter:
         assert result["success"] is False
         assert "Unexpected error: Test exception" in result["error"]
         assert result["details"]["method"] == "test_use_case"
-        assert result["details"]["kwargs"]["param"] == "value"
+        assert result["details"]["parameters"]["param"] == "value"
 
     def test_metadata_preservation(self):
         """Test that function metadata is preserved."""
@@ -178,12 +178,13 @@ class TestGetAdapterStats:
         """Test adapter statistics."""
         stats = get_adapter_stats()
 
-        assert "adapter_version" in stats
-        assert "replaces_lines" in stats
-        assert "description" in stats
+        # mcp-commons returns AdapterStats dataclass, not dict
+        assert hasattr(stats, 'version')
+        assert hasattr(stats, 'boilerplate_lines_eliminated') 
+        assert hasattr(stats, 'description')
 
-        assert stats["replaces_lines"] == 500
-        assert "boilerplate" in stats["description"].lower()
+        assert stats.boilerplate_lines_eliminated == 500
+        assert "boilerplate" in stats.description.lower()
 
 
 @pytest.mark.asyncio

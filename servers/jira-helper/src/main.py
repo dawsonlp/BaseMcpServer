@@ -1,14 +1,12 @@
 """
 Main entry point for the Jira Helper MCP server.
 
-This module provides the entry point for the Jira Helper server
-using hexagonal architecture with proper separation of concerns.
+Consolidated to use mcp-commons utilities while maintaining hexagonal architecture.
 """
 
 import logging
 import sys
 from pathlib import Path
-import typer
 
 # Add the src directory to the Python path
 src_dir = Path(__file__).parent
@@ -16,7 +14,7 @@ sys.path.insert(0, str(src_dir))
 
 from adapters.mcp_adapter import mcp
 
-# Configure logging
+# Configure logging for file output (avoid stdout corruption with stdio transport)
 log_file = "/tmp/jira_helper_debug.log"
 logging.basicConfig(
     level=logging.INFO,
@@ -29,15 +27,22 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-app = typer.Typer()
-
-@app.command()
-def main(transport: str = typer.Argument("stdio", help="The transport to use (stdio or sse)")):
+def main():
     """Main entry point for the Jira Helper MCP server."""
+    # Get transport from command line argument
+    transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
+    
+    if transport in ["help", "--help", "-h"]:
+        print("Jira Helper MCP Server")
+        print("Usage: python main.py [stdio|sse]")
+        print("  stdio: Use stdio transport (default)")
+        print("  sse:   Use HTTP+SSE transport")
+        return
+    
     try:
         logger.info(f"Starting Jira Helper MCP server with transport: {transport}")
         # The mcp object will be configured to use the specified transport
-        mcp.run()
+        mcp.run(transport)
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
@@ -45,4 +50,4 @@ def main(transport: str = typer.Argument("stdio", help="The transport to use (st
         raise
 
 if __name__ == "__main__":
-    app()
+    main()

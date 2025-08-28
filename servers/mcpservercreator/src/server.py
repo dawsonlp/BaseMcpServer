@@ -1,5 +1,8 @@
 """
 MCP Server Creator - Dynamically creates and installs MCP servers from Python code.
+
+This module provides the implementation for all MCP tools using the mcp-commons
+bulk registration system, eliminating the need for manual @srv.tool() decorators.
 """
 
 import os
@@ -14,8 +17,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-
-from mcp.server.fastmcp import FastMCP
 
 from config import settings
 
@@ -45,7 +46,7 @@ def create_server_files(
     tool_names: List[str]
 ) -> None:
     """
-    Create all necessary files for a new MCP server.
+    Create all necessary files for a new MCP server using modern mcp-commons pattern.
     
     Args:
         server_dir: Directory to create the files in
@@ -63,236 +64,299 @@ def create_server_files(
     with open(src_dir / "__init__.py", "w") as f:
         f.write(f"# {server_name} package\n")
     
-    # Create config.py - using separate string concatenation to avoid f-string triple quote issues
-    config_content = '"""\n'
-    config_content += f'Configuration settings for {server_name}.\n'
-    config_content += '"""\n\n'
-    config_content += 'import os\n'
-    config_content += 'from pydantic_settings import BaseSettings\n\n\n'
-    config_content += 'class Settings(BaseSettings):\n'
-    config_content += f'    """Configuration settings for {server_name} server."""\n'
-    config_content += '    \n'
-    config_content += '    # MCP server settings\n'
-    config_content += '    host: str = os.getenv("HOST", "0.0.0.0")\n'
-    config_content += '    port: int = int(os.getenv("PORT", 7501))\n'
-    config_content += '    api_key: str = os.getenv("API_KEY", "example_key")\n'
-    config_content += f'    server_name: str = os.getenv("SERVER_NAME", "{server_name}")\n'
-    config_content += '    \n'
-    config_content += '    class Config:\n'
-    config_content += '        env_file = ".env"\n'
-    config_content += '        case_sensitive = False\n\n\n'
-    config_content += 'settings = Settings()\n'
+    # Create config.py using modern approach
+    config_content = f'''"""
+Configuration for {server_name}.
+"""
+
+from typing import Dict, Any, Optional
+
+
+class SimpleConfig:
+    """Simple configuration class for {server_name}."""
+    
+    def __init__(self):
+        self._config = {{
+            "server": {{
+                "name": "{server_name}",
+                "host": "localhost", 
+                "port": 7501
+            }}
+        }}
+    
+    def get(self, section: str, key: str, default: Any = None) -> Any:
+        """Get configuration value."""
+        return self._config.get(section, {{}}).get(key, default)
+
+
+# Global config instance
+config = SimpleConfig()
+'''
     
     with open(src_dir / "config.py", "w") as f:
         f.write(config_content)
     
-    # Indent the code snippet for proper placement within the function
-    indented_code = "\n".join("    " + line for line in code_snippet.splitlines())
+    # Extract imports and function definitions from code snippet
+    parsed_code = ast.parse(code_snippet)
+    imports = []
+    function_defs = []
     
-    # Create server.py with the provided code snippet - using string concatenation to avoid triple quote issues
-    server_content = '"""\n'
-    server_content += f'{description}\n\n'
-    server_content += 'This module defines tools and resources for the MCP server.\n'
-    server_content += 'All tool and resource definitions should be placed inside the register_tools_and_resources function.\n'
-    server_content += '"""\n\n'
-    server_content += 'import logging\n'
-    server_content += 'import random\n'
-    server_content += 'from typing import Dict, Any, List, Optional, Union, Literal\n'
-    server_content += 'from mcp.server.fastmcp import FastMCP\n\n'
-    server_content += '# Set up logging\n'
-    server_content += 'logging.basicConfig(level=logging.INFO)\n'
-    server_content += 'logger = logging.getLogger(__name__)\n\n\n'
-    server_content += 'def register_tools_and_resources(srv: FastMCP) -> None:\n'
-    server_content += '    """\n'
-    server_content += '    Register tools and resources with the provided MCP server instance.\n'
-    server_content += '    \n'
-    server_content += '    This is the main entry point for defining all tools and resources.\n'
-    server_content += '    Add your custom tool implementations as decorated functions within this function.\n'
-    server_content += '    \n'
-    server_content += '    Example:\n'
-    server_content += '        @srv.tool()\n'
-    server_content += '        def my_tool(param1: str, param2: int) -> Dict[str, Any]:\n'
-    server_content += "            '''Tool description'''\n"
-    server_content += '            # Tool implementation\n'
-    server_content += '            return {"result": "result"}\n'
-    server_content += '            \n'
-    server_content += '        @srv.resource("resource://my-resource/{parameter}")\n'
-    server_content += '        def my_resource(parameter: str) -> Dict[str, Any]:\n'
-    server_content += "            '''Resource description'''\n"
-    server_content += '            # Resource implementation\n'
-    server_content += '            return {"data": "data"}\n'
-    server_content += '    \n'
-    server_content += '    Args:\n'
-    server_content += '        srv: A FastMCP server instance to register tools and resources with\n'
-    server_content += '    """\n'
-    server_content += f'{indented_code}\n'
+    # Extract imports
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.Import):
+            import_names = [alias.name for alias in node.names]
+            imports.append(f"import {', '.join(import_names)}")
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                from_names = [alias.name for alias in node.names]
+                imports.append(f"from {node.module} import {', '.join(from_names)}")
+    
+    # Extract function definitions
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.FunctionDef):
+            # Check if it has @srv.tool() decorator
+            has_tool_decorator = False
+            for decorator in node.decorator_list:
+                if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
+                    if decorator.func.attr == "tool" and isinstance(decorator.func.value, ast.Name):
+                        if decorator.func.value.id == "srv":
+                            has_tool_decorator = True
+                            break
+            
+            if has_tool_decorator:
+                # Extract the function body without the decorator and add self parameter
+                func_source = ast.get_source_segment(code_snippet, node)
+                if func_source:
+                    lines = func_source.split('\n')
+                    filtered_lines = []
+                    for line in lines:
+                        if not line.strip().startswith('@srv.tool'):
+                            # Add self parameter to function signature
+                            if line.strip().startswith('def '):
+                                # Replace "def func_name(" with "def func_name(self, " or "def func_name() ->" with "def func_name(self) ->"
+                                if '(' in line and ')' in line:
+                                    before_paren = line[:line.find('(')]
+                                    after_paren = line[line.find('(') + 1:]
+                                    if after_paren.strip().startswith(')'):
+                                        # No parameters, just add self
+                                        line = f"{before_paren}(self{after_paren}"
+                                    else:
+                                        # Has parameters, add self as first
+                                        line = f"{before_paren}(self, {after_paren}"
+                            filtered_lines.append(line)
+                    
+                    if filtered_lines:
+                        function_defs.append('\n'.join(filtered_lines))
+    
+    # Create implementation class
+    impl_methods = []
+    for func_def in function_defs:
+        # Indent the function definition for class method
+        indented_func = '\n'.join('    ' + line for line in func_def.split('\n'))
+        impl_methods.append(indented_func)
+    
+    # Build import statements for server.py
+    import_statements = [
+        "import logging",
+        "from typing import Dict, Any, List, Optional"
+    ]
+    
+    # Add extracted imports from code snippet
+    for imp in imports:
+        if imp not in import_statements:
+            import_statements.append(imp)
+    
+    imports_section = '\n'.join(import_statements)
+    
+    # Create server.py with implementation class
+    server_content = f'''"""
+{description}
+
+Implementation class for {server_name} MCP server tools.
+"""
+
+{imports_section}
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class {server_name.replace('-', '_').title()}Implementation:
+    """
+    Implementation class containing all MCP tool methods.
+    
+    This class provides the actual implementation for all tools that will be
+    bulk registered with the mcp-commons system.
+    """
+    
+{chr(10).join(impl_methods) if impl_methods else '    def placeholder_tool(self) -> Dict[str, Any]:\n        """Placeholder tool."""\n        return {"message": "No tools implemented"}'}
+'''
     
     with open(src_dir / "server.py", "w") as f:
         f.write(server_content)
     
-    # Create main.py - using separate string concatenation to avoid f-string triple quote issues
-    main_content = '"""\n'
-    main_content += f'Main entry point for the {server_name} MCP Server.\n\n'
-    main_content += 'This module sets up and runs the MCP server using FastMCP.\n'
-    main_content += 'It handles server initialization, transport selection, and configuration.\n'
-    main_content += '"""\n\n'
-    main_content += 'import sys\n'
-    main_content += 'import logging\n'
-    main_content += 'from typing import Any\n'
-    main_content += 'from mcp.server.fastmcp import FastMCP\n\n'
-    main_content += 'from config import settings\n'
-    main_content += 'from server import register_tools_and_resources\n\n'
-    main_content += '# Set up logging\n'
-    main_content += 'logging.basicConfig(\n'
-    main_content += '    level=logging.INFO,\n'
-    main_content += '    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",\n'
-    main_content += '    handlers=[logging.StreamHandler(sys.stdout)]\n'
-    main_content += ')\n'
-    main_content += 'logger = logging.getLogger(__name__)\n\n\n'
-    main_content += 'def print_help() -> None:\n'
-    main_content += '    """Print helpful information about using and customizing the MCP server."""\n'
-    main_content += '    help_text = """\n'
-    main_content += f'{server_name} MCP Server Usage Guide\n'
-    main_content += '==========================\n\n'
-    main_content += 'BASIC USAGE:\n'
-    main_content += '-----------\n'
-    main_content += '  python main.py sse        # Run as HTTP+SSE server (for network/container use)\n'
-    main_content += '  python main.py stdio      # Run as stdio server (for local development)\n'
-    main_content += '  python main.py help       # Show this help message\n\n'
-    main_content += 'CUSTOMIZATION:\n'
-    main_content += '-------------\n'
-    main_content += 'This MCP server is designed with a clear separation of concerns:\n\n'
-    main_content += '1. main.py (THIS FILE):\n'
-    main_content += '   - Handles server initialization and transport selection\n'
-    main_content += '   - Sets up logging and configuration\n'
-    main_content += '   - Generally, you should NOT modify this file\n\n'
-    main_content += '2. server.py:\n'
-    main_content += '   - Defines all MCP tools and resources\n'
-    main_content += '   - This is where you should add your customizations\n'
-    main_content += '   - Use the register_tools_and_resources function to add tools\n\n'
-    main_content += '3. config.py:\n'
-    main_content += '   - Contains server configuration settings\n'
-    main_content += '   - Environment variables can override these settings\n\n'
-    main_content += 'ADDING NEW TOOLS:\n'
-    main_content += '---------------\n'
-    main_content += 'To add a new tool, edit server.py and add a function within the\n'
-    main_content += 'register_tools_and_resources function:\n\n'
-    main_content += '    @srv.tool()\n'
-    main_content += '    def my_new_tool(param1: str, param2: int) -> Dict[str, Any]:\n'
-    main_content += '        # Description comments instead of nested triple quotes\n'
-    main_content += '        # Tool description here (will be shown to users)\n'
-    main_content += '        #\n'
-    main_content += '        # Args:\n'
-    main_content += '        #    param1: Description of first parameter\n'
-    main_content += '        #    param2: Description of second parameter\n'
-    main_content += '        #\n'
-    main_content += '        # Returns:\n'
-    main_content += '        #    A dictionary with the result\n'
-    main_content += '        \n'
-    main_content += '        # Your tool implementation here\n'
-    main_content += '        result = do_something(param1, param2)\n'
-    main_content += '        return {"result": result}\n\n'
-    main_content += 'ADDING NEW RESOURCES:\n'
-    main_content += '------------------\n'
-    main_content += 'To add a new resource, edit server.py:\n\n'
-    main_content += '    @srv.resource("resource://my-resource")\n'
-    main_content += '    def my_resource() -> Dict[str, Any]:\n'
-    main_content += '        # Resource description \n'
-    main_content += '        return {"data": "resource content"}\n\n'
-    main_content += 'CONNECTING TO CLAUDE/CLINE:\n'
-    main_content += '------------------------\n'
-    main_content += 'To connect this MCP server to Claude Desktop or Cline in VS Code:\n\n'
-    main_content += '1. First make sure your MCP server is running with the sse transport:\n'
-    main_content += '   python main.py sse\n\n'
-    main_content += '2. For Cline in VS Code, edit the settings file:\n\n'
-    main_content += '   Path: ~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json\n\n'
-    main_content += '   Example configuration:\n\n'
-    main_content += '   {\n'
-    main_content += '     "mcpServers": {\n'
-    main_content += f'       "{server_name}": {{\n'
-    main_content += '         "url": "http://localhost:7501/sse",\n'
-    main_content += '         "apiKey": "example_key",\n'
-    main_content += '         "disabled": false,\n'
-    main_content += '         "autoApprove": []\n'
-    main_content += '       }\n'
-    main_content += '     }\n'
-    main_content += '   }\n\n'
-    main_content += '   Notes:\n'
-    main_content += '   - Use the correct server name from config.py (server_name setting)\n'
-    main_content += '   - Ensure the port matches your configuration (default is 7501)\n'
-    main_content += '   - Include "/sse" at the end of the URL\n'
-    main_content += '   - The apiKey should match the one in your .env file\n\n'
-    main_content += '3. For Claude Desktop, go to:\n'
-    main_content += '   Settings → Advanced → MCP Servers → Add MCP Server\n\n'
-    main_content += '   Enter:\n'
-    main_content += f'   - Name: {server_name} (must match the server_name in config.py)\n'
-    main_content += '   - URL: http://localhost:7501\n'
-    main_content += '   - API Key: example_key (or your custom API key)\n\n'
-    main_content += '4. Restart Claude/VS Code to apply the changes\n\n'
-    main_content += 'DEPLOYMENT:\n'
-    main_content += '----------\n'
-    main_content += '- For local development: Use \'stdio\' transport\n'
-    main_content += '- For Docker/containers: Use \'sse\' transport with port 7501\n'
-    main_content += '- Configure with environment variables or .env file\n\n'
-    main_content += 'For more information, see the MCP SDK documentation at:\n'
-    main_content += 'https://github.com/modelcontextprotocol/python-sdk\n'
-    main_content += '"""\n'
-    main_content += '    print(help_text)\n\n\n'
-    main_content += 'def start_server(transport: str = "sse") -> None:\n'
-    main_content += '    """Start the MCP server using the specified transport."""\n'
-    main_content += '    # Create the MCP server\n'
-    main_content += '    mcp_server = FastMCP(settings.server_name)\n'
-    main_content += '    \n'
-    main_content += '    # Register all tools and resources\n'
-    main_content += '    register_tools_and_resources(mcp_server)\n'
-    main_content += '    \n'
-    main_content += '    # Log important configuration\n'
-    main_content += '    logger.info(f"Starting {settings.server_name}")\n\n'
-    main_content += '    # Configure server settings\n'
-    main_content += '    if transport == "sse":\n'
-    main_content += '        mcp_server.settings.host = settings.host\n'
-    main_content += '        mcp_server.settings.port = settings.port\n'
-    main_content += '        logger.info(f"Using HTTP+SSE transport on {settings.host}:{settings.port}")\n'
-    main_content += '    else:  # stdio\n'
-    main_content += '        logger.info(f"Using stdio transport")\n\n'
-    main_content += '    mcp_server.settings.debug = True\n'
-    main_content += '    mcp_server.settings.log_level = "INFO"\n\n'
-    main_content += '    # Run the server with the selected transport\n'
-    main_content += '    mcp_server.run(transport)\n\n\n'
-    main_content += 'def create_app() -> Any:\n'
-    main_content += '    """Create an ASGI application for use with an external ASGI server."""\n'
-    main_content += '    # Create the MCP server\n'
-    main_content += '    mcp_server = FastMCP(settings.server_name)\n'
-    main_content += '    \n'
-    main_content += '    # Register all tools and resources\n'
-    main_content += '    register_tools_and_resources(mcp_server)\n'
-    main_content += '    \n'
-    main_content += '    # Configure server settings\n'
-    main_content += '    mcp_server.settings.debug = True\n\n'
-    main_content += '    # Return the ASGI app instance\n'
-    main_content += '    return mcp_server.sse_app()\n\n\n'
-    main_content += 'def main() -> None:\n'
-    main_content += '    """Process command-line arguments and start the server appropriately."""\n'
-    main_content += '    if len(sys.argv) <= 1 or sys.argv[1] in ["help", "--help", "-h"]:\n'
-    main_content += '        print_help()\n'
-    main_content += '        return\n'
-    main_content += '    \n'
-    main_content += '    if sys.argv[1] == "sse":\n'
-    main_content += '        start_server("sse")\n'
-    main_content += '    elif sys.argv[1] == "stdio":\n'
-    main_content += '        start_server("stdio")\n'
-    main_content += '    else:\n'
-    main_content += '        print(f"Unknown transport mode: {sys.argv[1]}")\n'
-    main_content += '        print("Use \'sse\', \'stdio\', or \'help\' for usage information.")\n'
-    main_content += '        sys.exit(1)\n\n\n'
-    main_content += 'if __name__ == "__main__":\n'
-    main_content += '    main()\n'
+    # Create tool_config.py using modern pattern
+    impl_class_name = f"{server_name.replace('-', '_').title()}Implementation"
+    
+    tool_entries = []
+    for tool_name in tool_names:
+        tool_entries.append(f'''    '{tool_name}': {{
+        'function': _implementation.{tool_name},
+        'description': '{tool_name.replace("_", " ").title()} tool'
+    }}''')
+    
+    tool_config_content = f'''"""
+Tool configuration for {server_name}.
+
+This module defines the configuration for all MCP tools that will be bulk registered
+with the mcp-commons system, eliminating the need for individual @srv.tool() decorators.
+"""
+
+from typing import Dict, Any
+from server import {impl_class_name}
+
+
+# Create implementation instance for tool functions
+_implementation = {impl_class_name}()
+
+
+# Tool configuration - single source of truth for all {server_name} tools
+{server_name.replace('-', '_').upper()}_TOOLS: Dict[str, Dict[str, Any]] = {{
+{',\n\n'.join(tool_entries) if tool_entries else '    \'placeholder_tool\': {\n        \'function\': _implementation.placeholder_tool,\n        \'description\': \'Placeholder tool\'\n    }'}
+}}
+
+
+def get_tool_count() -> int:
+    """Get the total number of configured tools."""
+    return len({server_name.replace('-', '_').upper()}_TOOLS)
+
+
+def get_tool_names() -> list[str]:
+    """Get list of all tool names."""
+    return list({server_name.replace('-', '_').upper()}_TOOLS.keys())
+
+
+def get_tool_config(tool_name: str) -> Dict[str, Any]:
+    """
+    Get configuration for a specific tool.
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Tool configuration dictionary
+
+    Raises:
+        KeyError: If tool name not found
+    """
+    if tool_name not in {server_name.replace('-', '_').upper()}_TOOLS:
+        raise KeyError(f"Tool '{{tool_name}}' not found in configuration")
+    
+    return {server_name.replace('-', '_').upper()}_TOOLS[tool_name].copy()
+
+
+def get_tools_config() -> Dict[str, Dict[str, Any]]:
+    """
+    Get the tools configuration for registration.
+    
+    Returns:
+        Dictionary mapping tool names to their configuration
+    """
+    return {server_name.replace('-', '_').upper()}_TOOLS
+
+
+def get_config_stats() -> Dict[str, Any]:
+    """
+    Get statistics about the tool configuration.
+
+    Returns:
+        Configuration statistics
+    """
+    return {{
+        'total_tools': len({server_name.replace('-', '_').upper()}_TOOLS),
+        'description': 'Metadata-driven tool configuration for {server_name}'
+    }}
+'''
+    
+    with open(src_dir / "tool_config.py", "w") as f:
+        f.write(tool_config_content)
+    
+    # Create main.py using modern mcp-commons pattern
+    main_content = f'''"""
+Main entry point for the {server_name} MCP Server.
+
+Consolidated to use mcp-commons utilities for standardized server startup.
+"""
+
+import sys
+from mcp_commons import run_mcp_server, create_mcp_app, print_mcp_help
+
+from config import config
+from tool_config import get_tools_config
+
+
+def main() -> None:
+    """Process command-line arguments and start the server appropriately."""
+    if len(sys.argv) <= 1 or sys.argv[1] in ["help", "--help", "-h"]:
+        print_mcp_help("{server_name}", "- {description}")
+        return
+    
+    # Get config values
+    server_name = config.get("server", "name", default="{server_name}")
+    host = config.get("server", "host", default="localhost")
+    port = config.get("server", "port", default=7501)
+    
+    if sys.argv[1] == "sse":
+        run_mcp_server(
+            server_name=server_name,
+            tools_config=get_tools_config(),
+            transport="sse",
+            host=host,
+            port=port
+        )
+    elif sys.argv[1] == "stdio":
+        run_mcp_server(
+            server_name=server_name,
+            tools_config=get_tools_config(),
+            transport="stdio"
+        )
+    else:
+        print(f"Unknown transport mode: {{sys.argv[1]}}")
+        print("Use 'sse', 'stdio', or 'help' for usage information.")
+        sys.exit(1)
+
+
+def create_app():
+    """Create an ASGI application for use with an external ASGI server."""
+    server_name = config.get("server", "name", default="{server_name}")
+    
+    return create_mcp_app(
+        server_name=server_name,
+        tools_config=get_tools_config()
+    )
+
+
+if __name__ == "__main__":
+    main()
+'''
     
     with open(src_dir / "main.py", "w") as f:
         f.write(main_content)
     
-    # Don't create a hardcoded requirements.txt - let the deployment process handle it
-    # This allows servers to have their own requirements.txt files that reference base requirements
+    # Create requirements.txt with modern dependencies
+    requirements_content = '''# Core MCP dependencies (Python 3.13+)
+mcp>=1.13.1
+
+# Additional dependencies for tool functionality
+psutil>=6.1.0
+
+# For local development, mcp-commons should be installed separately
+# Run: pip install -e /Users/ldawson/repos/mcp-commons
+'''
+    
+    with open(server_dir / "requirements.txt", "w") as f:
+        f.write(requirements_content)
 
 
 def validate_code_snippet(code_snippet: str) -> List[str]:
@@ -340,7 +404,7 @@ def validate_code_snippet(code_snippet: str) -> List[str]:
 
 def install_server(server_dir: Path, server_name: str) -> bool:
     """
-    Install the MCP server using mcp-manager.
+    Install the MCP server using mcpmanager.
     
     Args:
         server_dir: Directory containing the server files
@@ -363,19 +427,15 @@ def install_server(server_dir: Path, server_name: str) -> bool:
         return False
 
 
-def register_tools_and_resources(srv: FastMCP) -> None:
+class MCPServerCreatorImplementation:
     """
-    Register tools and resources with the provided MCP server instance.
+    Implementation class containing all MCP tool methods.
     
-    This is the main entry point for defining all tools and resources.
-    Add your custom tool implementations as decorated functions within this function.
-    
-    Args:
-        srv: A FastMCP server instance to register tools and resources with
+    This class provides the actual implementation for all tools that will be
+    bulk registered with the mcp-commons system.
     """
     
-    @srv.tool()
-    def help() -> Dict[str, str]:
+    def help(self) -> Dict[str, str]:
         """
         Get detailed help and security information about the MCP Server Creator.
         
@@ -443,8 +503,7 @@ Currently, the MCP Server Creator has limitations:
         
         return help_text
     
-    @srv.tool()
-    def create_mcp_server(code_snippet: str, server_name: str, description: str = "", author: str = "MCP Server Creator") -> Dict[str, Any]:
+    def create_mcp_server(self, code_snippet: str, server_name: str, description: str = "", author: str = "MCP Server Creator") -> Dict[str, Any]:
         """
         Create and install a new MCP server from a Python code snippet.
         
@@ -467,12 +526,6 @@ Currently, the MCP Server Creator has limitations:
               - tool_names: List of tool names defined in the code snippet
               - message: Success message with instructions for using the server
               - error: Error message if success is False
-        
-        Example usage:
-            To create a simple greeting server, you would:
-            1. Define a code snippet with your tool
-            2. Call create_mcp_server with the snippet and server details
-            3. The server will be created and installed for you
         """
         logger.info(f"Creating MCP server '{server_name}'")
         
@@ -533,9 +586,7 @@ Currently, the MCP Server Creator has limitations:
                 "error": f"Unexpected error: {str(e)}"
             }
 
-
-    @srv.tool()
-    def list_installed_servers() -> Dict[str, Any]:
+    def list_installed_servers(self) -> Dict[str, Any]:
         """
         List all installed MCP servers.
         
@@ -550,15 +601,10 @@ Currently, the MCP Server Creator has limitations:
                   - local: List of local server information (name, type, source, port, status)
                   - remote: List of remote server information (name, url, status)
               - error: Error message if success is False
-        
-        Example usage:
-            To list all installed MCP servers, simply call the function and 
-            process the returned dictionary. The servers are organized by type
-            (local or remote) and include details like name, type, and status.
         """
         try:
             # Find the mcp-manager executable by checking multiple locations
-            mcp_manager_paths = [
+            mcpmanager_paths = [
                 # Check common paths for pipx installations
                 os.path.expanduser("~/.local/bin/mcp-manager"),  # Linux/macOS pipx default
                 os.path.expanduser("~/Library/Python/*/bin/mcp-manager"),  # macOS user Python
@@ -568,28 +614,28 @@ Currently, the MCP Server Creator has limitations:
             ]
             
             # Find the first valid path that exists
-            mcp_manager_cmd = None
-            for path in mcp_manager_paths:
+            mcpmanager_cmd = None
+            for path in mcpmanager_paths:
                 # Handle glob patterns (for version-specific paths)
                 if "*" in path:
                     import glob
                     matching_paths = glob.glob(path)
                     if matching_paths:
-                        mcp_manager_cmd = matching_paths[0]
+                        mcpmanager_cmd = matching_paths[0]
                         break
-                elif path != "mcp-manager" and os.path.isfile(path):
-                    mcp_manager_cmd = path
+                elif path != "mcpmanager" and os.path.isfile(path):
+                    mcpmanager_cmd = path
                     break
             
             # Default to just the name if no specific path was found
-            if mcp_manager_cmd is None:
-                mcp_manager_cmd = "mcp-manager"
+            if mcpmanager_cmd is None:
+                mcpmanager_cmd = "mcp-manager"
                 
-            logger.info(f"Using mcp-manager at: {mcp_manager_cmd}")
+            logger.info(f"Using mcp-manager at: {mcpmanager_cmd}")
             
             # Call mcp-manager list command (without --json flag as it's not supported)
             result = subprocess.run(
-                [mcp_manager_cmd, "list"],
+                [mcpmanager_cmd, "list"],
                 check=True,
                 capture_output=True,
                 text=True,

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcpservercreator"
+version = "1.0.0"
+description = "MCP Server Creator - Dynamically creates and installs MCP servers from Python code"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "MCP Server Team", email = "example@example.com"},
+]
+dependencies = [
+    "mcp>=1.13.1",
+    "mcp-commons>=1.0.0",
+    "virtualenv>=20.26.6",
+    "rich>=13.9.4",
+    "pydantic-settings>=2.10.1",
+    "python-decouple>=3.8",
+    "uvicorn>=0.35.0",
+    "typer>=0.16.0"
+]
+
+[project.scripts]
+mcpservercreator = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

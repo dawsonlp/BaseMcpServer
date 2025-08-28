@@ -29,11 +29,13 @@ pipx install ./utils/mcp_manager
 pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
 ```
 
-After installation, you can use the shorter `mcpmanager` command globally:
+After installation, you can use the `mcp-manager` command globally:
 
 ```bash
-mcpmanager --help
+mcp-manager --help
 ```
+
+**Note:** For backward compatibility, `mcpmanager` (without hyphen) still works as an alias.
 
 ## Usage
 
@@ -42,8 +44,8 @@ mcpmanager --help
 Get a comprehensive view of your MCP configuration:
 
 ```bash
-# View configuration status with rich formatting
-mcpmanager config-info
+# View configuration status with rich formatting  
+mcp-manager info system
 ```
 
 This shows:
@@ -56,47 +58,47 @@ This shows:
 
 ```bash
 # Install from a local directory
-mcpmanager install local example-server --source ./example
+mcp-manager install local example-server --source ./example
 
-# Install from a Git repository  
-mcpmanager install git jira-server --repo https://github.com/username/repo --path path/to/server
+# Install from a Git repository
+mcp-manager install git jira-server --repo https://github.com/username/repo --path path/to/server
 ```
 
 ### Adding a Remote MCP Server
 
 ```bash
 # Add a remote HTTP+SSE server
-mcpmanager add remote-server --url http://remote-host:7501 --api-key your-api-key
+mcp-manager install remote remote-server --url http://remote-host:7501 --api-key your-api-key
 ```
 
 ### Listing Configured Servers
 
 ```bash
 # List all configured servers
-mcpmanager list
+mcp-manager list
 
 # List only local servers
-mcpmanager list --local
+mcp-manager list --type local
 
 # List only remote servers  
-mcpmanager list --remote
+mcp-manager list --type remote
 ```
 
 ### Running a Local Server
 
 ```bash
 # Run with stdio transport (default)
-mcpmanager run example-server
+mcp-manager server start example-server
 
 # Run with HTTP+SSE transport
-mcpmanager run example-server --transport sse
+mcp-manager server start example-server --transport sse
 ```
 
 ### Configuring Editor Integration
 
 ```bash
 # Configure VS Code Cline integration
-mcpmanager configure vscode
+mcp-manager config cline
 ```
 
 ## Directory Structure
@@ -128,18 +130,18 @@ MCP Manager automatically configures VS Code Cline integration by updating the s
 ~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 ```
 
-This allows Cline to connect to your MCP servers directly from VS Code. Use `mcpmanager config-info` to verify your configuration status.
+This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp-manager info system` to verify your configuration status.
 
 ## Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| `mcpmanager config-info` | Show comprehensive configuration status with Rich formatting |
-| `mcpmanager install local <name> --source <path>` | Install local MCP server |
-| `mcpmanager list` | List all configured servers |
-| `mcpmanager run <server>` | Run a local server |
-| `mcpmanager configure vscode` | Configure VS Code Cline integration |
-| `mcpmanager help` | Show detailed help and examples |
+| `mcp-manager info system` | Show comprehensive configuration status with Rich formatting |
+| `mcp-manager install local <name> --source <path>` | Install local MCP server |
+| `mcp-manager list` | List all configured servers |
+| `mcp-manager server start <server>` | Run a local server |
+| `mcp-manager config cline` | Configure VS Code Cline integration |
+| `mcp-manager --help` | Show detailed help and examples |
 
 ## Quick Start
 

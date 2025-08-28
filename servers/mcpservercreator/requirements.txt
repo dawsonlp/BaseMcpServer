@@ -1,10 +1,13 @@
 # Core MCP dependencies (Python 3.13+)
-mcp>=1.11.0
-pydantic-settings>=2.10.1
-python-decouple>=3.8
-uvicorn>=0.35.0
-typer>=0.16.0
+mcp>=1.13.1
+
+# MCP Commons - shared infrastructure (provides bulk registration, server utilities)
+mcp-commons>=1.0.0
 
 # Server creation dependencies
 virtualenv>=20.26.6
 rich>=13.9.4
+pydantic-settings>=2.10.1
+python-decouple>=3.8
+uvicorn>=0.35.0
+typer>=0.16.0

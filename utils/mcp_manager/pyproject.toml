@@ -18,12 +18,22 @@ dependencies = [
     "virtualenv>=20.34.0",    # Virtual environment management
     "jinja2>=3.1.6",          # Template rendering
     "httpx>=0.28.1",          # HTTP client for testing connections
+    "pyyaml>=6.0",            # YAML parsing
+    "psutil>=5.9.0",          # Process monitoring
 ]
 
 [project.scripts]
-mcpmanager = "mcp_manager.cli:app"
+mcp-manager = "mcp_manager.cli:app"
+mcpmanager = "mcp_manager.cli:app"  # Backward compatibility alias
 
 [tool.setuptools]
-packages = ["mcp_manager", "mcp_manager.commands"]
+packages = [
+    "mcp_manager",
+    "mcp_manager.cli", 
+    "mcp_manager.cli.commands",
+    "mcp_manager.cli.common",
+    "mcp_manager.core",
+    "mcp_manager.commands"
+]
 package-dir = {"" = "src"}
 include-package-data = true

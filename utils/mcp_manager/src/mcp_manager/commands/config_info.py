@@ -303,7 +303,7 @@ def config_info_main() -> None:
         # Load the server registry
         registry_path = get_registry_path()
         if not registry_path.exists():
-            console.print("[yellow]Warning:[/yellow] MCP manager registry not found. Run 'mcpmanager configure' to initialize.")
+            console.print("[yellow]Warning:[/yellow] MCP manager registry not found. Run 'mcp-manager configure' to initialize.")
             registry = ServerRegistry()
         else:
             registry = ServerRegistry.load(registry_path)

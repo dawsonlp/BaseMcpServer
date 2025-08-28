@@ -1,25 +1,26 @@
+"""
+Configuration management for WorldContext MCP Server.
+
+Consolidated to use mcp-commons configuration utilities.
+"""
+
 from pathlib import Path
-import yaml
+from mcp_commons import create_config, load_dotenv_file
 
-class Config:
-    def __init__(self, long_name: str, short_name: str):
-        self.long_name = long_name
-        self.short_name = short_name
-        with open(self._find_config()) as f:
-            self.data = yaml.safe_load(f) or {}
-    
-    def _find_config(self):
-        for path in [
-            Path.home() / ".config" / self.short_name / "config.yaml",
-            Path.cwd() / "config.yaml" ]:
-            if path.exists():
-                return path
-        raise FileNotFoundError(f"No config.yaml found for {self.long_name}")
-    
-    def get(self, *keys, default=None):
-        current = self.data
-        for key in keys:
-            current = current.get(key, {}) if isinstance(current, dict) else {}
-        return current if current != {} else default
+# Load environment variables from .env file if present
+load_dotenv_file()
 
-config = Config("WorldContext MCP Server", "worldcontext")
+# Try multiple config file locations
+config_file = None
+possible_locations = [
+    Path.home() / ".config" / "worldcontext" / "config.yaml",
+    Path.cwd() / "config.yaml"
+]
+
+for location in possible_locations:
+    if location.exists():
+        config_file = str(location)
+        break
+
+# Create configuration using mcp-commons
+config = create_config(config_file=config_file, env_prefix="WORLDCONTEXT")

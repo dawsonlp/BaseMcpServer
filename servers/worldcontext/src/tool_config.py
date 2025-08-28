@@ -640,32 +640,32 @@ def get_context_summary() -> Dict[str, Any]:
 WORLDCONTEXT_TOOLS: Dict[str, Dict[str, Any]] = {
     'get_current_datetime': {
         'function': get_current_datetime,
-        'description': 'Get current date and time information.'
+        'description': 'Get current date and time - essential for timestamping files, reports, logs, and making time-aware decisions. Use this whenever you need to know the current date for file naming, scheduling, or documentation.'
     },
     
     'get_stock_market_overview': {
         'function': get_stock_market_overview,
-        'description': 'Get current stock market overview and major indices.'
+        'description': 'Check if markets are open and how major indices are performing - know market status and trends before making business decisions or timing deployments.'
     },
     
     'get_news_headlines': {
         'function': get_news_headlines,
-        'description': 'Get current news headlines.'
+        'description': 'Get breaking news and current events - stay informed on what\'s happening globally to understand external factors that might affect your work or decisions.'
     },
     
     'get_context_summary': {
         'function': get_context_summary,
-        'description': 'Get a comprehensive context summary including date/time, market, and news.'
+        'description': 'Get complete situational awareness in one call - current time, market status, and breaking news combined. Perfect for understanding the full context before important decisions or actions.'
     },
     
     'get_latest_tool_versions': {
         'function': get_latest_tool_versions,
-        'description': 'Get latest versions of development tools including Python packages and infrastructure tools.'
+        'description': 'Check latest versions of development tools and libraries - keep your development stack current, secure, and up-to-date with recent improvements and security patches.'
     },
     
     'get_python_package_version': {
         'function': get_python_package_version,
-        'description': 'Get the latest version of any Python package from PyPI.'
+        'description': 'Look up any Python package version instantly - verify dependencies, check for updates, and ensure you\'re using the latest stable version of any PyPI package.'
     }
 }
 

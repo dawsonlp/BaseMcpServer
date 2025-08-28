@@ -1,16 +1,16 @@
 # Requires Python 3.13+
 # Core MCP dependencies
-mcp>=1.11.0
-PyYAML>=6.0
-uvicorn>=0.35.0
-typer>=0.16.0
+mcp>=1.13.1
+
+# MCP Commons - shared infrastructure (provides PyYAML, bulk registration, server utilities)
+mcp-commons>=1.0.0
 
 # HTTP server dependencies for streamable transport
 starlette>=0.41.0
 uvicorn[standard]>=0.35.0
 
 # Jira integration dependencies
-atlassian-python-api>=4.0.4
+atlassian-python-api>=4.0.7
 
 # Graph visualization dependencies
 graphviz>=0.21

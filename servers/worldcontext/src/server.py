@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Any
 from mcp.server.fastmcp import FastMCP
 
-from bulk_registration import bulk_register_tools, log_registration_summary
+from mcp_commons import bulk_register_tools, log_registration_summary
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

@@ -1,42 +1,38 @@
 """
-MCP Bulk Registration System
+Jira-Specific Tool Configuration and Registration
 
-This module provides bulk registration of MCP tools from metadata configuration.
-Replaces 300+ lines of manual @mcp.tool() decorations with automated registration.
+This module handles Jira-specific tool configuration processing and dependency injection.
+Uses mcp-commons for the actual bulk registration to eliminate code duplication.
 """
 
 import logging
 from collections.abc import Callable
 from typing import Any
 
-from adapters.mcp_result_adapter import create_mcp_adapter
-from adapters.mcp_tool_config import JIRA_TOOLS, get_config_stats, validate_tool_config
+from mcp_commons import create_mcp_adapter
+from mcp_commons.bulk_registration import bulk_register_tuple_format, BulkRegistrationError
+from adapters.mcp_tool_config import JIRA_TOOLS, validate_tool_config
 
 logger = logging.getLogger(__name__)
 
 
-class BulkRegistrationError(Exception):
-    """Exception raised during bulk tool registration."""
-    pass
-
-
-def bulk_register_jira_tools(context) -> list[tuple[Callable, str, str]]:
+def prepare_jira_tools_for_registration(context) -> list[tuple[Callable, str, str]]:
     """
-    Bulk register all Jira tools from metadata configuration.
+    Prepare Jira tools from metadata configuration for bulk registration.
 
-    This function replaces all manual @mcp.tool() decorations by automatically
-    creating MCP tools from use case classes and their dependencies.
+    Handles Jira-specific use case instantiation and dependency injection,
+    then returns tuples that can be registered via mcp-commons.
 
     Args:
         context: JiraHelperContext containing all initialized services
 
     Returns:
-        List of tuples (function, name, description) for FastMCP registration
+        List of tuples (function, name, description) for mcp-commons registration
 
     Raises:
-        BulkRegistrationError: If registration fails for any tool
+        BulkRegistrationError: If preparation fails for any tool
     """
-    logger.info("Starting bulk registration of Jira MCP tools...")
+    logger.info("Preparing Jira MCP tools for bulk registration...")
 
     # Validate configuration first
     validation = validate_tool_config()
@@ -45,46 +41,46 @@ def bulk_register_jira_tools(context) -> list[tuple[Callable, str, str]]:
         logger.error(error_msg)
         raise BulkRegistrationError(error_msg)
 
-    logger.info(f"Registering {validation['tool_count']} tools from configuration...")
+    logger.info(f"Preparing {validation['tool_count']} tools from configuration...")
 
     tools = []
-    registration_errors = []
+    preparation_errors = []
 
     for tool_name, config in JIRA_TOOLS.items():
         try:
-            tool = _register_single_tool(tool_name, config, context)
+            tool = _prepare_single_tool(tool_name, config, context)
             tools.append(tool)
-            logger.debug(f"Successfully registered tool: {tool_name}")
+            logger.debug(f"Successfully prepared tool: {tool_name}")
 
         except Exception as e:
-            error_msg = f"Failed to register tool '{tool_name}': {str(e)}"
+            error_msg = f"Failed to prepare tool '{tool_name}': {str(e)}"
             logger.error(error_msg)
-            registration_errors.append(error_msg)
+            preparation_errors.append(error_msg)
 
     # Report results
-    if registration_errors:
-        error_summary = f"Registration failed for {len(registration_errors)} tools: {registration_errors}"
+    if preparation_errors:
+        error_summary = f"Preparation failed for {len(preparation_errors)} tools: {preparation_errors}"
         logger.error(error_summary)
         raise BulkRegistrationError(error_summary)
 
-    logger.info(f"Successfully registered {len(tools)} MCP tools")
+    logger.info(f"Successfully prepared {len(tools)} MCP tools for registration")
     return tools
 
 
-def _register_single_tool(tool_name: str, config: dict[str, Any], context) -> tuple[Callable, str, str]:
+def _prepare_single_tool(tool_name: str, config: dict[str, Any], context) -> tuple[Callable, str, str]:
     """
-    Register a single MCP tool from configuration.
+    Prepare a single MCP tool from configuration.
 
     Args:
         tool_name: Name of the tool
-        config: Tool configuration dictionary
+        config: Tool configuration dictionary  
         context: JiraHelperContext containing services
 
     Returns:
-        Tuple of (function, name, description) for FastMCP registration
+        Tuple of (function, name, description) for registration
 
     Raises:
-        BulkRegistrationError: If registration fails
+        BulkRegistrationError: If preparation fails
     """
     try:
         # Get use case class and dependencies
@@ -105,11 +101,40 @@ def _register_single_tool(tool_name: str, config: dict[str, Any], context) -> tu
         # Create MCP-adapted method
         adapted_method = create_mcp_adapter(use_case.execute)
 
-        # Return function, name, description tuple for FastMCP registration
+        # Return function, name, description tuple for mcp-commons registration
         return (adapted_method, tool_name, description)
 
     except Exception as e:
-        raise BulkRegistrationError(f"Error registering tool '{tool_name}': {str(e)}") from e
+        raise BulkRegistrationError(f"Error preparing tool '{tool_name}': {str(e)}") from e
+
+
+def bulk_register_jira_tools(srv, context) -> list[tuple[str, str]]:
+    """
+    Bulk register all Jira tools using mcp-commons infrastructure.
+
+    This function combines Jira-specific configuration processing with
+    generic mcp-commons bulk registration to eliminate code duplication.
+
+    Args:
+        srv: FastMCP server instance to register tools with
+        context: JiraHelperContext containing all initialized services
+
+    Returns:
+        List of tuples (tool_name, description) for registered tools
+
+    Raises:
+        BulkRegistrationError: If registration fails for any tool
+    """
+    logger.info("Starting Jira MCP tools bulk registration...")
+
+    # Prepare tools with Jira-specific logic
+    tool_tuples = prepare_jira_tools_for_registration(context)
+
+    # Use mcp-commons for actual registration
+    registered_tools = bulk_register_tuple_format(srv, tool_tuples)
+
+    logger.info(f"Successfully registered {len(registered_tools)} Jira MCP tools using mcp-commons")
+    return registered_tools
 
 
 def validate_context_dependencies(context) -> dict[str, Any]:
@@ -143,83 +168,3 @@ def validate_context_dependencies(context) -> dict[str, Any]:
         'available_dependencies': available_deps,
         'missing_dependencies': missing_deps
     }
-
-
-def get_registration_stats() -> dict[str, Any]:
-    """
-    Get statistics about the bulk registration system.
-
-    Returns:
-        Registration system statistics
-    """
-    config_stats = get_config_stats()
-
-    return {
-        'system_version': '1.0.0',
-        'tools_supported': config_stats['total_tools'],
-        'dependencies_required': config_stats['unique_dependencies'],
-        'replaces_manual_registrations': True,
-        'lines_eliminated': 300,  # Manual @mcp.tool() decorations eliminated
-        'description': 'Automated bulk registration replacing manual tool decorations'
-    }
-
-
-def create_registration_report(tool_tuples: list[tuple[Callable, str, str]], context) -> dict[str, Any]:
-    """
-    Create a detailed report of the registration process.
-
-    Args:
-        tool_tuples: List of successfully registered tool tuples (function, name, description)
-        context: JiraHelperContext used for registration
-
-    Returns:
-        Detailed registration report
-    """
-    dependency_validation = validate_context_dependencies(context)
-    config_validation = validate_tool_config()
-
-    # Group tools by dependency
-    tools_by_dependency = {}
-    for tool_name, config in JIRA_TOOLS.items():
-        for dep in config.get('dependencies', []):
-            if dep not in tools_by_dependency:
-                tools_by_dependency[dep] = []
-            tools_by_dependency[dep].append(tool_name)
-
-    return {
-        'registration_timestamp': None,  # Would be set by caller
-        'total_tools_registered': len(tool_tuples),
-        'total_tools_configured': len(JIRA_TOOLS),
-        'success_rate': len(tool_tuples) / len(JIRA_TOOLS) if JIRA_TOOLS else 0,
-        'configuration_validation': config_validation,
-        'dependency_validation': dependency_validation,
-        'tools_by_dependency': tools_by_dependency,
-        'registered_tool_names': [name for _, name, _ in tool_tuples],
-        'system_stats': get_registration_stats()
-    }
-
-
-def log_registration_summary(tool_tuples: list[tuple[Callable, str, str]], context):
-    """
-    Log a summary of the registration process.
-
-    Args:
-        tool_tuples: List of successfully registered tool tuples (function, name, description)
-        context: JiraHelperContext used for registration
-    """
-    report = create_registration_report(tool_tuples, context)
-
-    logger.info("=== MCP Tool Registration Summary ===")
-    logger.info(f"Tools registered: {report['total_tools_registered']}/{report['total_tools_configured']}")
-    logger.info(f"Success rate: {report['success_rate']:.1%}")
-    logger.info(f"Dependencies resolved: {len(report['dependency_validation']['available_dependencies'])}")
-
-    if report['dependency_validation']['missing_dependencies']:
-        logger.warning(f"Missing dependencies: {report['dependency_validation']['missing_dependencies']}")
-
-    logger.info("Registered tools:")
-    for tool_name in sorted(report['registered_tool_names']):
-        logger.info(f"  ✓ {tool_name}")
-
-    logger.info(f"Lines of boilerplate eliminated: {report['system_stats']['lines_eliminated']}")
-    logger.info("=== Registration Complete ===")

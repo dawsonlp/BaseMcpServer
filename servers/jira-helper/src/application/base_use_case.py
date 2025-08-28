@@ -1,48 +1,32 @@
 """
-Base use case class to eliminate application layer boilerplate.
+Application layer now uses mcp-commons for standardized infrastructure.
 
-This module provides the foundation for all use cases with standardized
-result handling, error management, and consistent patterns.
+This module provides application-specific patterns while leveraging
+the shared mcp-commons library for core use case infrastructure.
 """
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
-from domain.base import BaseResult
+from mcp_commons import UseCaseResult, BaseUseCase as McpBaseUseCase
 from domain.results import ValidationResult
 from application.error_mappers import ErrorMapper, create_context
 
-T = TypeVar('T')
-
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class UseCaseResult[T](BaseResult):
-    """Standardized use case result with generic data type."""
-    data: T | None = None
-
-    def get_data(self) -> T | None:
-        """Get the result data."""
-        return self.data
-
-    def has_data(self) -> bool:
-        """Check if result contains data."""
-        return self.data is not None
+# Import UseCaseResult from mcp-commons for compatibility
+# This allows existing code to continue working
+UseCaseResult = UseCaseResult
 
 
-class BaseUseCase:
-    """Base class for all use cases with standardized patterns."""
+class BaseUseCase(McpBaseUseCase):
+    """Application base use case extending mcp-commons BaseUseCase."""
 
     def __init__(self, **dependencies):
         """Initialize use case with dependencies."""
+        super().__init__(**dependencies)
         self._logger = logging.getLogger(self.__class__.__name__)
-
-        # Store dependencies as private attributes
-        for key, value in dependencies.items():
-            setattr(self, f"_{key}", value)
 
     async def execute_with_result(
         self,

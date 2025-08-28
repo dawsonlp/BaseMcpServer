@@ -12,21 +12,22 @@ authors = [
     {name = "MCP Server Team", email = "example@example.com"},
 ]
 dependencies = [
-    "python-dotenv>=1.0.0",
-    "fastapi>=0.100.0",
-    "uvicorn>=0.22.0",
-    "pydantic>=2.0.0",
-    "requests>=2.32.4",
-    "sse-starlette>=2.4.1",
+    "python-dotenv>=1.1.1",
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
+    "pydantic>=2.11.7",
+    "requests>=2.32.5",
+    "sse-starlette>=3.0.2",
     "rich>=14.1.0",
-    "typer>=0.16.0",
-    "atlassian-python-api>=4.0.4",
-    "PyYAML>=6.0.1",
-    "mcp"
+    "typer>=0.16.1",
+    "atlassian-python-api>=4.0.7",
+    "PyYAML>=6.0.2",
+    "mcp>=1.13.1",
+    "mcp-commons>=1.0.0"
 ]
 
 [project.scripts]
-jira-helper = "main:app"
+jira-helper = "main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
