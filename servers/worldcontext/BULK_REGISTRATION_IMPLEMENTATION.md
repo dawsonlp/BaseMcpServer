@@ -83,10 +83,23 @@ news:
 
 The server provides 4 MCP tools:
 
+### New Intuitive Tool Names (Recommended):
+
+1. **current_time**: Returns comprehensive date/time information - essential for timestamping files
+2. **market_status**: Fetches market data using Alpha Vantage API - check if markets are open
+3. **breaking_news**: Retrieves news headlines using NewsAPI - stay informed on current events
+4. **world_context**: Combines all context information in one call - complete situational awareness
+5. **check_versions**: Get latest versions of development tools and libraries
+6. **lookup_package**: Look up any Python package version instantly
+
+### Original Names (Backwards Compatibility):
+
 1. **get_current_datetime**: Returns comprehensive date/time information
 2. **get_stock_market_overview**: Fetches market data using Alpha Vantage API
 3. **get_news_headlines**: Retrieves news headlines using NewsAPI
 4. **get_context_summary**: Combines all context information in one call
+5. **get_latest_tool_versions**: Get latest versions of development tools
+6. **get_python_package_version**: Look up Python package versions
 
 ## Benefits of Bulk Registration
 

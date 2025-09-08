@@ -638,6 +638,38 @@ def get_context_summary() -> Dict[str, Any]:
 
 # Tool configuration - single source of truth for all WorldContext MCP tools
 WORLDCONTEXT_TOOLS: Dict[str, Dict[str, Any]] = {
+    # Primary intuitive names
+    'current_time': {
+        'function': get_current_datetime,
+        'description': 'Get current date and time - essential for timestamping files, reports, logs, and making time-aware decisions. Use this whenever you need to know the current date for file naming, scheduling, or documentation.'
+    },
+    
+    'market_status': {
+        'function': get_stock_market_overview,
+        'description': 'Check if markets are open and how major indices are performing - know market status and trends before making business decisions or timing deployments.'
+    },
+    
+    'breaking_news': {
+        'function': get_news_headlines,
+        'description': 'Get breaking news and current events - stay informed on what\'s happening globally to understand external factors that might affect your work or decisions.'
+    },
+    
+    'world_context': {
+        'function': get_context_summary,
+        'description': 'Get complete situational awareness in one call - current time, market status, and breaking news combined. Perfect for understanding the full context before important decisions or actions.'
+    },
+    
+    'check_versions': {
+        'function': get_latest_tool_versions,
+        'description': 'Check latest versions of development tools and libraries - keep your development stack current, secure, and up-to-date with recent improvements and security patches.'
+    },
+    
+    'lookup_package': {
+        'function': get_python_package_version,
+        'description': 'Look up any Python package version instantly - verify dependencies, check for updates, and ensure you\'re using the latest stable version of any PyPI package.'
+    },
+    
+    # Keep original names for backwards compatibility
     'get_current_datetime': {
         'function': get_current_datetime,
         'description': 'Get current date and time - essential for timestamping files, reports, logs, and making time-aware decisions. Use this whenever you need to know the current date for file naming, scheduling, or documentation.'

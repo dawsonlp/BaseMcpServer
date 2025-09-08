@@ -55,24 +55,58 @@ The context-provider MCP server provides current date/time, stock market data, a
 
 ## Testing the Server
 
-After setup, you can test the tools:
+After setup, you can test the tools using either the new intuitive names or the original names:
 
-1. **Date/Time** (works immediately):
+### New Intuitive Names (Recommended):
+
+1. **Current Time** (works immediately):
+   ```
+   current_time()
+   ```
+
+2. **Market Status** (requires Alpha Vantage key):
+   ```
+   market_status()
+   ```
+
+3. **Breaking News** (requires NewsAPI key):
+   ```
+   breaking_news(category="business", count=5)
+   ```
+
+4. **Complete World Context** (combines all):
+   ```
+   world_context()
+   ```
+
+5. **Check Tool Versions** (works immediately):
+   ```
+   check_versions()
+   ```
+
+6. **Look Up Python Package** (works immediately):
+   ```
+   lookup_package("fastapi")
+   ```
+
+### Original Names (Still Available):
+
+1. **Date/Time**:
    ```
    get_current_datetime()
    ```
 
-2. **Stock Market** (requires Alpha Vantage key):
+2. **Stock Market**:
    ```
    get_stock_market_overview()
    ```
 
-3. **News Headlines** (requires NewsAPI key):
+3. **News Headlines**:
    ```
    get_news_headlines(category="business", count=5)
    ```
 
-4. **Complete Context** (combines all):
+4. **Complete Context**:
    ```
    get_context_summary()
    ```
