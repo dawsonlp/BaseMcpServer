@@ -40,11 +40,7 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
             client: Jira = self._client_factory.create_client(instance_name)
             
             # Upload the file
-            response = client.add_attachment(
-                issue=request.issue_key,
-                attachment=request.file_path,
-                comment=request.comment
-            )
+            response = client.add_attachment(request.issue_key, request.file_path)
             
             # Check if the response indicates success
             if not response or len(response) == 0:
@@ -109,11 +105,7 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
             
             try:
                 # Upload using the temporary file
-                response = client.add_attachment(
-                    issue=issue_key,
-                    attachment=temp_file_path,
-                    comment=comment
-                )
+                response = client.add_attachment(issue_key, temp_file_path)
                 
                 # Check if the response indicates success
                 if not response or len(response) == 0:

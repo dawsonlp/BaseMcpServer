@@ -358,7 +358,7 @@ class FileUploadPolicy:
             max_size_mb=10,
             allowed_extensions=[
                 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
-                'txt', 'csv', 'rtf', 'jpg', 'jpeg', 'png', 'gif',
+                'txt', 'csv', 'rtf', 'md', 'jpg', 'jpeg', 'png', 'gif',
                 'zip', 'tar', 'json', 'xml', 'yaml', 'yml'
             ],
             blocked_extensions=['exe', 'bat', 'cmd', 'scr', 'vbs', 'jar']
