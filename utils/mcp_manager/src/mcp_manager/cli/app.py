@@ -25,6 +25,7 @@ from mcp_manager.cli.commands.install import (
 )
 from mcp_manager.cli.commands.lifecycle import (
     start_server,
+    start_server_impl,
     stop_server,
     restart_server,
     show_logs,
@@ -429,7 +430,7 @@ def quick_run(
     name: str = typer.Argument(..., help="Server name to run"),
 ):
     """▶️  Quick start a server (shortcut)."""
-    start_server(name, background=False)
+    start_server_impl(name)
 
 
 @app.command("version")

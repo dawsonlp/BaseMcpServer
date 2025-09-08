@@ -142,38 +142,6 @@ class MCPManagerLogger:
         
         return logger
     
-    def get_server_logger(self, server_name: str) -> logging.Logger:
-        """Get a dedicated logger for a specific server."""
-        logger_name = f"server.{server_name}"
-        logger = self.get_logger(logger_name, {"server": server_name})
-        
-        # Create separate log file for this server
-        try:
-            logs_dir = get_logs_dir()
-            server_log_file = logs_dir / f"server-{server_name}.log"
-            
-            # Check if we already have a file handler for this server
-            existing_handlers = [
-                h for h in logger.handlers 
-                if isinstance(h, logging.FileHandler) and 
-                   h.baseFilename == str(server_log_file)
-            ]
-            
-            if not existing_handlers:
-                file_handler = logging.FileHandler(
-                    server_log_file, mode='a', encoding='utf-8'
-                )
-                file_handler.setLevel(logging.DEBUG)
-                file_handler.setFormatter(StructuredFormatter())
-                logger.addHandler(file_handler)
-        
-        except Exception as e:
-            # Log to main logger if server-specific logging fails
-            self.get_logger("core").warning(
-                f"Could not create log file for server {server_name}: {e}"
-            )
-        
-        return logger
     
     def set_log_level(self, level: str):
         """Set the global log level."""
@@ -253,11 +221,6 @@ def get_logger(name: str = "core", context: Optional[Dict[str, Any]] = None) -> 
     return get_logger_manager().get_logger(name, context)
 
 
-def get_server_logger(server_name: str) -> logging.Logger:
-    """Get a server-specific logger (convenience function)."""
-    return get_logger_manager().get_server_logger(server_name)
-
-
 def set_log_level(level: str):
     """Set global log level (convenience function)."""
     get_logger_manager().set_log_level(level)
@@ -299,8 +262,8 @@ def log_command_end(command: str, success: bool, duration_ms: float,
 
 
 def log_server_event(server_name: str, event: str, details: Optional[Dict[str, Any]] = None):
-    """Log a server-related event."""
-    logger = get_server_logger(server_name)
+    """Log a server-related event using mcp-manager logging."""
+    logger = get_logger("process_manager")
     
     extra_data = {
         "server": server_name,

@@ -421,24 +421,18 @@ class ProcessManager:
                     logger.error(f"Error force killing server '{server_name}': {e}")
     
     def get_server_logs(self, server_name: str, lines: int = 100) -> List[str]:
-        """Get recent log lines for a server."""
-        # This is a placeholder - actual implementation would read from log files
-        # or capture process output depending on how the server was started
-        try:
-            from mcp_manager.core.state import get_logs_dir
-            log_file = get_logs_dir() / f"server-{server_name}.log"
-            
-            if not log_file.exists():
-                return []
-            
-            # Read last N lines from file
-            with open(log_file, 'r') as f:
-                all_lines = f.readlines()
-                return [line.strip() for line in all_lines[-lines:]]
+        """Get recent log lines for a server.
         
-        except Exception as e:
-            logger.error(f"Error reading logs for server '{server_name}': {e}")
-            return []
+        Note: In the new architecture, servers handle their own logging.
+        mcp-manager only logs server lifecycle events (start/stop/restart).
+        For server application logs, check the server's own logging configuration.
+        """
+        logger.info(f"Server logs are managed by the server itself, not mcp-manager")
+        return [
+            f"# Server '{server_name}' manages its own logs",
+            f"# mcp-manager only tracks server lifecycle events",
+            f"# Check the server's runtime environment for application logs"
+        ]
     
     def set_cleanup_on_exit(self, enabled: bool):
         """Enable or disable automatic cleanup on exit."""

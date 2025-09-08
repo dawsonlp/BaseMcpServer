@@ -6,6 +6,7 @@ for converting Jira API responses to domain objects.
 """
 
 from domain.models import JiraIssue, JiraComment
+from domain.file_models import JiraAttachment
 from domain.ports import ConfigurationProvider
 
 
@@ -77,3 +78,26 @@ class JiraIssueConverter:
             self.convert_comment_to_domain(comment_data)
             for comment_data in comments_data
         ]
+
+
+def convert_jira_attachment(attachment_data: dict) -> JiraAttachment:
+    """Convert Jira API attachment data to domain model."""
+    return JiraAttachment(
+        id=attachment_data["id"],
+        filename=attachment_data["filename"],
+        size=attachment_data["size"],
+        mime_type=attachment_data.get("mimeType", "application/octet-stream"),
+        created=attachment_data.get("created"),
+        author_name=attachment_data.get("author", {}).get("displayName"),
+        author_key=attachment_data.get("author", {}).get("key"),
+        download_url=attachment_data.get("content"),  # Jira uses 'content' for download URL
+        thumbnail_url=attachment_data.get("thumbnail"),
+    )
+
+
+def convert_jira_attachments(attachments_data: list[dict]) -> list[JiraAttachment]:
+    """Convert multiple Jira API attachments to domain models."""
+    return [
+        convert_jira_attachment(attachment_data)
+        for attachment_data in attachments_data
+    ]

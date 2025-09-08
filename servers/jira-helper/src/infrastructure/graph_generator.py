@@ -361,24 +361,5 @@ class WorkflowAnalyzerImpl(WorkflowAnalyzer):
         return color_map.get(category, "#9E9E9E")
 
 
-class LoggerAdapter:
-    """Simple logger adapter for the infrastructure layer."""
-
-    def __init__(self):
-        self._logger = logging.getLogger(__name__)
-
-    def info(self, message: str, **kwargs) -> None:
-        """Log an info message."""
-        self._logger.info(message, extra=kwargs)
-
-    def warning(self, message: str, **kwargs) -> None:
-        """Log a warning message."""
-        self._logger.warning(message, extra=kwargs)
-
-    def error(self, message: str, **kwargs) -> None:
-        """Log an error message."""
-        self._logger.error(message, extra=kwargs)
-
-    def debug(self, message: str, **kwargs) -> None:
-        """Log a debug message."""
-        self._logger.debug(message, extra=kwargs)
+# Use standard logging pattern consistent with rest of project
+logger = logging.getLogger(__name__)

@@ -355,6 +355,9 @@ class BulkOperationResult(Generic[T]):
         return cls(total_processed=0)
 
 
+# Main result type alias for backwards compatibility
+Result = OperationResult
+
 # Type aliases for common result patterns
 IssueResult = OperationResult["JiraIssue"]  # Will be defined when JiraIssue is updated
 ProjectResult = OperationResult["JiraProject"]  # Will be defined when JiraProject is updated

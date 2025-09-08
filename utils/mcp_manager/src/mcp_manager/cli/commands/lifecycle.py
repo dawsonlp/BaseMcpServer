@@ -30,14 +30,13 @@ process_manager = ProcessManager()
 health_checker = HealthChecker()
 
 
-@app.command("start")
-def start_server(
-    name: str = typer.Argument(..., help="Server name to start"),
-    transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
-    port: Optional[int] = typer.Option(None, "--port", "-p", help="Override port for SSE transport"),
-    background: bool = typer.Option(False, "--background", "-b", help="Run in background"),
+def start_server_impl(
+    name: str,
+    transport: Optional[str] = None,
+    port: Optional[int] = None,
+    background: bool = False,
 ):
-    """Start a server."""
+    """Internal implementation for starting a server."""
     try:
         # Get server configuration
         server = state.get_server(name)
@@ -79,7 +78,7 @@ def start_server(
             task = progress.add_task("Starting server...", total=None)
             
             # Start the server process
-            process_info = process_manager.start_server(server)
+            process_info = process_manager.start_server(name)
             
             progress.update(task, description="Verifying startup...")
             time.sleep(2)  # Give server time to start
@@ -106,6 +105,17 @@ def start_server(
         
     except Exception as e:
         handle_error(e, f"Failed to start server '{name}'")
+
+
+@app.command("start")
+def start_server(
+    name: str = typer.Argument(..., help="Server name to start"),
+    transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Override port for SSE transport"),
+    background: bool = typer.Option(False, "--background", "-b", help="Run in background"),
+):
+    """Start a server."""
+    start_server_impl(name, transport, port, background)
 
 
 @app.command("stop")
@@ -168,7 +178,7 @@ def restart_server(
         
         # Start the server
         output.info(f"Starting server '{name}'...")
-        start_server(name, transport, port, background=True)
+        start_server_impl(name, transport, port, background=True)
         
     except Exception as e:
         handle_error(e, f"Failed to restart server '{name}'")

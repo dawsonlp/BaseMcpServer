@@ -15,6 +15,10 @@ class JiraDomainException(Exception):
         self.details = details or {}
 
 
+# Alias for backwards compatibility and cleaner imports
+JiraHelperException = JiraDomainException
+
+
 class JiraInstanceNotFound(JiraDomainException):
     """Raised when a requested Jira instance is not found."""
 

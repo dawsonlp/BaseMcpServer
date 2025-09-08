@@ -84,6 +84,7 @@ class Settings:
         self.api_key: str = server_config.get('api_key', 'example_key')
         self.debug_mode: bool = server_config.get('debug_mode', False)
         self.log_level: str = server_config.get('log_level', 'INFO')
+        self.log_file: str = server_config.get('log_file', '/tmp/jira_helper_debug.log')
 
         # Default instance configuration
         self.default_jira_instance: str | None = self.config_data.get('default_jira_instance')

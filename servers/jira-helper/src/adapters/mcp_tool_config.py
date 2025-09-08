@@ -33,6 +33,11 @@ from application.use_cases import (
     UpdateTimeEstimatesUseCase,
     ValidateJqlUseCase,
 )
+from application.file_use_cases import (
+    DeleteAttachmentUseCase,
+    ListAttachmentsUseCase,
+    UploadFileUseCase,
+)
 
 # Complete tool configuration - single source of truth for all Jira MCP tools
 JIRA_TOOLS: dict[str, dict[str, Any]] = {
@@ -172,6 +177,24 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': CreateIssueWithLinksUseCase,
         'description': 'Create a new Jira issue with links to other issues.',
         'dependencies': ['issue_service', 'issue_link_service']
+    },
+
+    'upload_file_to_jira': {
+        'use_case_class': UploadFileUseCase,
+        'description': 'Upload a file to a Jira issue as an attachment.',
+        'dependencies': ['file_attachment_port', 'file_validation_port', 'file_system_port', 'policy_provider', 'config_provider', 'event_publisher', 'logger']
+    },
+
+    'list_issue_attachments': {
+        'use_case_class': ListAttachmentsUseCase,
+        'description': 'List all attachments for a Jira issue.',
+        'dependencies': ['file_attachment_port', 'config_provider', 'logger']
+    },
+
+    'delete_issue_attachment': {
+        'use_case_class': DeleteAttachmentUseCase,
+        'description': 'Delete an attachment from a Jira issue.',
+        'dependencies': ['file_attachment_port', 'config_provider', 'event_publisher', 'logger']
     }
 }
 

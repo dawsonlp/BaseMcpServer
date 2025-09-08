@@ -221,3 +221,129 @@ def create_context() -> ErrorContext:
         ErrorContext builder instance
     """
     return ErrorContext()
+
+
+def map_domain_error_to_result(error: Exception) -> dict[str, Any]:
+    """
+    Map a domain error to an MCP-compatible result structure.
+    
+    Args:
+        error: The domain error to map
+        
+    Returns:
+        Dictionary with error information suitable for MCP responses
+    """
+    from domain.exceptions import (
+        JiraAuthenticationError,
+        JiraConnectionError,
+        JiraInstanceNotFound,
+        JiraIssueNotFound,
+        JiraTimeoutError,
+        JiraValidationError,
+        JiraWorkflowError,
+        InvalidJQLError,
+        JQLSecurityError,
+        FileValidationError,
+        FileTooLargeError,
+        UnsupportedFileTypeError,
+    )
+    
+    error_type = type(error).__name__
+    error_message = str(error)
+    
+    # Map specific domain errors to error codes
+    if isinstance(error, JiraAuthenticationError):
+        return {
+            "error": "authentication_failed",
+            "message": error_message,
+            "details": {
+                "instance_name": getattr(error, 'instance_name', 'unknown'),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, JiraConnectionError):
+        return {
+            "error": "connection_failed", 
+            "message": error_message,
+            "details": {
+                "instance_name": getattr(error, 'instance_name', 'unknown'),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, JiraIssueNotFound):
+        return {
+            "error": "issue_not_found",
+            "message": error_message,
+            "details": {
+                "issue_key": getattr(error, 'issue_key', 'unknown'),
+                "instance_name": getattr(error, 'instance_name', 'unknown'),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, JiraValidationError):
+        return {
+            "error": "validation_failed",
+            "message": error_message,
+            "details": {
+                "validation_errors": getattr(error, 'errors', []),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, FileValidationError):
+        return {
+            "error": "file_validation_failed",
+            "message": error_message,
+            "details": {
+                "filename": getattr(error, 'filename', 'unknown'),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, FileTooLargeError):
+        return {
+            "error": "file_too_large",
+            "message": error_message,
+            "details": {
+                "filename": getattr(error, 'filename', 'unknown'),
+                "size_bytes": getattr(error, 'size_bytes', 0),
+                "max_size_bytes": getattr(error, 'max_size_bytes', 0),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, UnsupportedFileTypeError):
+        return {
+            "error": "unsupported_file_type",
+            "message": error_message,
+            "details": {
+                "filename": getattr(error, 'filename', 'unknown'),
+                "file_type": getattr(error, 'file_type', 'unknown'),
+                "supported_types": getattr(error, 'supported_types', []),
+                "type": error_type
+            }
+        }
+    
+    elif isinstance(error, JiraTimeoutError):
+        return {
+            "error": "timeout",
+            "message": error_message,
+            "details": {
+                "operation": getattr(error, 'operation', 'unknown'),
+                "timeout_seconds": getattr(error, 'timeout_seconds', 30),
+                "type": error_type
+            }
+        }
+    
+    else:
+        # Generic error mapping
+        return {
+            "error": "operation_failed",
+            "message": error_message,
+            "details": {
+                "type": error_type
+            }
+        }

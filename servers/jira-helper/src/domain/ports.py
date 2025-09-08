@@ -34,6 +34,17 @@ from domain.models import (
     WorkLogRequest,
     WorkLogResult,
 )
+from domain.file_models import (
+    AttachmentDeleteRequest,
+    AttachmentDeleteResult,
+    AttachmentListRequest,
+    AttachmentListResult,
+    FileContent,
+    FileUploadPolicy,
+    FileUploadRequest,
+    FileUploadResult,
+    JiraAttachment,
+)
 
 
 class JiraRepository(ABC):
@@ -439,4 +450,120 @@ class TimeFormatValidator(ABC):
     @abstractmethod
     def normalize_time_format(self, time_string: str) -> str:
         """Normalize time format to standard Jira format."""
+        pass
+
+
+class FileAttachmentPort(ABC):
+    """Interface for file attachment operations."""
+
+    @abstractmethod
+    async def upload_file(self, request: FileUploadRequest, instance_name: str | None = None) -> FileUploadResult:
+        """Upload a file to a Jira issue."""
+        pass
+
+    @abstractmethod
+    async def upload_file_content(self, issue_key: str, file_content: FileContent, comment: str | None = None, instance_name: str | None = None) -> FileUploadResult:
+        """Upload file content directly to a Jira issue."""
+        pass
+
+    @abstractmethod
+    async def list_attachments(self, request: AttachmentListRequest, instance_name: str | None = None) -> AttachmentListResult:
+        """List all attachments for an issue."""
+        pass
+
+    @abstractmethod
+    async def delete_attachment(self, request: AttachmentDeleteRequest, instance_name: str | None = None) -> AttachmentDeleteResult:
+        """Delete an attachment from an issue."""
+        pass
+
+    @abstractmethod
+    async def get_attachment(self, attachment_id: str, instance_name: str | None = None) -> JiraAttachment | None:
+        """Get attachment details by ID."""
+        pass
+
+    @abstractmethod
+    async def download_attachment(self, attachment_id: str, instance_name: str | None = None) -> bytes | None:
+        """Download attachment content by ID."""
+        pass
+
+
+class FileValidationPort(ABC):
+    """Interface for file validation operations."""
+
+    @abstractmethod
+    def validate_file_path(self, file_path: str) -> list[str]:
+        """Validate that a file path is valid and accessible. Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    def validate_file_content(self, file_content: FileContent, policy: FileUploadPolicy) -> list[str]:
+        """Validate file content against upload policy. Returns list of validation errors."""
+        pass
+
+    @abstractmethod
+    def detect_mime_type(self, file_path: str) -> str:
+        """Detect MIME type of a file."""
+        pass
+
+    @abstractmethod
+    def detect_mime_type_from_content(self, content: bytes, filename: str) -> str:
+        """Detect MIME type from file content and filename."""
+        pass
+
+    @abstractmethod
+    def get_file_size(self, file_path: str) -> int:
+        """Get file size in bytes."""
+        pass
+
+    @abstractmethod
+    def is_file_readable(self, file_path: str) -> bool:
+        """Check if a file is readable."""
+        pass
+
+
+class FileSystemPort(ABC):
+    """Interface for file system operations."""
+
+    @abstractmethod
+    def read_file(self, file_path: str) -> bytes:
+        """Read file content from the file system."""
+        pass
+
+    @abstractmethod
+    def file_exists(self, file_path: str) -> bool:
+        """Check if a file exists."""
+        pass
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
+        """Get file information (size, modified time, etc.)."""
+        pass
+
+    @abstractmethod
+    def resolve_path(self, file_path: str) -> str:
+        """Resolve a file path to an absolute path."""
+        pass
+
+
+class FileUploadPolicyProvider(ABC):
+    """Interface for file upload policy management."""
+
+    @abstractmethod
+    def get_default_policy(self) -> FileUploadPolicy:
+        """Get the default file upload policy."""
+        pass
+
+    @abstractmethod
+    def get_policy_for_instance(self, instance_name: str) -> FileUploadPolicy:
+        """Get file upload policy for a specific Jira instance."""
+        pass
+
+    @abstractmethod
+    def get_policy_for_project(self, project_key: str, instance_name: str | None = None) -> FileUploadPolicy:
+        """Get file upload policy for a specific project."""
+        pass
+
+    @abstractmethod
+    def validate_against_policy(self, filename: str, mime_type: str, size_bytes: int, policy: FileUploadPolicy) -> tuple[bool, str | None]:
+        """Validate a file against a policy. Returns (allowed, reason)."""
         pass

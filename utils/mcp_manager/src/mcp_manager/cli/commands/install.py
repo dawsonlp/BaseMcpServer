@@ -196,7 +196,7 @@ def install_local(
                         break
                 
                 if requirements_file:
-                    python_exe = server.get_python_executable() if hasattr(server, 'get_python_executable') else venv_dir / "bin" / "python"
+                    python_exe = venv_dir / "bin" / "python"
                     if requirements_file.name == "requirements.txt":
                         cmd = [str(python_exe), "-m", "pip", "install", "-r", str(requirements_file)]
                     else:

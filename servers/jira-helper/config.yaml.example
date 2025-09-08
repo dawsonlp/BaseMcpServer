@@ -9,6 +9,7 @@ server:
   api_key: your_api_key_here  # Change this in production
   debug_mode: true
   log_level: INFO
+  log_file: /tmp/jira_helper_debug.log  # Log file location (default: /tmp/jira_helper_debug.log)
 
 # Multiple Jira instances configuration
 # Much cleaner and more readable than JSON in .env files!

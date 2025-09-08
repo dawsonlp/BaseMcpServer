@@ -71,7 +71,6 @@ from domain.services import (
 from infrastructure.config_adapter import ConfigurationAdapter
 from infrastructure.graph_generator import (
     GraphvizGenerator,
-    LoggerAdapter,
     WorkflowAnalyzerImpl,
 )
 from infrastructure.atlassian_repository import (
@@ -87,6 +86,14 @@ from infrastructure.atlassian_search_adapter import (
 from infrastructure.atlassian_time_adapter import (
     AtlassianTimeFormatValidator,
     AtlassianTimeTrackingAdapter,
+)
+from infrastructure.atlassian_file_adapter import AtlassianFileAdapter
+from infrastructure.file_validation_adapter import StandardFileValidationAdapter
+from infrastructure.file_system_adapter import StandardFileSystemAdapter, FileUploadPolicyAdapter
+from application.file_use_cases import (
+    UploadFileUseCase,
+    ListAttachmentsUseCase,
+    DeleteAttachmentUseCase,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,6 +117,19 @@ class JiraHelperContext:
         issue_update_service: IssueUpdateService,
         issue_link_service: IssueLinkService,
         time_tracking_service: TimeTrackingService,
+        # File-related ports for file upload functionality
+        file_attachment_port: AtlassianFileAdapter,
+        file_validation_port: StandardFileValidationAdapter,
+        file_system_port: StandardFileSystemAdapter,
+        policy_provider: FileUploadPolicyAdapter,  # Provides policies
+        # File use cases
+        upload_file_use_case: UploadFileUseCase,
+        list_attachments_use_case: ListAttachmentsUseCase,
+        delete_attachment_use_case: DeleteAttachmentUseCase,
+        # Additional dependencies needed by tools
+        config_provider,
+        event_publisher,
+        logger,
         # Use cases (for backward compatibility if needed)
         list_projects_use_case: ListProjectsUseCase,
         get_issue_details_use_case: GetIssueDetailsUseCase,
@@ -150,6 +170,22 @@ class JiraHelperContext:
         self.issue_link_service = issue_link_service
         self.time_tracking_service = time_tracking_service
 
+        # File-related ports (mapped to dependency names in tool config)
+        self.file_attachment_port = file_attachment_port
+        self.file_validation_port = file_validation_port
+        self.file_system_port = file_system_port
+        self.policy_provider = policy_provider
+
+        # File use cases
+        self.upload_file_use_case = upload_file_use_case
+        self.list_attachments_use_case = list_attachments_use_case
+        self.delete_attachment_use_case = delete_attachment_use_case
+        
+        # Additional dependencies needed by tools
+        self.config_provider = config_provider
+        self.event_publisher = event_publisher
+        self.logger = logger
+
         # Use cases (for backward compatibility)
         self.list_projects_use_case = list_projects_use_case
         self.get_issue_details_use_case = get_issue_details_use_case
@@ -188,7 +224,8 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         repository = AtlassianApiRepository(client_factory, config_provider)
         graph_generator = GraphvizGenerator()
         workflow_analyzer = WorkflowAnalyzerImpl()
-        logger_adapter = LoggerAdapter()
+        # Use standard logging pattern consistent with rest of project
+        logger_adapter = logging.getLogger(__name__)
 
         # Initialize infrastructure adapters
         issue_update_adapter = AtlassianIssueUpdateAdapter(config_provider)
@@ -211,6 +248,12 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         issue_link_service = IssueLinkService(issue_link_adapter, repository, config_provider, None, logger_adapter)
         search_service = SearchService(search_adapter, config_provider, AtlassianJQLValidator(), logger_adapter)
         time_tracking_service = TimeTrackingService(time_tracking_adapter, repository, config_provider, time_format_validator, logger_adapter)
+
+        # Initialize file adapters
+        file_attachment_port = AtlassianFileAdapter(config_provider, client_factory)
+        file_validation_port = StandardFileValidationAdapter(logger_adapter)
+        file_system_port = StandardFileSystemAdapter(logger_adapter)
+        file_upload_policy_provider = FileUploadPolicyAdapter(logger_adapter)
 
         # Initialize use cases with keyword arguments for BaseUseCase compatibility
         list_projects_use_case = ListProjectsUseCase(project_service=project_service)
@@ -242,6 +285,28 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         create_issue_with_links_use_case = CreateIssueWithLinksUseCase(issue_service=issue_service, issue_link_service=issue_link_service)
         validate_jql_use_case = ValidateJqlUseCase(search_service=search_service)
 
+        # Initialize file use cases
+        upload_file_use_case = UploadFileUseCase(
+            file_attachment_port=file_attachment_port,
+            file_validation_port=file_validation_port,
+            file_system_port=file_system_port,
+            policy_provider=file_upload_policy_provider,
+            config_provider=config_provider,
+            event_publisher=None,  # No event publisher needed for now
+            logger=logger_adapter
+        )
+        list_attachments_use_case = ListAttachmentsUseCase(
+            file_attachment_port=file_attachment_port,
+            config_provider=config_provider,
+            logger=logger_adapter
+        )
+        delete_attachment_use_case = DeleteAttachmentUseCase(
+            file_attachment_port=file_attachment_port,
+            config_provider=config_provider,
+            event_publisher=None,  # No event publisher needed for now
+            logger=logger_adapter
+        )
+
         # Create context with service mappings for bulk registration
         context = JiraHelperContext(
             # Services mapped to dependency names
@@ -257,6 +322,19 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             issue_update_service=issue_update_service,
             issue_link_service=issue_link_service,
             time_tracking_service=time_tracking_service,
+            # File-related ports
+            file_attachment_port=file_attachment_port,
+            file_validation_port=file_validation_port,
+            file_system_port=file_system_port,
+            policy_provider=file_upload_policy_provider,
+            # File use cases
+            upload_file_use_case=upload_file_use_case,
+            list_attachments_use_case=list_attachments_use_case,
+            delete_attachment_use_case=delete_attachment_use_case,
+            # Additional dependencies
+            config_provider=config_provider,
+            event_publisher=None,  # No event publisher for now
+            logger=logger_adapter,
             # Use cases
             list_projects_use_case=list_projects_use_case,
             get_issue_details_use_case=get_issue_details_use_case,
