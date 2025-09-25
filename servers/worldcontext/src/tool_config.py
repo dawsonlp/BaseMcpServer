@@ -10,12 +10,22 @@ import datetime
 import httpx
 import json
 import logging
+import sys
 import threading
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import config
 
+# Configure logger to use stderr to avoid interfering with stdio JSON-RPC
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)  # Reduce verbosity for MCP protocol compatibility
+
+# Ensure handler uses stderr
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+    logger.propagate = False
 
 
 # Thread-safe cache for version data

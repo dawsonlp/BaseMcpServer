@@ -5,10 +5,18 @@ Consolidated to use mcp-commons utilities for standardized server startup.
 """
 
 import sys
+import logging
 from mcp_commons import run_mcp_server, create_mcp_app, print_mcp_help
 
 from config import config
 from tool_config import get_tools_config
+
+# Configure logging to stderr to avoid interfering with stdio JSON-RPC
+logging.basicConfig(
+    level=logging.WARNING,  # Reduce verbosity for MCP protocol compatibility
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr  # Explicitly use stderr
+)
 
 
 def main() -> None:
@@ -37,8 +45,8 @@ def main() -> None:
             transport="stdio"
         )
     else:
-        print(f"Unknown transport mode: {sys.argv[1]}")
-        print("Use 'sse', 'stdio', or 'help' for usage information.")
+        print(f"Unknown transport mode: {sys.argv[1]}", file=sys.stderr)
+        print("Use 'sse', 'stdio', or 'help' for usage information.", file=sys.stderr)
         sys.exit(1)
 
 

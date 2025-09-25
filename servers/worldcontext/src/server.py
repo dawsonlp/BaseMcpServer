@@ -6,13 +6,18 @@ Business logic is kept separate from MCP infrastructure.
 """
 
 import logging
+import sys
 from typing import Dict, Any
 from mcp.server.fastmcp import FastMCP
 
 from mcp_commons import bulk_register_tools, log_registration_summary
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging to stderr to avoid interfering with stdio JSON-RPC
+logging.basicConfig(
+    level=logging.WARNING,  # Reduce verbosity for MCP protocol compatibility
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
 logger = logging.getLogger(__name__)
 
 
