@@ -255,6 +255,8 @@ def show_logs(
         
         if not log_file.exists():
             output.info(f"No log file found for server '{name}'")
+            output.info(f"📄 Log file location: {log_file}")
+            output.info("Logs will appear here once the server runs and generates output")
             return
         
         if follow:
