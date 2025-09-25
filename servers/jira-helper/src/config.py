@@ -15,24 +15,32 @@ logger = logging.getLogger(__name__)
 def find_config_file():
     """
     Find the config.yaml file in order of preference:
-    1. ~/.mcp_servers/jira-helper-config.yaml (production)
-    2. ./config.yaml (local development)
-    3. ./config.yaml.example (fallback template)
+    1. ~/.config/mcp-manager/servers/jira-helper/config.yaml (mcp-manager managed)
+    2. ~/.mcp_servers/servers/jira-helper/config.yaml (legacy location)
+    3. ~/.mcp_servers/jira-helper-config.yaml (legacy production)
+    4. ./config.yaml (local development)
+    5. ./config.yaml.example (fallback template)
 
     Returns:
         str: Path to the config file
     """
-    # Production config (safe from git)
-    production_config = Path.home() / ".mcp_servers" / "jira-helper-config.yaml"
-    if production_config.exists():
-        logger.info(f"Using production config: {production_config}")
-        return str(production_config)
+    # MCP-manager managed config (primary location)
+    mcp_manager_config = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper" / "config.yaml"
+    if mcp_manager_config.exists():
+        logger.info(f"Using mcp-manager config: {mcp_manager_config}")
+        return str(mcp_manager_config)
 
-    # Server-specific config
+    # Legacy server-specific config
     server_config = Path.home() / ".mcp_servers" / "servers" / "jira-helper" / "config.yaml"
     if server_config.exists():
-        logger.info(f"Using server-specific config: {server_config}")
+        logger.info(f"Using legacy server-specific config: {server_config}")
         return str(server_config)
+
+    # Legacy production config (safe from git)
+    production_config = Path.home() / ".mcp_servers" / "jira-helper-config.yaml"
+    if production_config.exists():
+        logger.info(f"Using legacy production config: {production_config}")
+        return str(production_config)
 
     # Local development config
     local_config = Path.cwd() / "config.yaml"

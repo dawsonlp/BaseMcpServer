@@ -10,11 +10,12 @@ from mcp_commons import create_config, load_dotenv_file
 # Load environment variables from .env file if present
 load_dotenv_file()
 
-# Try multiple config file locations
+# Try multiple config file locations in order of preference
 config_file = None
 possible_locations = [
-    Path.home() / ".config" / "worldcontext" / "config.yaml",
-    Path.cwd() / "config.yaml"
+    Path.home() / ".config" / "mcp-manager" / "servers" / "worldcontext" / "config.yaml",  # mcp-manager managed
+    Path.home() / ".config" / "worldcontext" / "config.yaml",  # legacy location
+    Path.cwd() / "config.yaml"  # local development
 ]
 
 for location in possible_locations:

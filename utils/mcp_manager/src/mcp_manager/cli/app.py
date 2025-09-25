@@ -452,9 +452,25 @@ def show_version():
 @app.command("help")
 def show_help():
     """❓ Show comprehensive help and usage examples."""
+    mcp_home = get_mcp_home()
     output_mgr = get_output_manager()
-    help_text = """
+    help_text = f"""
 [bold blue]🚀 MCP Manager - Usage Guide[/bold blue]
+
+[bold yellow]📁 FILE LOCATIONS[/bold yellow]
+  [bold]Config files[/bold] (checked in order):
+  [dim]1. ~/.config/mcp-manager/servers/{{server-name}}/config.yaml[/dim] (managed)
+  [dim]2. ~/.config/mcp-manager/servers/{{server-name}}/.env[/dim] (managed env vars)
+  [dim]3. Legacy locations (server-specific)[/dim]
+  [dim]4. ./config.yaml or ./.env[/dim] (local development)
+
+  [bold]Log files[/bold]:
+  [dim]~/.config/mcp-manager/logs/{{server-name}}.log[/dim]
+
+  [bold]Virtual environments[/bold]:
+  [dim]~/.config/mcp-manager/servers/{{server-name}}/.venv[/dim]
+
+  [bold]System directory[/bold]: [cyan]{mcp_home}[/cyan]
 
 [bold yellow]📦 INSTALLATION COMMANDS[/bold yellow]
   [cyan]mcp-manager install local my-server --source /path/to/server[/cyan]
@@ -478,9 +494,7 @@ def show_help():
 
 [bold yellow]📋 INFORMATION & MONITORING[/bold yellow]
   [cyan]mcp-manager info list[/cyan]                        List all servers
-  [cyan]mcp-manager info show my-server[/cyan]              Show server details
-  [cyan]mcp-manager info tree[/cyan]                        Show server hierarchy
-  [cyan]mcp-manager info summary[/cyan]                     System summary
+  [cyan]mcp-manager info show my-server[/cyan]              Show server details (includes file paths)
 
 [bold yellow]⚙️ CONFIGURATION[/bold yellow]
   [cyan]mcp-manager config cline[/cyan]                    Configure VS Code/Cline
@@ -505,6 +519,10 @@ def show_help():
   [cyan]mcp-manager run my-server[/cyan]                    Quick start server
   [cyan]mcp-manager version[/cyan]                          Version information
 
+[bold yellow]🔍 FINDING YOUR FILES[/bold yellow]
+  [cyan]mcp-manager info show my-server[/cyan]              See which config files exist & are being used
+  [cyan]mcp-manager server logs my-server[/cyan]            View logs (shows log file location)
+  
 [dim]💡 Tip: Use --help with any command for detailed options[/dim]
 """
     output_mgr.console.print(help_text)
