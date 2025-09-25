@@ -1,6 +1,6 @@
 # Requires Python 3.13+
 # Core MCP dependencies
-mcp>=1.13.1
+mcp>=1.14.0
 
 # MCP Commons - shared infrastructure (provides PyYAML, bulk registration, server utilities)
 mcp-commons>=1.0.0

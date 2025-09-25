@@ -1259,3 +1259,175 @@ class SearchService(BaseJiraService):
                     raise InvalidJQLError(jql, str(e))
                 else:
                     raise
+
+
+class ConfluenceService(BaseJiraService):
+    """Domain service for Confluence operations."""
+
+    def __init__(
+        self,
+        repository,  # ConfluenceRepository when created
+        config_provider: ConfigurationProvider,
+        logger: Logger,
+        event_publisher: EventPublisher | None = None
+    ):
+        super().__init__(config_provider, logger, event_publisher=event_publisher)
+        self._confluence_repository = repository
+
+    def validate_space_key(self, space_key: str) -> bool:
+        """Validate Confluence space key format."""
+        if not space_key or not space_key.strip():
+            return False
+        
+        # Space keys should be alphanumeric with underscores/hyphens
+        # and typically 2-10 characters long
+        import re
+        pattern = r'^[A-Z0-9_-]{2,10}$'
+        return bool(re.match(pattern, space_key.strip().upper()))
+
+    def validate_page_id(self, page_id: str) -> bool:
+        """Validate Confluence page ID format."""
+        if not page_id or not page_id.strip():
+            return False
+        
+        # Page IDs are typically numeric strings
+        try:
+            int(page_id.strip())
+            return True
+        except ValueError:
+            return False
+
+    def format_page_content(self, raw_content: str) -> str:
+        """Format raw Confluence page content for display."""
+        if not raw_content:
+            return ""
+        
+        # Remove excessive whitespace and normalize line endings
+        content = raw_content.strip()
+        content = '\n'.join(line.strip() for line in content.split('\n'))
+        
+        # Remove empty lines at start and end
+        lines = content.split('\n')
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        
+        return '\n'.join(lines)
+
+    def sanitize_search_query(self, query: str) -> str:
+        """Sanitize Confluence search query to prevent issues."""
+        if not query:
+            return ""
+        
+        # Remove potentially problematic characters
+        sanitized = query.strip()
+        
+        # Remove excessive whitespace
+        import re
+        sanitized = re.sub(r'\s+', ' ', sanitized)
+        
+        # Limit query length (Confluence has search limits)
+        max_length = 1000
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length].rstrip()
+        
+        return sanitized
+
+    async def validate_space_exists(self, space_key: str, instance_name: str) -> bool:
+        """Validate that a Confluence space exists and is accessible."""
+        if not self.validate_space_key(space_key):
+            return False
+        
+        try:
+            spaces = await self._confluence_repository.get_spaces(instance_name)
+            return any(space.key.upper() == space_key.upper() for space in spaces)
+        except Exception as e:
+            self._logger.warning(f"Could not validate space {space_key} existence: {str(e)}")
+            return False
+
+    async def validate_page_exists(self, page_id: str, instance_name: str) -> bool:
+        """Validate that a Confluence page exists and is accessible."""
+        if not self.validate_page_id(page_id):
+            return False
+        
+        try:
+            page = await self._confluence_repository.get_page_by_id(page_id, instance_name)
+            return page is not None
+        except Exception as e:
+            self._logger.warning(f"Could not validate page {page_id} existence: {str(e)}")
+            return False
+
+    def validate_page_creation_request(self, space_key: str, title: str, content: str) -> list[str]:
+        """Validate page creation request and return any validation errors."""
+        errors = []
+        
+        if not self.validate_space_key(space_key):
+            errors.append("Invalid space key format")
+        
+        if not title or not title.strip():
+            errors.append("Page title cannot be empty")
+        elif len(title.strip()) > 255:
+            errors.append("Page title cannot exceed 255 characters")
+        
+        if not content or not content.strip():
+            errors.append("Page content cannot be empty")
+        elif len(content) > 1000000:  # 1MB limit
+            errors.append("Page content exceeds maximum size limit")
+        
+        return errors
+
+    def validate_page_update_request(self, page_id: str, title: str, content: str, version: int) -> list[str]:
+        """Validate page update request and return any validation errors."""
+        errors = []
+        
+        if not self.validate_page_id(page_id):
+            errors.append("Invalid page ID format")
+        
+        if not title or not title.strip():
+            errors.append("Page title cannot be empty")
+        elif len(title.strip()) > 255:
+            errors.append("Page title cannot exceed 255 characters")
+        
+        if not content or not content.strip():
+            errors.append("Page content cannot be empty")
+        elif len(content) > 1000000:  # 1MB limit
+            errors.append("Page content exceeds maximum size limit")
+        
+        if version <= 0:
+            errors.append("Page version must be a positive integer")
+        
+        return errors
+
+    def check_space_permissions(self, space_key: str, operation: str = "read") -> bool:
+        """Check if user has permissions for the specified operation on the space."""
+        # Simplified permission check - in reality this would check against
+        # the user's actual permissions in Confluence
+        valid_operations = ["read", "write", "admin"]
+        
+        if operation not in valid_operations:
+            return False
+        
+        # Basic validation - more sophisticated permission checking would be
+        # implemented based on Confluence's permission model
+        return self.validate_space_key(space_key)
+
+    def extract_page_summary(self, content: str, max_length: int = 200) -> str:
+        """Extract a summary from page content for display purposes."""
+        if not content:
+            return ""
+        
+        # Remove HTML tags and excessive whitespace
+        import re
+        
+        # Simple HTML tag removal (for basic Confluence content)
+        summary = re.sub(r'<[^>]+>', '', content)
+        
+        # Remove excessive whitespace
+        summary = re.sub(r'\s+', ' ', summary).strip()
+        
+        # Truncate to max length with ellipsis
+        if len(summary) > max_length:
+            summary = summary[:max_length].rstrip() + "..."
+        
+        return summary

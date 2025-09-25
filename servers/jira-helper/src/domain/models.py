@@ -643,3 +643,129 @@ class TimeEstimateResult:
     def is_successful(self) -> bool:
         """Check if the estimate update was successful."""
         return self.updated and self.error is None
+
+
+# Confluence Domain Models
+
+@validate_required_fields('id', 'title', 'space_key')
+@dataclass
+class ConfluencePage:
+    """Represents a Confluence page."""
+    id: str
+    title: str
+    space_key: str
+    content: str | None = None
+    version: int = 1
+    created_date: str | None = None
+    modified_date: str | None = None
+    author: str | None = None
+    url: str | None = None
+
+    def has_content(self) -> bool:
+        """Check if the page has content."""
+        return self.content is not None and len(self.content.strip()) > 0
+
+    def is_recently_updated(self, days: int = 7) -> bool:
+        """Check if the page was updated recently (requires modified_date)."""
+        if not self.modified_date:
+            return False
+        # This would need actual date parsing in a real implementation
+        return True  # Simplified for now
+
+    def get_content_length(self) -> int:
+        """Get the length of the page content."""
+        return len(self.content) if self.content else 0
+
+
+@validate_required_fields('key', 'name')
+@dataclass
+class ConfluenceSpace:
+    """Represents a Confluence space."""
+    key: str
+    name: str
+    description: str | None = None
+    homepage_id: str | None = None
+    type: str = "global"  # personal, global, etc.
+
+    def is_personal_space(self) -> bool:
+        """Check if this is a personal space."""
+        return self.type == "personal"
+
+    def has_homepage(self) -> bool:
+        """Check if the space has a homepage defined."""
+        return self.homepage_id is not None
+
+
+@validate_required_fields('pages', 'total_results')
+@dataclass
+class ConfluenceSearchResult:
+    """Represents the result of a Confluence search."""
+    pages: list[ConfluencePage]
+    total_results: int
+    limit: int = 50
+    start: int = 0
+
+    def __post_init__(self):
+        """Validate the search result."""
+        if self.total_results < 0:
+            raise ValueError("Total results cannot be negative")
+        if self.start < 0:
+            raise ValueError("Start cannot be negative")
+        if self.limit <= 0:
+            raise ValueError("Limit must be greater than 0")
+
+    def has_more_results(self) -> bool:
+        """Check if there are more results available."""
+        return self.start + len(self.pages) < self.total_results
+
+    def get_next_start(self) -> int:
+        """Get the start value for the next page."""
+        return self.start + len(self.pages)
+
+    def is_empty(self) -> bool:
+        """Check if the search returned no results."""
+        return len(self.pages) == 0
+
+
+@validate_required_fields('space_key', 'title', 'content')
+@dataclass
+class ConfluencePageCreateRequest:
+    """Represents a request to create a new Confluence page."""
+    space_key: str
+    title: str
+    content: str
+    parent_page_id: str | None = None
+
+    def __post_init__(self):
+        """Validate the page create request."""
+        if not self.title.strip():
+            raise ValueError("Page title cannot be empty")
+        if not self.content.strip():
+            raise ValueError("Page content cannot be empty")
+
+    def has_parent(self) -> bool:
+        """Check if this page has a parent page."""
+        return self.parent_page_id is not None
+
+
+@validate_required_fields('page_id', 'title', 'content', 'version')
+@dataclass
+class ConfluencePageUpdateRequest:
+    """Represents a request to update an existing Confluence page."""
+    page_id: str
+    title: str
+    content: str
+    version: int
+
+    def __post_init__(self):
+        """Validate the page update request."""
+        if not self.title.strip():
+            raise ValueError("Page title cannot be empty")
+        if not self.content.strip():
+            raise ValueError("Page content cannot be empty")
+        if self.version <= 0:
+            raise ValueError("Version must be greater than 0")
+
+    def get_next_version(self) -> int:
+        """Get the next version number for the update."""
+        return self.version + 1

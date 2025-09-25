@@ -10,6 +10,7 @@ from typing import Optional
 
 from atlassian import Jira
 
+from domain.exceptions import JiraIssueNotFound
 from domain.file_models import (
     AttachmentDeleteRequest,
     AttachmentDeleteResult,
@@ -33,11 +34,8 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
 
     async def upload_file(self, request: FileUploadRequest, instance_name: str | None = None) -> FileUploadResult:
         """Upload a file to a Jira issue."""
-        try:
+        async def operation(client):
             self._logger.info(f"Uploading file {request.file_path} to issue {request.issue_key}")
-            
-            # Get Jira client
-            client: Jira = self._client_factory.create_client(instance_name)
             
             # Upload the file
             response = client.add_attachment(request.issue_key, request.file_path)
@@ -65,7 +63,15 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
                 uploaded=True,
                 attachment=attachment
             )
-            
+
+        error_mappings = {
+            "does not exist": JiraIssueNotFound(request.issue_key, instance_name or "default"),
+            "not found": JiraIssueNotFound(request.issue_key, instance_name or "default"),
+            "issue does not exist": JiraIssueNotFound(request.issue_key, instance_name or "default")
+        }
+
+        try:
+            return await self._execute_jira_operation("upload_file", operation, instance_name, error_mappings)
         except Exception as e:
             error_msg = f"Failed to upload file to {request.issue_key}: {str(e)}"
             self._logger.error(error_msg)
@@ -83,11 +89,8 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
         instance_name: str | None = None
     ) -> FileUploadResult:
         """Upload file content directly to a Jira issue."""
-        try:
+        async def operation(client):
             self._logger.info(f"Uploading file content {file_content.filename} to issue {issue_key}")
-            
-            # Get Jira client
-            client: Jira = self._client_factory.create_client(instance_name)
             
             # Create a temporary file-like object or use direct content upload
             # The Atlassian library expects file paths, so we need to work with the raw API
@@ -137,7 +140,15 @@ class AtlassianFileAdapter(BaseJiraAdapter, FileAttachmentPort):
                     os.unlink(temp_file_path)
                 except OSError:
                     self._logger.warning(f"Failed to delete temporary file: {temp_file_path}")
-            
+
+        error_mappings = {
+            "does not exist": JiraIssueNotFound(issue_key, instance_name or "default"),
+            "not found": JiraIssueNotFound(issue_key, instance_name or "default"),
+            "issue does not exist": JiraIssueNotFound(issue_key, instance_name or "default")
+        }
+
+        try:
+            return await self._execute_jira_operation("upload_file_content", operation, instance_name, error_mappings)
         except Exception as e:
             error_msg = f"Failed to upload file content to {issue_key}: {str(e)}"
             self._logger.error(error_msg)

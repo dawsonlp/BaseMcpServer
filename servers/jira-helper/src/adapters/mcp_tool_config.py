@@ -11,11 +11,13 @@ from typing import Any
 from application.use_cases import (
     AddCommentUseCase,
     ChangeAssigneeUseCase,
+    CreateConfluencePageUseCase,
     CreateEpicStoryLinkUseCase,
     CreateIssueLinkUseCase,
     CreateIssueUseCase,
     CreateIssueWithLinksUseCase,
     GenerateWorkflowGraphUseCase,
+    GetConfluencePageUseCase,
     GetCustomFieldMappingsUseCase,
     GetFullIssueDetailsUseCase,
     GetIssueDetailsUseCase,
@@ -23,12 +25,16 @@ from application.use_cases import (
     GetIssueTransitionsUseCase,
     GetTimeTrackingInfoUseCase,
     GetWorkLogsUseCase,
+    ListConfluencePagesUseCase,
+    ListConfluenceSpacesUseCase,
     ListInstancesUseCase,
     ListProjectsUseCase,
     ListProjectTicketsUseCase,
     LogWorkUseCase,
+    SearchConfluencePagesUseCase,
     SearchIssuesUseCase,
     TransitionIssueUseCase,
+    UpdateConfluencePageUseCase,
     UpdateIssueUseCase,
     UpdateTimeEstimatesUseCase,
     ValidateJqlUseCase,
@@ -195,6 +201,43 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': DeleteAttachmentUseCase,
         'description': 'Delete an attachment from a Jira issue.',
         'dependencies': ['file_attachment_port', 'config_provider', 'event_publisher', 'logger']
+    },
+
+    # Confluence Tools
+    'list_confluence_spaces': {
+        'use_case_class': ListConfluenceSpacesUseCase,
+        'description': 'List all Confluence spaces available in the instance.',
+        'dependencies': ['confluence_repository']
+    },
+
+    'list_confluence_pages': {
+        'use_case_class': ListConfluencePagesUseCase,
+        'description': 'List pages in a specific Confluence space.',
+        'dependencies': ['confluence_repository']
+    },
+
+    'get_confluence_page': {
+        'use_case_class': GetConfluencePageUseCase,
+        'description': 'Get detailed information about a specific Confluence page.',
+        'dependencies': ['confluence_repository']
+    },
+
+    'search_confluence_pages': {
+        'use_case_class': SearchConfluencePagesUseCase,
+        'description': 'Search for Confluence pages using text query.',
+        'dependencies': ['confluence_repository']
+    },
+
+    'create_confluence_page': {
+        'use_case_class': CreateConfluencePageUseCase,
+        'description': 'Create a new Confluence page.',
+        'dependencies': ['confluence_repository']
+    },
+
+    'update_confluence_page': {
+        'use_case_class': UpdateConfluencePageUseCase,
+        'description': 'Update an existing Confluence page.',
+        'dependencies': ['confluence_repository']
     }
 }
 

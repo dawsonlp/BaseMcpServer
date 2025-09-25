@@ -1000,3 +1000,249 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
             summary=summary,
             instance_name=instance_name
         )
+
+
+# Confluence Use Cases
+
+class ListConfluenceSpacesUseCase(BaseQueryUseCase):
+    """Simplified use case for listing Confluence spaces."""
+
+    async def execute(self, instance_name: str):
+        """Execute the list Confluence spaces use case."""
+        def result_mapper(spaces):
+            return {
+                "spaces": [
+                    {
+                        "key": space.key,
+                        "name": space.name,
+                        "description": space.description,
+                        "homepage_id": space.homepage_id,
+                        "type": space.type,
+                        "is_personal": space.is_personal_space(),
+                        "has_homepage": space.has_homepage()
+                    }
+                    for space in spaces
+                ],
+                "count": len(spaces),
+                "instance": instance_name
+            }
+
+        return await self.execute_query(
+            lambda: self._confluence_service.get_spaces(instance_name),
+            result_mapper,
+            instance_name=instance_name
+        )
+
+
+class ListConfluencePagesUseCase(BaseQueryUseCase):
+    """Simplified use case for listing pages in a Confluence space."""
+
+    async def execute(self, space_key: str, limit: int, instance_name: str):
+        """Execute the list Confluence pages use case."""
+        self._validate_required_params(space_key=space_key)
+
+        def result_mapper(pages):
+            return {
+                "space_key": space_key,
+                "pages": [
+                    {
+                        "id": page.id,
+                        "title": page.title,
+                        "space_key": page.space_key,
+                        "version": page.version,
+                        "created_date": page.created_date,
+                        "modified_date": page.modified_date,
+                        "author": page.author,
+                        "url": page.url,
+                        "has_content": page.has_content(),
+                        "content_length": page.get_content_length()
+                    }
+                    for page in pages
+                ],
+                "count": len(pages),
+                "limit": limit,
+                "instance": instance_name
+            }
+
+        return await self.execute_query(
+            lambda: self._confluence_repository.get_space_pages(space_key, instance_name, limit),
+            result_mapper,
+            space_key=space_key,
+            limit=limit,
+            instance_name=instance_name
+        )
+
+
+class GetConfluencePageUseCase(BaseQueryUseCase):
+    """Simplified use case for getting a specific Confluence page."""
+
+    async def execute(self, page_id: str, expand: str, instance_name: str):
+        """Execute the get Confluence page use case."""
+        self._validate_required_params(page_id=page_id)
+
+        def result_mapper(page):
+            return {
+                "page": {
+                    "id": page.id,
+                    "title": page.title,
+                    "space_key": page.space_key,
+                    "content": page.content,
+                    "version": page.version,
+                    "created_date": page.created_date,
+                    "modified_date": page.modified_date,
+                    "author": page.author,
+                    "url": page.url,
+                    "has_content": page.has_content(),
+                    "content_length": page.get_content_length()
+                },
+                "expand": expand,
+                "instance": instance_name
+            }
+
+        return await self.execute_query(
+            lambda: self._confluence_repository.get_page_by_id(page_id, instance_name, expand),
+            result_mapper,
+            page_id=page_id,
+            expand=expand,
+            instance_name=instance_name
+        )
+
+
+class SearchConfluencePagesUseCase(BaseQueryUseCase):
+    """Simplified use case for searching Confluence pages."""
+
+    async def execute(self, query: str, space_key: str | None, instance_name: str):
+        """Execute the search Confluence pages use case."""
+        self._validate_required_params(query=query)
+
+        def result_mapper(search_result):
+            return {
+                "query": query,
+                "space_key": space_key,
+                "pages": [
+                    {
+                        "id": page.id,
+                        "title": page.title,
+                        "space_key": page.space_key,
+                        "version": page.version,
+                        "created_date": page.created_date,
+                        "modified_date": page.modified_date,
+                        "author": page.author,
+                        "url": page.url,
+                        "has_content": page.has_content(),
+                        "content_length": page.get_content_length()
+                    }
+                    for page in search_result.pages
+                ],
+                "total_results": search_result.total_results,
+                "limit": search_result.limit,
+                "start": search_result.start,
+                "has_more_results": search_result.has_more_results(),
+                "is_empty": search_result.is_empty(),
+                "instance": instance_name
+            }
+
+        return await self.execute_query(
+            lambda: self._confluence_repository.search_pages(query, space_key, instance_name),
+            result_mapper,
+            query=query,
+            space_key=space_key,
+            instance_name=instance_name
+        )
+
+
+class CreateConfluencePageUseCase(BaseCommandUseCase):
+    """Simplified use case for creating a new Confluence page."""
+
+    async def execute(
+        self,
+        space_key: str,
+        title: str,
+        content: str,
+        parent_page_id: str | None,
+        instance_name: str
+    ):
+        """Execute the create Confluence page use case."""
+        self._validate_required_params(
+            space_key=space_key,
+            title=title,
+            content=content
+        )
+
+        def create_operation():
+            return self._confluence_repository.create_page(
+                space_key, title, content, instance_name, parent_page_id
+            )
+
+        def success_mapper(page):
+            return {
+                "created": True,
+                "page": {
+                    "id": page.id,
+                    "title": page.title,
+                    "space_key": page.space_key,
+                    "version": page.version,
+                    "url": page.url,
+                    "content_length": page.get_content_length()
+                },
+                "has_parent": parent_page_id is not None,
+                "parent_page_id": parent_page_id,
+                "instance": instance_name
+            }
+
+        return await self.execute_command(
+            create_operation,
+            success_mapper,
+            space_key=space_key,
+            title=title,
+            instance_name=instance_name
+        )
+
+
+class UpdateConfluencePageUseCase(BaseCommandUseCase):
+    """Simplified use case for updating an existing Confluence page."""
+
+    async def execute(
+        self,
+        page_id: str,
+        title: str,
+        content: str,
+        version: int,
+        instance_name: str
+    ):
+        """Execute the update Confluence page use case."""
+        self._validate_required_params(
+            page_id=page_id,
+            title=title,
+            content=content
+        )
+
+        def update_operation():
+            return self._confluence_repository.update_page(
+                page_id, title, content, version, instance_name
+            )
+
+        def success_mapper(page):
+            return {
+                "updated": True,
+                "page": {
+                    "id": page.id,
+                    "title": page.title,
+                    "space_key": page.space_key,
+                    "version": page.version,
+                    "url": page.url,
+                    "content_length": page.get_content_length()
+                },
+                "previous_version": version,
+                "new_version": page.version,
+                "instance": instance_name
+            }
+
+        return await self.execute_command(
+            update_operation,
+            success_mapper,
+            page_id=page_id,
+            title=title,
+            version=version,
+            instance_name=instance_name
+        )

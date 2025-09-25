@@ -35,11 +35,13 @@ from adapters.mcp_bulk_registration import bulk_register_jira_tools
 from application.use_cases import (
     AddCommentUseCase,
     ChangeAssigneeUseCase,
+    CreateConfluencePageUseCase,
     CreateEpicStoryLinkUseCase,
     CreateIssueLinkUseCase,
     CreateIssueUseCase,
     CreateIssueWithLinksUseCase,
     GenerateWorkflowGraphUseCase,
+    GetConfluencePageUseCase,
     GetCustomFieldMappingsUseCase,
     GetFullIssueDetailsUseCase,
     GetIssueDetailsUseCase,
@@ -47,17 +49,22 @@ from application.use_cases import (
     GetIssueTransitionsUseCase,
     GetTimeTrackingInfoUseCase,
     GetWorkLogsUseCase,
+    ListConfluencePagesUseCase,
+    ListConfluenceSpacesUseCase,
     ListInstancesUseCase,
     ListProjectsUseCase,
     ListProjectTicketsUseCase,
     LogWorkUseCase,
+    SearchConfluencePagesUseCase,
     SearchIssuesUseCase,
     TransitionIssueUseCase,
+    UpdateConfluencePageUseCase,
     UpdateIssueUseCase,
     UpdateTimeEstimatesUseCase,
     ValidateJqlUseCase,
 )
 from domain.services import (
+    ConfluenceService,
     InstanceService,
     IssueLinkService,
     IssueService,
@@ -90,6 +97,10 @@ from infrastructure.atlassian_time_adapter import (
 from infrastructure.atlassian_file_adapter import AtlassianFileAdapter
 from infrastructure.file_validation_adapter import StandardFileValidationAdapter
 from infrastructure.file_system_adapter import StandardFileSystemAdapter, FileUploadPolicyAdapter
+from infrastructure.atlassian_confluence_adapter import (
+    ConfluenceClientFactory,
+    ConfluenceRepository,
+)
 from application.file_use_cases import (
     UploadFileUseCase,
     ListAttachmentsUseCase,
@@ -126,6 +137,8 @@ class JiraHelperContext:
         upload_file_use_case: UploadFileUseCase,
         list_attachments_use_case: ListAttachmentsUseCase,
         delete_attachment_use_case: DeleteAttachmentUseCase,
+        # Confluence dependencies
+        confluence_repository: ConfluenceRepository,
         # Additional dependencies needed by tools
         config_provider,
         event_publisher,
@@ -180,6 +193,9 @@ class JiraHelperContext:
         self.upload_file_use_case = upload_file_use_case
         self.list_attachments_use_case = list_attachments_use_case
         self.delete_attachment_use_case = delete_attachment_use_case
+        
+        # Confluence dependencies (mapped to dependency names in tool config)
+        self.confluence_repository = confluence_repository
         
         # Additional dependencies needed by tools
         self.config_provider = config_provider
@@ -248,6 +264,10 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         issue_link_service = IssueLinkService(issue_link_adapter, repository, config_provider, None, logger_adapter)
         search_service = SearchService(search_adapter, config_provider, AtlassianJQLValidator(), logger_adapter)
         time_tracking_service = TimeTrackingService(time_tracking_adapter, repository, config_provider, time_format_validator, logger_adapter)
+
+        # Initialize Confluence infrastructure
+        confluence_client_factory = ConfluenceClientFactory(config_provider)
+        confluence_repository = ConfluenceRepository(confluence_client_factory, config_provider)
 
         # Initialize file adapters
         file_attachment_port = AtlassianFileAdapter(config_provider, client_factory)
@@ -331,6 +351,8 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             upload_file_use_case=upload_file_use_case,
             list_attachments_use_case=list_attachments_use_case,
             delete_attachment_use_case=delete_attachment_use_case,
+            # Confluence dependencies
+            confluence_repository=confluence_repository,
             # Additional dependencies
             config_provider=config_provider,
             event_publisher=None,  # No event publisher for now
