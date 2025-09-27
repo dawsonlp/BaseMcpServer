@@ -1,18 +1,381 @@
 # Building a New MCP Server: A Complete Guide
 
-This guide teaches you how to build production-ready MCP (Model Context Protocol) servers using proven architectural patterns from the `jira-helper` server, demonstrated through a simple "Hello World" example that includes tools, prompts, and resources.
+This guide teaches you how to build production-ready MCP (Model Context Protocol) servers using two proven architectural approaches from our existing servers.
+
+## Choose Your Architecture
+
+### 🚀 Simple Approach (Recommended for Most Cases)
+**Based on `worldcontext` server** - Uses mcp-commons framework for rapid development with minimal boilerplate.
+
+**Best for:**
+- Simple tools and utilities
+- Rapid prototyping
+- Servers with straightforward business logic
+- Getting started with MCP development
+
+### 🏗️ Hexagonal Architecture Approach
+**Based on `jira-helper` server** - Full domain-driven design with extensive separation of concerns.
+
+**Best for:**
+- Complex business logic
+- External API integrations
+- Long-term maintainability
+- Enterprise applications
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Project Setup](#project-setup)
-3. [Implementing the Domain Layer](#implementing-the-domain-layer)
-4. [Building the Infrastructure Layer](#building-the-infrastructure-layer)
-5. [Creating the Application Layer](#creating-the-application-layer)
-6. [Implementing the MCP Adapter](#implementing-the-mcp-adapter)
-7. [Configuration Management](#configuration-management)
-8. [Testing Your Server](#testing-your-server)
-9. [Integration with mcp-manager](#integration-with-mcp-manager)
+### Simple Approach
+1. [Simple Architecture Overview](#simple-architecture-overview)
+2. [Simple Project Setup](#simple-project-setup)
+3. [Creating Tools with mcp-commons](#creating-tools-with-mcp-commons)
+4. [Simple Configuration](#simple-configuration)
+5. [Testing Simple Servers](#testing-simple-servers)
+
+### Hexagonal Architecture Approach
+6. [Hexagonal Architecture Overview](#hexagonal-architecture-overview)
+7. [Hexagonal Project Setup](#hexagonal-project-setup)
+8. [Implementing the Domain Layer](#implementing-the-domain-layer)
+9. [Building the Infrastructure Layer](#building-the-infrastructure-layer)
+10. [Creating the Application Layer](#creating-the-application-layer)
+11. [Implementing the MCP Adapter](#implementing-the-mcp-adapter)
+12. [Hexagonal Configuration Management](#hexagonal-configuration-management)
+13. [Testing Hexagonal Servers](#testing-hexagonal-servers)
+
+### Both Approaches
+14. [Adding Tools to Existing Servers](#adding-tools-to-existing-servers)
+15. [Best Practices](#best-practices)
+16. [Integration with mcp-manager](#integration-with-mcp-manager)
+17. [Deployment and Maintenance](#deployment-and-maintenance)
+
+---
+
+# Simple Approach (Recommended)
+
+## Simple Architecture Overview
+
+The simple approach uses the `mcp-commons` framework to minimize boilerplate and accelerate development. This pattern is used by the `worldcontext` server.
+
+```
+simple-server/
+├── pyproject.toml              # Package configuration
+├── config.yaml.example        # Configuration template  
+├── src/
+│   ├── main.py                # Entry point using mcp-commons
+│   ├── config.py              # Simple configuration
+│   └── tool_config.py         # All tools defined here
+└── tests/
+    └── test_tools.py          # Tool tests
+```
+
+**Key Benefits:**
+- **Fast Development**: Minimal setup, focus on tool logic
+- **Low Boilerplate**: mcp-commons handles MCP protocol details
+- **Easy Testing**: Direct function testing
+- **Simple Maintenance**: All tools in one configuration file
+
+## Simple Project Setup
+
+### 1. Create Project Structure
+
+```bash
+mkdir hello-simple-mcp
+cd hello-simple-mcp
+
+mkdir -p src tests
+touch src/{main.py,config.py,tool_config.py}
+touch pyproject.toml config.yaml.example
+touch tests/test_tools.py
+```
+
+### 2. Package Configuration
+
+Create `pyproject.toml`:
+
+```toml
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hello-simple-mcp"
+version = "1.0.0"
+description = "Simple Hello World MCP server"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+dependencies = [
+    "mcp>=1.13.1",
+    "mcp-commons>=1.0.0",
+    "pyyaml>=6.0"
+]
+requires-python = ">=3.11"
+
+[project.scripts]
+hello-simple-mcp = "main:main"
+
+[tool.setuptools]
+packages = ["hello-simple-mcp"]
+package-dir = {"hello-simple-mcp" = "src"}
+```
+
+## Creating Tools with mcp-commons
+
+### 1. Configuration System
+
+Create `src/config.py`:
+
+```python
+"""Simple configuration for Hello Simple MCP Server."""
+
+from typing import Dict, Any
+
+
+class SimpleConfig:
+    """Simple configuration class."""
+    
+    def __init__(self):
+        self._config = {
+            "server": {
+                "name": "hello-simple-mcp",
+                "host": "localhost", 
+                "port": 7501
+            },
+            "greeting": {
+                "default_style": "casual"
+            }
+        }
+    
+    def get(self, section: str, key: str, default: Any = None) -> Any:
+        """Get configuration value."""
+        return self._config.get(section, {}).get(key, default)
+
+
+# Global config instance
+config = SimpleConfig()
+```
+
+### 2. Tool Implementation
+
+Create `src/tool_config.py`:
+
+```python
+"""
+Tool Configuration for Hello Simple MCP Server
+
+All tools are defined here using simple functions that return dictionaries.
+The mcp-commons framework handles all MCP protocol details automatically.
+"""
+
+from typing import Dict, Any
+import datetime
+from config import config
+
+def say_hello(name: str, style: str = "casual") -> Dict[str, Any]:
+    """Generate a personalized greeting for someone.
+    
+    Args:
+        name: The name of the person to greet
+        style: The style of greeting (formal, casual, enthusiastic)
+    """
+    # Validate inputs
+    if not name or not isinstance(name, str):
+        return {"error": "Name must be a non-empty string", "success": False}
+    
+    name = name.strip()
+    if not name:
+        return {"error": "Name cannot be empty", "success": False}
+    
+    # Greeting templates
+    templates = {
+        "formal": "Good day, {name}. I hope this message finds you well.",
+        "casual": "Hey {name}! How's it going?",
+        "enthusiastic": "Hello there, {name}! Great to see you! 🎉"
+    }
+    
+    # Get template (default to casual if invalid style)
+    template = templates.get(style.lower(), templates["casual"])
+    message = template.format(name=name)
+    
+    return {
+        "greeting": message,
+        "recipient": name,
+        "style": style,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "success": True
+    }
+
+def get_greeting_styles() -> Dict[str, Any]:
+    """Get all available greeting styles and their descriptions."""
+    styles = {
+        "formal": {
+            "name": "Formal",
+            "description": "Professional and respectful greetings",
+            "example": "Good day, John. I hope this message finds you well."
+        },
+        "casual": {
+            "name": "Casual", 
+            "description": "Friendly and relaxed greetings",
+            "example": "Hey John! How's it going?"
+        },
+        "enthusiastic": {
+            "name": "Enthusiastic",
+            "description": "Energetic and excited greetings",
+            "example": "Hello there, John! Great to see you! 🎉"
+        }
+    }
+    
+    return {
+        "available_styles": styles,
+        "default_style": config.get("greeting", "default_style", "casual"),
+        "total_styles": len(styles)
+    }
+
+# Tool configuration - single source of truth
+HELLO_SIMPLE_TOOLS: Dict[str, Dict[str, Any]] = {
+    'say_hello': {
+        'function': say_hello,
+        'description': 'Generate a personalized greeting for someone with customizable style (formal, casual, enthusiastic)'
+    },
+    
+    'get_greeting_styles': {
+        'function': get_greeting_styles,  
+        'description': 'Get all available greeting styles with descriptions and examples'
+    }
+}
+
+def get_tools_config() -> Dict[str, Dict[str, Any]]:
+    """Get the tools configuration for mcp-commons registration."""
+    return HELLO_SIMPLE_TOOLS
+
+def get_tool_names() -> list[str]:
+    """Get list of all tool names."""
+    return list(HELLO_SIMPLE_TOOLS.keys())
+
+def get_tool_count() -> int:
+    """Get the total number of configured tools."""
+    return len(HELLO_SIMPLE_TOOLS)
+```
+
+### 3. Main Entry Point
+
+Create `src/main.py`:
+
+```python
+"""
+Main entry point for the Hello Simple MCP Server.
+
+Uses mcp-commons for standardized server startup with minimal boilerplate.
+"""
+
+import sys
+from mcp_commons import run_mcp_server, create_mcp_app, print_mcp_help
+
+from config import config
+from tool_config import get_tools_config
+
+def main() -> None:
+    """Process command-line arguments and start the server appropriately."""
+    if len(sys.argv) <= 1 or sys.argv[1] in ["help", "--help", "-h"]:
+        print_mcp_help("Hello Simple MCP", "- Simple greeting server")
+        return
+    
+    # Get config values
+    server_name = config.get("server", "name", default="hello-simple-mcp")
+    host = config.get("server", "host", default="localhost")
+    port = config.get("server", "port", default=7501)
+    
+    if sys.argv[1] == "sse":
+        run_mcp_server(
+            server_name=server_name,
+            tools_config=get_tools_config(),
+            transport="sse",
+            host=host,
+            port=port
+        )
+    elif sys.argv[1] == "stdio":
+        run_mcp_server(
+            server_name=server_name,
+            tools_config=get_tools_config(),
+            transport="stdio"
+        )
+    else:
+        print(f"Unknown transport mode: {sys.argv[1]}")
+        print("Use 'sse', 'stdio', or 'help' for usage information.")
+        sys.exit(1)
+
+def create_app():
+    """Create an ASGI application for use with an external ASGI server."""
+    server_name = config.get("server", "name", default="hello-simple-mcp")
+    
+    return create_mcp_app(
+        server_name=server_name,
+        tools_config=get_tools_config()
+    )
+
+if __name__ == "__main__":
+    main()
+```
+
+## Simple Configuration
+
+Create `config.yaml.example`:
+
+```yaml
+# Hello Simple MCP Server Configuration
+
+# Server settings
+server:
+  name: "hello-simple-mcp"
+  host: "localhost"
+  port: 7501
+
+# Greeting settings
+greeting:
+  default_style: "casual"
+```
+
+## Testing Simple Servers
+
+Create `tests/test_tools.py`:
+
+```python
+import pytest
+from src.tool_config import say_hello, get_greeting_styles
+
+def test_say_hello_casual():
+    result = say_hello("Alice", "casual")
+    
+    assert result["success"] is True
+    assert result["recipient"] == "Alice"
+    assert result["style"] == "casual"
+    assert "Alice" in result["greeting"]
+
+def test_say_hello_formal():
+    result = say_hello("Bob", "formal")
+    
+    assert result["success"] is True
+    assert result["style"] == "formal"
+    assert "Good day, Bob" in result["greeting"]
+
+def test_say_hello_empty_name():
+    result = say_hello("", "casual")
+    
+    assert result["success"] is False
+    assert "error" in result
+
+def test_get_greeting_styles():
+    result = get_greeting_styles()
+    
+    assert "available_styles" in result
+    assert len(result["available_styles"]) == 3
+    assert "formal" in result["available_styles"]
+    assert "casual" in result["available_styles"]
+    assert "enthusiastic" in result["available_styles"]
+```
+
+---
+
+# Hexagonal Architecture Approach
+
+## Hexagonal Architecture Overview
 
 ## Architecture Overview
 
@@ -835,3 +1198,767 @@ To extend this server:
 5. **Add Authentication**: Implement security in the infrastructure layer
 
 The hexagonal architecture makes all of these extensions straightforward while keeping your core business logic clean and testable.
+
+---
+
+# Adding Tools to Existing Servers
+
+This section explains how to add new tools to existing MCP servers, covering both architectural approaches.
+
+## Adding Tools to Simple Architecture Servers
+
+### Example: Adding a Farewell Tool to worldcontext-style Server
+
+**Step 1: Add the Tool Function**
+
+In your `tool_config.py`, add the new tool function:
+
+```python
+def say_goodbye(name: str, style: str = "casual") -> Dict[str, Any]:
+    """Generate a personalized farewell for someone.
+    
+    Args:
+        name: The name of the person to bid farewell
+        style: The style of farewell (formal, casual, enthusiastic)
+    """
+    # Validate inputs
+    if not name or not isinstance(name, str):
+        return {"error": "Name must be a non-empty string", "success": False}
+    
+    name = name.strip()
+    if not name:
+        return {"error": "Name cannot be empty", "success": False}
+    
+    # Farewell templates
+    templates = {
+        "formal": "Farewell, {name}. It has been a pleasure working with you.",
+        "casual": "See you later, {name}! Take care!",
+        "enthusiastic": "Goodbye, {name}! Thanks for everything! 🎉"
+    }
+    
+    template = templates.get(style.lower(), templates["casual"])
+    message = template.format(name=name)
+    
+    return {
+        "farewell": message,
+        "recipient": name,
+        "style": style,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "success": True
+    }
+```
+
+**Step 2: Register the Tool**
+
+Add to your `TOOLS` dictionary:
+
+```python
+HELLO_SIMPLE_TOOLS: Dict[str, Dict[str, Any]] = {
+    'say_hello': {
+        'function': say_hello,
+        'description': 'Generate a personalized greeting for someone with customizable style'
+    },
+    
+    'get_greeting_styles': {
+        'function': get_greeting_styles,  
+        'description': 'Get all available greeting styles with descriptions and examples'
+    },
+    
+    # NEW TOOL
+    'say_goodbye': {
+        'function': say_goodbye,
+        'description': 'Generate a personalized farewell for someone with customizable style (formal, casual, enthusiastic)'
+    }
+}
+```
+
+**Step 3: Test the New Tool**
+
+Add tests for your new tool:
+
+```python
+def test_say_goodbye_casual():
+    result = say_goodbye("Alice", "casual")
+    
+    assert result["success"] is True
+    assert result["recipient"] == "Alice"
+    assert result["style"] == "casual"
+    assert "Alice" in result["farewell"]
+
+def test_say_goodbye_formal():
+    result = say_goodbye("Bob", "formal")
+    
+    assert result["success"] is True
+    assert result["style"] == "formal"
+    assert "Farewell, Bob" in result["farewell"]
+```
+
+**Step 4: Deploy**
+
+```bash
+# Reinstall the server with updated tools
+mcp-manager install local your-server --source . --force
+
+# Sync with Cline
+mcp-manager config cline
+```
+
+## Adding Tools to Hexagonal Architecture Servers
+
+### Example: Adding a Meeting Scheduler Tool to jira-helper-style Server
+
+**Step 1: Extend Domain Models**
+
+Add to `src/domain/models.py`:
+
+```python
+@dataclass
+class Meeting:
+    """Represents a meeting."""
+    title: str
+    participant: str
+    duration_minutes: int
+    style: GreetingStyle
+    timestamp: Optional[str] = None
+
+@dataclass
+class MeetingInvitation:
+    """Represents a meeting invitation."""
+    meeting: Meeting
+    invitation_message: str
+    meeting_id: str
+```
+
+**Step 2: Extend Domain Services**
+
+Add to `src/domain/services.py`:
+
+```python
+class MeetingService:
+    """Business logic for meeting management."""
+    
+    def __init__(self, greeting_service: GreetingService):
+        self.greeting_service = greeting_service
+    
+    def schedule_meeting(self, title: str, participant: str, 
+                        duration: int, style: GreetingStyle) -> Result[MeetingInvitation]:
+        """Schedule a meeting and generate invitation."""
+        if not title or not title.strip():
+            return Result.fail(Error(
+                type=ErrorType.VALIDATION_ERROR,
+                message="Meeting title cannot be empty"
+            ))
+        
+        if duration < 15 or duration > 480:  # 15 min to 8 hours
+            return Result.fail(Error(
+                type=ErrorType.VALIDATION_ERROR,
+                message="Meeting duration must be between 15 and 480 minutes"
+            ))
+        
+        # Create meeting
+        meeting = Meeting(
+            title=title.strip(),
+            participant=participant,
+            duration_minutes=duration,
+            style=style,
+            timestamp=datetime.datetime.now().isoformat()
+        )
+        
+        # Generate greeting for invitation
+        greeting_result = self.greeting_service.create_greeting(participant, style)
+        if not greeting_result.success:
+            return greeting_result
+        
+        invitation_message = f"{greeting_result.data.message}\n\nI'd like to schedule a meeting with you:\n" \
+                           f"Title: {title}\nDuration: {duration} minutes\n" \
+                           f"Please let me know your availability."
+        
+        invitation = MeetingInvitation(
+            meeting=meeting,
+            invitation_message=invitation_message,
+            meeting_id=f"mtg_{hash(title + participant)}"
+        )
+        
+        return Result.ok(invitation)
+```
+
+**Step 3: Create Use Case**
+
+Add to `src/application/use_cases.py`:
+
+```python
+class ScheduleMeetingUseCase:
+    """Use case for scheduling meetings."""
+    
+    def __init__(self, meeting_service: MeetingService):
+        self.meeting_service = meeting_service
+    
+    async def execute(self, arguments: Dict[str, Any]) -> Result[Dict[str, Any]]:
+        """Execute the schedule meeting use case."""
+        # Validate required parameters
+        required_params = ["title", "participant", "duration"]
+        for param in required_params:
+            if param not in arguments:
+                return Result.fail(Error(
+                    type=ErrorType.VALIDATION_ERROR,
+                    message=f"Missing required parameter: {param}"
+                ))
+        
+        # Extract and validate parameters
+        title = arguments["title"]
+        participant = arguments["participant"]
+        duration = arguments["duration"]
+        style_str = arguments.get("style", "casual")
+        
+        # Validate types
+        if not isinstance(duration, int):
+            return Result.fail(Error(
+                type=ErrorType.VALIDATION_ERROR,
+                message="Duration must be an integer (minutes)"
+            ))
+        
+        # Convert style
+        if isinstance(style_str, str):
+            try:
+                style = GreetingStyle(style_str.lower())
+            except ValueError:
+                style = GreetingStyle.CASUAL
+        else:
+            style = GreetingStyle.CASUAL
+        
+        # Schedule meeting
+        result = self.meeting_service.schedule_meeting(title, participant, duration, style)
+        if not result.success:
+            return result
+        
+        # Format response
+        invitation = result.data
+        response = {
+            "meeting_id": invitation.meeting_id,
+            "title": invitation.meeting.title,
+            "participant": invitation.meeting.participant,
+            "duration_minutes": invitation.meeting.duration_minutes,
+            "invitation_message": invitation.invitation_message,
+            "scheduled_at": invitation.meeting.timestamp,
+            "success": True
+        }
+        
+        return Result.ok(response)
+```
+
+**Step 4: Update MCP Adapter**
+
+Modify `src/adapters/mcp_adapter.py`:
+
+```python
+# Update the context class
+class HelloWorldContext:
+    def __init__(
+        self,
+        greeting_service: GreetingService,
+        meeting_service: MeetingService,  # Add this
+        say_hello_use_case: SayHelloUseCase,
+        schedule_meeting_use_case: ScheduleMeetingUseCase,  # Add this
+        file_adapter: FileAdapter,
+        config_adapter: ConfigAdapter,
+    ):
+        self.greeting_service = greeting_service
+        self.meeting_service = meeting_service  # Add this
+        self.say_hello_use_case = say_hello_use_case
+        self.schedule_meeting_use_case = schedule_meeting_use_case  # Add this
+        self.file_adapter = file_adapter
+        self.config_adapter = config_adapter
+
+# Update the lifespan function
+@asynccontextmanager
+async def hello_world_lifespan(server: FastMCP) -> AsyncIterator[HelloWorldContext]:
+    # Initialize services
+    greeting_service = GreetingService()
+    meeting_service = MeetingService(greeting_service)  # Add this
+    say_hello_use_case = SayHelloUseCase(greeting_service)
+    schedule_meeting_use_case = ScheduleMeetingUseCase(meeting_service)  # Add this
+    
+    # ... rest of initialization
+    
+    context = HelloWorldContext(
+        greeting_service=greeting_service,
+        meeting_service=meeting_service,  # Add this
+        say_hello_use_case=say_hello_use_case,
+        schedule_meeting_use_case=schedule_meeting_use_case,  # Add this
+        file_adapter=file_adapter,
+        config_adapter=config_adapter,
+    )
+
+# Add the new tool to register_tools function
+def register_tools(server: FastMCP, context: HelloWorldContext):
+    # ... existing tools ...
+    
+    @server.tool()
+    async def schedule_meeting(title: str, participant: str, duration: int, style: str = "casual") -> Dict[str, Any]:
+        """Schedule a meeting with someone and generate an invitation.
+        
+        Args:
+            title: The title/subject of the meeting
+            participant: The name of the person to meet with
+            duration: Duration of the meeting in minutes (15-480)
+            style: The invitation style (formal, casual, enthusiastic)
+        """
+        arguments = {
+            "title": title,
+            "participant": participant,
+            "duration": duration,
+            "style": style
+        }
+        result = await context.schedule_meeting_use_case.execute(arguments)
+        
+        if result.success:
+            return result.data
+        else:
+            return {"error": result.error.message, "success": False}
+```
+
+**Step 5: Test the New Tool**
+
+Add tests in `tests/test_domain.py`:
+
+```python
+def test_meeting_service_schedules_meeting():
+    greeting_service = GreetingService()
+    meeting_service = MeetingService(greeting_service)
+    
+    result = meeting_service.schedule_meeting("Project Review", "Alice", 60, GreetingStyle.FORMAL)
+    
+    assert result.success
+    assert result.data.meeting.title == "Project Review"
+    assert result.data.meeting.participant == "Alice"
+    assert result.data.meeting.duration_minutes == 60
+```
+
+## Best Practices for Adding Tools
+
+### 1. Planning Your Tool
+
+**Before writing code, consider:**
+
+- **Input Parameters**: What data does the tool need?
+- **Validation**: What inputs are invalid? How will you handle them?
+- **Business Logic**: What operations need to be performed?
+- **Error Cases**: What can go wrong? How will you communicate errors?
+- **Output Format**: What information should be returned?
+
+### 2. Simple Architecture Guidelines
+
+**✅ DO:**
+- Keep tool functions pure (no side effects when possible)
+- Use consistent error response format
+- Validate all inputs thoroughly
+- Return structured data with success indicators
+- Add comprehensive tests for each tool
+
+**❌ DON'T:**
+- Mix business logic with MCP protocol concerns
+- Skip input validation
+- Return inconsistent response formats
+- Forget to handle error cases
+- Skip testing new tools
+
+### 3. Hexagonal Architecture Guidelines
+
+**✅ DO:**
+- Place business logic in domain services
+- Use the Result pattern for error handling
+- Validate inputs in the application layer
+- Keep use cases focused on single responsibilities
+- Test each layer independently
+
+**❌ DON'T:**
+- Put business logic in MCP adapters
+- Skip the domain layer for "simple" tools
+- Use exceptions for business logic errors
+- Mix concerns across layers
+- Skip integration tests
+
+### 4. Error Handling Best Practices
+
+**Consistent Error Format:**
+
+```python
+# Simple Architecture
+{
+    "error": "Clear error message",
+    "success": False,
+    "details": {...}  # Optional additional context
+}
+
+# Hexagonal Architecture  
+Result.fail(Error(
+    type=ErrorType.VALIDATION_ERROR,
+    message="Clear error message",
+    details={"field": "value"}  # Optional context
+))
+```
+
+### 5. Testing Your Tools
+
+**Essential Tests:**
+- **Happy Path**: Tool works with valid inputs
+- **Validation**: Tool rejects invalid inputs gracefully
+- **Edge Cases**: Boundary conditions, empty values, etc.
+- **Error Handling**: Proper error responses
+- **Integration**: Tool works within the MCP server
+
+**Example Test Structure:**
+
+```python
+def test_tool_name_happy_path():
+    """Test tool with valid inputs."""
+    result = tool_function("valid", "inputs")
+    assert result["success"] is True
+    assert "expected_field" in result
+
+def test_tool_name_validation():
+    """Test tool validates inputs."""
+    result = tool_function("", "invalid")
+    assert result["success"] is False
+    assert "error" in result
+
+def test_tool_name_edge_cases():
+    """Test tool handles edge cases."""
+    result = tool_function("boundary", "case") 
+    # Assert expected behavior
+```
+
+---
+
+# Best Practices
+
+## Architectural Decision Guidelines
+
+### When to Choose Simple Architecture
+
+**Choose Simple if:**
+- Your server has < 10 tools
+- Tools are mostly independent utility functions
+- No complex business rules or workflows  
+- Rapid prototyping or personal projects
+- Team is new to MCP development
+- Simple external API integrations
+
+**Example Use Cases:**
+- Utility servers (date/time, calculations)
+- Simple API wrappers
+- Personal productivity tools
+- Quick prototypes
+
+### When to Choose Hexagonal Architecture
+
+**Choose Hexagonal if:**
+- Your server has > 10 tools
+- Complex business logic or workflows
+- Multiple external integrations
+- Enterprise or production systems
+- Long-term maintenance requirements
+- Team collaboration
+
+**Example Use Cases:**
+- Project management integrations (Jira, GitHub)
+- Business process automation
+- Multi-step workflows
+- Data processing pipelines
+- External API orchestration
+
+## Code Quality Standards
+
+### 1. Naming Conventions
+
+**Functions and Variables:**
+```python
+# ✅ Clear, descriptive names
+def create_user_greeting(name: str, style: GreetingStyle) -> Result[Greeting]:
+    user_name = name.strip()
+    
+# ❌ Unclear abbreviations
+def cr_usr_gr(n: str, s: GreetingStyle) -> Result[Greeting]:
+    usr_n = n.strip()
+```
+
+**Classes and Models:**
+```python
+# ✅ Clear domain concepts
+class GreetingService:
+    def validate_greeting_style(self, style: str) -> Result[GreetingStyle]:
+
+# ❌ Technical jargon without context
+class GrHandler:
+    def val_st(self, s: str) -> Result[GreetingStyle]:
+```
+
+### 2. Error Messages
+
+**✅ Good Error Messages:**
+```python
+"Name cannot be empty"
+"Invalid greeting style 'xyz'. Valid styles: formal, casual, enthusiastic"
+"Meeting duration must be between 15 and 480 minutes"
+```
+
+**❌ Poor Error Messages:**
+```python
+"Invalid input"
+"Error"
+"Bad request"
+```
+
+### 3. Documentation Standards
+
+**Tool Documentation:**
+```python
+def schedule_meeting(title: str, participant: str, duration: int) -> Dict[str, Any]:
+    """Schedule a meeting with someone and generate an invitation.
+    
+    Creates a meeting invitation with personalized greeting and details.
+    Validates input parameters and returns structured meeting data.
+    
+    Args:
+        title: The meeting subject/title (required, non-empty)
+        participant: Name of person to meet with (required, non-empty)
+        duration: Meeting length in minutes (15-480 minutes)
+        
+    Returns:
+        Dictionary containing:
+        - meeting_id: Unique identifier for the meeting
+        - invitation_message: Formatted invitation text
+        - scheduled_at: ISO timestamp when meeting was created
+        - success: Boolean indicating operation success
+        
+    Example:
+        >>> schedule_meeting("Project Review", "Alice", 60)
+        {
+            "meeting_id": "mtg_12345",
+            "invitation_message": "Hi Alice! I'd like to schedule...",
+            "scheduled_at": "2023-10-01T14:30:00",
+            "success": True
+        }
+    """
+```
+
+### 4. Configuration Management
+
+**Environment-Specific Settings:**
+```python
+# ✅ Environment-aware configuration
+class Config:
+    def __init__(self):
+        self.api_timeout = int(os.getenv("API_TIMEOUT", "30"))
+        self.max_retries = int(os.getenv("MAX_RETRIES", "3"))
+        self.debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+
+# ❌ Hard-coded values
+class Config:
+    def __init__(self):
+        self.api_timeout = 30
+        self.max_retries = 3
+        self.debug_mode = True
+```
+
+### 5. Performance Considerations
+
+**Async/Await for I/O Operations:**
+```python
+# ✅ Non-blocking I/O
+async def fetch_user_data(user_id: str) -> Dict[str, Any]:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"/users/{user_id}")
+        return response.json()
+
+# ✅ Concurrent operations when possible
+async def fetch_multiple_users(user_ids: List[str]) -> List[Dict[str, Any]]:
+    async with httpx.AsyncClient() as client:
+        tasks = [client.get(f"/users/{uid}") for uid in user_ids]
+        responses = await asyncio.gather(*tasks)
+        return [r.json() for r in responses]
+```
+
+**Caching for Expensive Operations:**
+```python
+# ✅ Simple cache for repeated calls
+from functools import lru_cache
+
+@lru_cache(maxsize=100)
+def get_greeting_templates() -> List[GreetingTemplate]:
+    # Expensive operation
+    return load_templates_from_file()
+```
+
+### 6. Security Considerations
+
+**Input Sanitization:**
+```python
+# ✅ Validate and sanitize inputs
+def create_greeting(name: str) -> Result[str]:
+    if not isinstance(name, str):
+        return Result.fail("Name must be a string")
+    
+    name = name.strip()[:100]  # Limit length
+    if not name:
+        return Result.fail("Name cannot be empty")
+    
+    # Remove potentially dangerous characters
+    safe_name = re.sub(r'[<>"\'\{\}]', '', name)
+    return Result.ok(safe_name)
+```
+
+**Secrets Management:**
+```python
+# ✅ Load secrets from environment
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise ValueError("API_KEY environment variable is required")
+
+# ❌ Hard-code secrets
+API_KEY = "sk-1234567890abcdef"  # Never do this!
+```
+
+## Deployment Best Practices
+
+### 1. Package Configuration
+
+**Modern pyproject.toml:**
+```toml
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "your-mcp-server"
+version = "1.0.0"
+description = "Clear description of what your server does"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+dependencies = [
+    "mcp>=1.13.1",
+    # Pin major versions, allow minor updates
+    "httpx>=0.24.0,<1.0.0",
+    "pydantic>=2.0.0,<3.0.0"
+]
+requires-python = ">=3.11"
+
+[project.scripts]
+your-mcp-server = "main:main"
+
+[tool.setuptools]
+packages = ["your_package"]
+package-dir = {"your_package" = "src"}
+```
+
+### 2. Development Workflow
+
+**Testing Before Deployment:**
+```bash
+# 1. Run unit tests
+pytest tests/
+
+# 2. Test installation
+pip install -e .
+
+# 3. Test MCP server manually
+python -m your_mcp_server stdio
+
+# 4. Install with mcp-manager
+mcp-manager install local your-server --source . --force
+
+# 5. Test in Cline
+# Verify tools work as expected
+```
+
+### 3. Version Management
+
+**Semantic Versioning:**
+- `1.0.0`: Initial release
+- `1.0.1`: Bug fixes
+- `1.1.0`: New features (backward compatible)
+- `2.0.0`: Breaking changes
+
+**Change Tracking:**
+```python
+# Keep a CHANGELOG.md
+## [1.1.0] - 2023-10-01
+### Added
+- New tool: schedule_meeting
+- Support for meeting invitations
+
+### Changed  
+- Improved error messages for validation
+
+### Fixed
+- Handle empty names gracefully
+```
+
+## Maintenance and Monitoring
+
+### 1. Logging Best Practices
+
+```python
+import logging
+import sys
+
+# Configure logging to stderr (not stdout - used for MCP protocol)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
+
+logger = logging.getLogger(__name__)
+
+# Log important events
+logger.info(f"Starting MCP server {server_name}")
+logger.warning(f"Invalid input received: {invalid_input}")
+logger.error(f"External API call failed: {error}")
+```
+
+### 2. Error Monitoring
+
+```python
+# Track error patterns
+class ErrorMetrics:
+    def __init__(self):
+        self.error_counts = defaultdict(int)
+    
+    def record_error(self, error_type: str, tool_name: str):
+        key = f"{tool_name}:{error_type}"
+        self.error_counts[key] += 1
+        
+        # Log if errors are frequent
+        if self.error_counts[key] % 10 == 0:
+            logger.warning(f"Tool {tool_name} has {error_type} error #{self.error_counts[key]}")
+```
+
+### 3. Performance Monitoring
+
+```python
+import time
+from functools import wraps
+
+def monitor_performance(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        start_time = time.time()
+        try:
+            result = await func(*args, **kwargs)
+            duration = time.time() - start_time
+            if duration > 5.0:  # Log slow operations
+                logger.warning(f"{func.__name__} took {duration:.2f}s")
+            return result
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"{func.__name__} failed after {duration:.2f}s: {e}")
+            raise
+    return wrapper
+
+# Use on slow tools
+@monitor_performance
+async def complex_tool(data: str) -> Dict[str, Any]:
+    # ... complex processing
+```
+
+This comprehensive guide should help you build, extend, and maintain high-quality MCP servers using both architectural approaches!
