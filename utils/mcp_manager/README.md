@@ -56,13 +56,22 @@ This shows:
 
 ### Installing a Local MCP Server
 
+**New in v0.3.0**: Local servers now default to pipx-style installation for better isolation.
+
 ```bash
-# Install from a local directory
+# Install from a local directory (default: pipx installation)
 mcp-manager install local example-server --source ./example
+
+# Use virtual environment instead (if pyproject.toml is missing)
+mcp-manager install local example-server --source ./example --no-pipx
 
 # Install from a Git repository
 mcp-manager install git jira-server --repo https://github.com/username/repo --path path/to/server
 ```
+
+**Requirements**: 
+- For default installation: `pyproject.toml` file is required in the server directory
+- For `--no-pipx` installation: `requirements.txt` or `pyproject.toml` file is required
 
 ### Adding a Remote MCP Server
 
@@ -122,6 +131,34 @@ MCP Manager creates the following directory structure under `~/.config/mcp-manag
 
 **Migration**: If you have existing configurations under `~/.mcp_servers/`, they will be automatically migrated to the new location on first run.
 
+## Migration Notes (v0.3.0)
+
+**Breaking Change**: Default installation method changed from virtual environment to pipx-style installation.
+
+### For Existing Users
+
+- **Existing servers**: All previously installed servers continue to work normally
+- **New installations**: Now default to pipx-style installation (requires `pyproject.toml`)
+- **Migration path**: Use `--no-pipx` flag if your server lacks `pyproject.toml`
+
+### Example Migration
+
+```bash
+# Before v0.3.0
+mcp-manager install local my-server --source ./my-server
+
+# v0.3.0+ (default - requires pyproject.toml)  
+mcp-manager install local my-server --source ./my-server
+
+# v0.3.0+ (if no pyproject.toml - same as old behavior)
+mcp-manager install local my-server --source ./my-server --no-pipx
+```
+
+### Benefits of New Default
+- **Better Isolation**: Complete isolation from system Python
+- **Easier Management**: Cleaner upgrades and dependency handling
+- **Modern Standards**: Follows current Python packaging best practices
+
 ## VS Code Cline Integration
 
 MCP Manager automatically configures VS Code Cline integration by updating the settings file at:
@@ -137,7 +174,8 @@ This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp
 | Command | Description |
 |---------|-------------|
 | `mcp-manager info system` | Show comprehensive configuration status with Rich formatting |
-| `mcp-manager install local <name> --source <path>` | Install local MCP server |
+| `mcp-manager install local <name> --source <path>` | Install local MCP server (default: pipx) |
+| `mcp-manager install local <name> --source <path> --no-pipx` | Install local MCP server with virtual environment |
 | `mcp-manager list` | List all configured servers |
 | `mcp-manager server start <server>` | Run a local server |
 | `mcp-manager config cline` | Configure VS Code Cline integration |

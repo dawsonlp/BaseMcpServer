@@ -30,11 +30,14 @@ def install_local(
     transport: TransportType = typer.Option(TransportType.STDIO, "--transport", "-t", help="Transport protocol"),
     port: Optional[int] = typer.Option(None, "--port", "-p", help="Port for SSE transport"),
     force: bool = typer.Option(False, "--force", "-f", help="Force reinstall if exists"),
-    pipx: bool = typer.Option(False, "--pipx", help="Install as standalone application (requires pyproject.toml)"),
+    no_pipx: bool = typer.Option(False, "--no-pipx", help="Use virtual environment instead of pipx"),
     auto_approve: List[str] = typer.Option([], "--auto-approve", help="Auto-approve tools (can be used multiple times)"),
 ):
     """Install a local MCP server from source directory."""
     try:
+        # Determine installation method (pipx is default unless --no-pipx is used)
+        use_pipx = not no_pipx
+        
         # Validate server name
         if not is_valid_server_name(name):
             raise MCPManagerError(f"Invalid server name: {name}")
@@ -48,11 +51,15 @@ def install_local(
             raise MCPManagerError(f"Source directory does not exist: {source}")
         
         # For pipx installation, check for pyproject.toml
-        if pipx and not (source / "pyproject.toml").exists():
-            raise MCPManagerError("A pyproject.toml file is required for pipx-style installation.")
+        if use_pipx and not (source / "pyproject.toml").exists():
+            error_msg = (
+                "A pyproject.toml file is required for pipx-style installation. "
+                "Use --no-pipx to install with virtual environment instead."
+            )
+            raise MCPManagerError(error_msg)
         
-        # Set installation type based on pipx flag
-        installation_type = InstallationType.PIPX if pipx else InstallationType.VENV
+        # Set installation type based on use_pipx flag
+        installation_type = InstallationType.PIPX if use_pipx else InstallationType.VENV
         
         # Create server directory
         from mcp_manager.core.state import get_server_dir
@@ -74,6 +81,10 @@ def install_local(
         
         server_dir.mkdir(parents=True, exist_ok=True)
         
+        # Show installation method being used
+        method_name = "pipx (standalone application)" if use_pipx else "virtual environment"
+        output.info(f"Installing server '{name}' using {method_name}")
+        
         # Install server with progress
         with Progress(
             SpinnerColumn(),
@@ -82,7 +93,7 @@ def install_local(
             TimeElapsedColumn(),
         ) as progress:
             
-            if pipx:
+            if use_pipx:
                 # Pipx-style installation
                 task = progress.add_task("Installing as standalone application...", total=100)
                 
@@ -241,6 +252,7 @@ def install_local(
             state.add_server(server)
         
         output.success(f"Successfully installed local server '{name}'")
+        output.info(f"Installation type: {method_name}")
         output.info(f"Source: {source}")
         output.info(f"Transport: {transport.value}")
         if port:
