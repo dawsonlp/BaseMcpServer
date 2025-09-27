@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcpservercreator"
-version = "1.0.0"
+version = "1.1.0"
 description = "MCP Server Creator - Dynamically creates and installs MCP servers from Python code"
 readme = "README.md"
 requires-python = ">=3.11"

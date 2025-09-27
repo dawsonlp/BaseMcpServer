@@ -16,12 +16,15 @@ import uuid
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set, Tuple
 
 from config import settings
 
-# Set up logging first
-logging.basicConfig(level=logging.INFO)
+# Set up logging with consistent format
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Add the utils directory to the path so we can import mcp_manager
@@ -56,15 +59,46 @@ def create_server_files(
         author: Author of the server
         tool_names: List of tools defined in the code snippet
     """
+    logger.info(f"Creating server files for '{server_name}' with {len(tool_names)} tools")
+    
     # Create src directory
     src_dir = server_dir / "src"
     src_dir.mkdir(exist_ok=True)
     
     # Create __init__.py
-    with open(src_dir / "__init__.py", "w") as f:
-        f.write(f"# {server_name} package\n")
+    _create_init_file(src_dir, server_name)
     
     # Create config.py using modern approach
+    _create_config_file(src_dir, server_name)
+    
+    # Parse code snippet and extract components
+    parsed_code = ast.parse(code_snippet)
+    imports = _extract_imports(parsed_code)
+    _, function_defs = _extract_tool_functions(parsed_code, code_snippet)
+    
+    # Create server.py with implementation class
+    _create_server_file(src_dir, server_name, description, imports, function_defs)
+    
+    # Create tool_config.py
+    _create_tool_config_file(src_dir, server_name, tool_names)
+    
+    # Create main.py
+    _create_main_file(src_dir, server_name, description)
+    
+    # Create requirements.txt with modern dependencies
+    _create_requirements_file(server_dir)
+    
+    logger.info(f"Successfully created all files for server '{server_name}'")
+
+
+def _create_init_file(src_dir: Path, server_name: str) -> None:
+    """Create __init__.py file."""
+    with open(src_dir / "__init__.py", "w") as f:
+        f.write(f"# {server_name} package\n")
+
+
+def _create_config_file(src_dir: Path, server_name: str) -> None:
+    """Create config.py file with configuration class."""
     config_content = f'''"""
 Configuration for {server_name}.
 """
@@ -95,60 +129,11 @@ config = SimpleConfig()
     
     with open(src_dir / "config.py", "w") as f:
         f.write(config_content)
-    
-    # Extract imports and function definitions from code snippet
-    parsed_code = ast.parse(code_snippet)
-    imports = []
-    function_defs = []
-    
-    # Extract imports
-    for node in ast.walk(parsed_code):
-        if isinstance(node, ast.Import):
-            import_names = [alias.name for alias in node.names]
-            imports.append(f"import {', '.join(import_names)}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                from_names = [alias.name for alias in node.names]
-                imports.append(f"from {node.module} import {', '.join(from_names)}")
-    
-    # Extract function definitions
-    for node in ast.walk(parsed_code):
-        if isinstance(node, ast.FunctionDef):
-            # Check if it has @srv.tool() decorator
-            has_tool_decorator = False
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                    if decorator.func.attr == "tool" and isinstance(decorator.func.value, ast.Name):
-                        if decorator.func.value.id == "srv":
-                            has_tool_decorator = True
-                            break
-            
-            if has_tool_decorator:
-                # Extract the function body without the decorator and add self parameter
-                func_source = ast.get_source_segment(code_snippet, node)
-                if func_source:
-                    lines = func_source.split('\n')
-                    filtered_lines = []
-                    for line in lines:
-                        if not line.strip().startswith('@srv.tool'):
-                            # Add self parameter to function signature
-                            if line.strip().startswith('def '):
-                                # Replace "def func_name(" with "def func_name(self, " or "def func_name() ->" with "def func_name(self) ->"
-                                if '(' in line and ')' in line:
-                                    before_paren = line[:line.find('(')]
-                                    after_paren = line[line.find('(') + 1:]
-                                    if after_paren.strip().startswith(')'):
-                                        # No parameters, just add self
-                                        line = f"{before_paren}(self{after_paren}"
-                                    else:
-                                        # Has parameters, add self as first
-                                        line = f"{before_paren}(self, {after_paren}"
-                            filtered_lines.append(line)
-                    
-                    if filtered_lines:
-                        function_defs.append('\n'.join(filtered_lines))
-    
-    # Create implementation class
+
+
+def _create_server_file(src_dir: Path, server_name: str, description: str, imports: List[str], function_defs: List[str]) -> None:
+    """Create server.py file with implementation class."""
+    # Create implementation class methods
     impl_methods = []
     for func_def in function_defs:
         # Indent the function definition for class method
@@ -161,7 +146,7 @@ config = SimpleConfig()
         "from typing import Dict, Any, List, Optional"
     ]
     
-    # Add extracted imports from code snippet
+    # Add extracted imports from code snippet (avoid duplicates)
     for imp in imports:
         if imp not in import_statements:
             import_statements.append(imp)
@@ -195,8 +180,10 @@ class {server_name.replace('-', '_').title()}Implementation:
     
     with open(src_dir / "server.py", "w") as f:
         f.write(server_content)
-    
-    # Create tool_config.py using modern pattern
+
+
+def _create_tool_config_file(src_dir: Path, server_name: str, tool_names: List[str]) -> None:
+    """Create tool_config.py file with tool configuration."""
     impl_class_name = f"{server_name.replace('-', '_').title()}Implementation"
     
     tool_entries = []
@@ -281,8 +268,10 @@ def get_config_stats() -> Dict[str, Any]:
     
     with open(src_dir / "tool_config.py", "w") as f:
         f.write(tool_config_content)
-    
-    # Create main.py using modern mcp-commons pattern
+
+
+def _create_main_file(src_dir: Path, server_name: str, description: str) -> None:
+    """Create main.py file with server startup logic."""
     main_content = f'''"""
 Main entry point for the {server_name} MCP Server.
 
@@ -343,8 +332,10 @@ if __name__ == "__main__":
     
     with open(src_dir / "main.py", "w") as f:
         f.write(main_content)
-    
-    # Create requirements.txt with modern dependencies
+
+
+def _create_requirements_file(server_dir: Path) -> None:
+    """Create requirements.txt file with modern dependencies."""
     requirements_content = '''# Core MCP dependencies (Python 3.13+)
 mcp>=1.13.1
 
@@ -359,52 +350,133 @@ psutil>=6.1.0
         f.write(requirements_content)
 
 
+def _extract_imports(parsed_code: ast.Module) -> List[str]:
+    """Extract import statements from parsed AST."""
+    imports = []
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.Import):
+            import_names = [alias.name for alias in node.names]
+            imports.append(f"import {', '.join(import_names)}")
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            from_names = [alias.name for alias in node.names]
+            imports.append(f"from {node.module} import {', '.join(from_names)}")
+    return imports
+
+
+def _extract_tool_functions(parsed_code: ast.Module, code_snippet: str) -> Tuple[List[str], List[str]]:
+    """Extract tool function names and their definitions from parsed AST."""
+    tool_names = []
+    function_defs = []
+    
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.FunctionDef):
+            # Check for @srv.tool() or @mcp.tool() decorators
+            has_tool_decorator = False
+            for decorator in node.decorator_list:
+                if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
+                    if (decorator.func.attr == "tool" and 
+                        isinstance(decorator.func.value, ast.Name) and
+                        decorator.func.value.id in ["mcp", "srv"]):
+                        has_tool_decorator = True
+                        tool_names.append(node.name)
+                        break
+            
+            if has_tool_decorator:
+                # Extract function source without decorator
+                func_source = ast.get_source_segment(code_snippet, node)
+                if func_source:
+                    # Process function lines to remove decorator and add self parameter
+                    processed_func = _process_function_definition(func_source)
+                    if processed_func:
+                        function_defs.append(processed_func)
+    
+    return tool_names, function_defs
+
+
+def _process_function_definition(func_source: str) -> Optional[str]:
+    """Process function definition to remove decorators and add self parameter."""
+    lines = func_source.split('\n')
+    filtered_lines = []
+    
+    for line in lines:
+        if not line.strip().startswith('@srv.tool') and not line.strip().startswith('@mcp.tool'):
+            # Add self parameter to function signature
+            if line.strip().startswith('def '):
+                line = _add_self_parameter(line)
+            filtered_lines.append(line)
+    
+    return '\n'.join(filtered_lines) if filtered_lines else None
+
+
+def _add_self_parameter(line: str) -> str:
+    """Add self parameter to function signature."""
+    if '(' in line and ')' in line:
+        before_paren = line[:line.find('(')]
+        after_paren = line[line.find('(') + 1:]
+        if after_paren.strip().startswith(')'):
+            # No parameters, just add self
+            return f"{before_paren}(self{after_paren}"
+        else:
+            # Has parameters, add self as first
+            return f"{before_paren}(self, {after_paren}"
+    return line
+
+
+def _validate_security_restrictions(parsed_code: ast.Module) -> None:
+    """Validate code against security restrictions."""
+    restricted_imports = set(settings.restricted_imports)
+    
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if any(alias.name.startswith(restricted) for restricted in restricted_imports):
+                    raise ValueError(f"Import of '{alias.name}' is not allowed for security reasons")
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            if any(node.module.startswith(restricted) for restricted in restricted_imports):
+                raise ValueError(f"Import from '{node.module}' is not allowed for security reasons")
+
+
 def validate_code_snippet(code_snippet: str) -> List[str]:
     """
-    Validate the Python code snippet to ensure it's safe.
+    Validate the Python code snippet to ensure it's safe and extract tool names.
     
     Args:
         code_snippet: Python code to validate
         
     Returns:
         List of tool names defined in the snippet
+        
+    Raises:
+        ValueError: If code is invalid or unsafe
     """
-    # Parse the code to check for potentially dangerous imports
+    if not code_snippet.strip():
+        raise ValueError("Code snippet cannot be empty")
+    
+    # Parse the code to check syntax
     try:
         parsed = ast.parse(code_snippet)
     except SyntaxError as e:
         raise ValueError(f"Invalid Python syntax: {str(e)}")
     
-    # Check for forbidden imports
-    for node in ast.walk(parsed):
-        if isinstance(node, ast.Import):
-            for name in node.names:
-                if any(name.name.startswith(restricted) for restricted in settings.restricted_imports):
-                    raise ValueError(f"Import of {name.name} is not allowed")
-        elif isinstance(node, ast.ImportFrom):
-            if any(node.module.startswith(restricted) for restricted in settings.restricted_imports):
-                raise ValueError(f"Import from {node.module} is not allowed")
+    # Security validation
+    _validate_security_restrictions(parsed)
     
-    # Extract the tool names from @mcp.tool() or @srv.tool() decorators
-    tool_names = []
-    for node in ast.walk(parsed):
-        if isinstance(node, ast.FunctionDef):
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                    if decorator.func.attr == "tool" and isinstance(decorator.func.value, ast.Name):
-                        # Support both @mcp.tool() and @srv.tool() patterns
-                        if decorator.func.value.id in ["mcp", "srv"]:
-                            tool_names.append(node.name)
+    # Extract tool names and functions
+    tool_names, _ = _extract_tool_functions(parsed, code_snippet)
     
     if not tool_names:
-        raise ValueError("No tools defined with @mcp.tool() or @srv.tool() decorator. Remember to include parentheses: use @srv.tool() instead of @srv.tool")
+        raise ValueError(
+            "No tools defined with @mcp.tool() or @srv.tool() decorator. "
+            "Remember to include parentheses: use @srv.tool() instead of @srv.tool"
+        )
     
+    logger.info(f"Validated code snippet with {len(tool_names)} tools: {', '.join(tool_names)}")
     return tool_names
 
 
 def install_server(server_dir: Path, server_name: str) -> bool:
     """
-    Install the MCP server using mcpmanager.
+    Install the MCP server using mcp-manager.
     
     Args:
         server_dir: Directory containing the server files
@@ -414,16 +486,33 @@ def install_server(server_dir: Path, server_name: str) -> bool:
         True if installation succeeded, False otherwise
     """
     try:
-        # Call mcp-manager to install the server (mcp-manager is included in our requirements)
-        subprocess.run(
+        logger.info(f"Installing server '{server_name}' from {server_dir}")
+        result = subprocess.run(
             ["mcp-manager", "install", "local", server_name, "--source", str(server_dir), "--force"],
             check=True,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=60  # Add timeout for robustness
         )
-        return True
-    except subprocess.SubprocessError as e:
-        logger.error(f"Failed to install server: {str(e)}")
+        
+        if result.returncode == 0:
+            logger.info(f"Successfully installed server '{server_name}'")
+            return True
+        else:
+            logger.error(f"Installation failed with return code {result.returncode}: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error(f"Installation of server '{server_name}' timed out after 60 seconds")
+        return False
+    except FileNotFoundError:
+        logger.error("mcp-manager command not found. Ensure mcp-manager is installed and in PATH")
+        return False
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Installation failed: {e.stderr if e.stderr else str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error during installation: {str(e)}")
         return False
 
 
