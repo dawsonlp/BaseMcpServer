@@ -45,6 +45,7 @@ from application.use_cases import (
     GetIssueDetailsUseCase,
     GetIssueLinksUseCase,
     GetIssueTransitionsUseCase,
+    GetProjectWorkflowSchemeUseCase,
     GetTimeTrackingInfoUseCase,
     GetWorkLogsUseCase,
     ListInstancesUseCase,
@@ -142,6 +143,7 @@ class JiraHelperContext:
         list_project_tickets_use_case: ListProjectTicketsUseCase,
         get_custom_field_mappings_use_case: GetCustomFieldMappingsUseCase,
         generate_workflow_graph_use_case: GenerateWorkflowGraphUseCase,
+        get_project_workflow_scheme_use_case: GetProjectWorkflowSchemeUseCase,
         list_instances_use_case: ListInstancesUseCase,
         update_issue_use_case: UpdateIssueUseCase,
         create_issue_link_use_case: CreateIssueLinkUseCase,
@@ -198,6 +200,7 @@ class JiraHelperContext:
         self.list_project_tickets_use_case = list_project_tickets_use_case
         self.get_custom_field_mappings_use_case = get_custom_field_mappings_use_case
         self.generate_workflow_graph_use_case = generate_workflow_graph_use_case
+        self.get_project_workflow_scheme_use_case = get_project_workflow_scheme_use_case
         self.list_instances_use_case = list_instances_use_case
         self.update_issue_use_case = update_issue_use_case
         self.create_issue_link_use_case = create_issue_link_use_case
@@ -267,6 +270,7 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         list_project_tickets_use_case = ListProjectTicketsUseCase(search_service=search_service)
         get_custom_field_mappings_use_case = GetCustomFieldMappingsUseCase(field_service=project_service)
         generate_workflow_graph_use_case = GenerateWorkflowGraphUseCase(workflow_service=visualization_service)
+        get_project_workflow_scheme_use_case = GetProjectWorkflowSchemeUseCase(workflow_service=workflow_service)
         list_instances_use_case = ListInstancesUseCase(config_service=instance_service)
 
         # Initialize new use cases with keyword arguments
@@ -347,6 +351,7 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             list_project_tickets_use_case=list_project_tickets_use_case,
             get_custom_field_mappings_use_case=get_custom_field_mappings_use_case,
             generate_workflow_graph_use_case=generate_workflow_graph_use_case,
+            get_project_workflow_scheme_use_case=get_project_workflow_scheme_use_case,
             list_instances_use_case=list_instances_use_case,
             update_issue_use_case=update_issue_use_case,
             create_issue_link_use_case=create_issue_link_use_case,

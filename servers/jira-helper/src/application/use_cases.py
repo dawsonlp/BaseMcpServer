@@ -1000,3 +1000,29 @@ class CreateIssueWithLinksUseCase(BaseCommandUseCase):
             summary=summary,
             instance_name=instance_name
         )
+
+
+class GetProjectWorkflowSchemeUseCase(BaseQueryUseCase):
+    """Simplified use case for getting comprehensive project workflow scheme data."""
+
+    async def execute(self, project_key: str, instance_name: str):
+        """Execute the get project workflow scheme use case."""
+        self._validate_required_params(project_key=project_key)
+
+        def result_mapper(workflow_scheme_data):
+            return {
+                "project_key": project_key,
+                "project": workflow_scheme_data["project"],
+                "workflow_scheme": workflow_scheme_data["workflow_scheme"], 
+                "issue_type_workflows": workflow_scheme_data["issue_type_workflows"],
+                "workflow_count": len(workflow_scheme_data["issue_type_workflows"]),
+                "issue_types": list(workflow_scheme_data["issue_type_workflows"].keys()),
+                "instance": instance_name
+            }
+
+        return await self.execute_query(
+            lambda: self._workflow_service.get_project_workflow_scheme(project_key, instance_name),
+            result_mapper,
+            project_key=project_key,
+            instance_name=instance_name
+        )

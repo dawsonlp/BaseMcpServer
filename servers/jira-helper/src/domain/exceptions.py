@@ -423,3 +423,76 @@ class TimeTrackingNotEnabledError(JiraDomainException):
             "project_key": project_key,
             "issue_type": issue_type
         })
+
+
+# Workflow-specific exceptions for enhanced workflow API integration
+class WorkflowSchemeNotFoundError(JiraDomainException):
+    """Raised when a project's workflow scheme cannot be found or accessed."""
+
+    def __init__(self, project_key: str, instance_name: str, access_error: str = None):
+        message = f"Workflow scheme not found for project '{project_key}' in instance '{instance_name}'"
+        if access_error:
+            message += f": {access_error}"
+        super().__init__(message, {
+            "project_key": project_key,
+            "instance_name": instance_name,
+            "access_error": access_error
+        })
+
+
+class WorkflowDataUnavailableError(JiraDomainException):
+    """Raised when workflow data cannot be retrieved through any available method."""
+
+    def __init__(self, project_key: str, issue_type: str, instance_name: str, failed_strategies: list = None):
+        strategy_details = f" Failed strategies: {', '.join(failed_strategies)}" if failed_strategies else ""
+        message = (f"Workflow data unavailable for {project_key}::{issue_type} in instance '{instance_name}'"
+                  f"{strategy_details}")
+        super().__init__(message, {
+            "project_key": project_key,
+            "issue_type": issue_type,
+            "instance_name": instance_name,
+            "failed_strategies": failed_strategies
+        })
+
+
+class ProjectWorkflowPermissionError(JiraDomainException):
+    """Raised when user lacks permissions to access project workflow information."""
+
+    def __init__(self, project_key: str, instance_name: str, required_permission: str, current_access_level: str = None):
+        message = (f"Insufficient permissions to access workflow data for project '{project_key}' "
+                  f"in instance '{instance_name}'. Required: {required_permission}")
+        if current_access_level:
+            message += f". Current access level: {current_access_level}"
+        super().__init__(message, {
+            "project_key": project_key,
+            "instance_name": instance_name,
+            "required_permission": required_permission,
+            "current_access_level": current_access_level
+        })
+
+
+class WorkflowStrategyError(JiraDomainException):
+    """Raised when a specific workflow extraction strategy fails."""
+
+    def __init__(self, strategy_name: str, project_key: str, issue_type: str, strategy_error: str):
+        message = (f"Workflow strategy '{strategy_name}' failed for {project_key}::{issue_type}: "
+                  f"{strategy_error}")
+        super().__init__(message, {
+            "strategy_name": strategy_name,
+            "project_key": project_key,
+            "issue_type": issue_type,
+            "strategy_error": strategy_error
+        })
+
+
+class InvalidIssueTypeError(JiraDomainException):
+    """Raised when an invalid or non-existent issue type is specified."""
+
+    def __init__(self, issue_type: str, project_key: str, valid_types: list = None):
+        valid = f" Valid types: {', '.join(valid_types)}" if valid_types else ""
+        message = f"Invalid issue type '{issue_type}' for project '{project_key}'{valid}"
+        super().__init__(message, {
+            "issue_type": issue_type,
+            "project_key": project_key,
+            "valid_types": valid_types
+        })
