@@ -21,6 +21,7 @@ from application.use_cases import (
     GetIssueDetailsUseCase,
     GetIssueLinksUseCase,
     GetIssueTransitionsUseCase,
+    GetProjectWorkflowSchemeUseCase,
     GetTimeTrackingInfoUseCase,
     GetWorkLogsUseCase,
     ListInstancesUseCase,
@@ -195,6 +196,12 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': DeleteAttachmentUseCase,
         'description': 'Delete an attachment from a Jira issue.',
         'dependencies': ['file_attachment_port', 'config_provider', 'event_publisher', 'logger']
+    },
+
+    'get_project_workflow_scheme': {
+        'use_case_class': GetProjectWorkflowSchemeUseCase,
+        'description': 'Get comprehensive workflow scheme data for an entire project, including all issue types and their workflows.',
+        'dependencies': ['workflow_service']
     }
 }
 
