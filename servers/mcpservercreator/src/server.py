@@ -85,8 +85,8 @@ def create_server_files(
     # Create main.py
     _create_main_file(src_dir, server_name, description)
     
-    # Create requirements.txt with modern dependencies
-    _create_requirements_file(server_dir)
+    # Create pyproject.toml with modern dependencies
+    _create_pyproject_file(server_dir, server_name, description, author)
     
     logger.info(f"Successfully created all files for server '{server_name}'")
 
@@ -334,20 +334,69 @@ if __name__ == "__main__":
         f.write(main_content)
 
 
-def _create_requirements_file(server_dir: Path) -> None:
-    """Create requirements.txt file with modern dependencies."""
-    requirements_content = '''# Core MCP dependencies (Python 3.13+)
-mcp>=1.13.1
+def _create_pyproject_file(server_dir: Path, server_name: str, description: str, author: str) -> None:
+    """Create pyproject.toml file with modern Python packaging standards."""
+    logger.info(f"Creating pyproject.toml for server '{server_name}'")
+    
+    # Build the pyproject.toml content
+    pyproject_content = f'''[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
-# Additional dependencies for tool functionality
-psutil>=6.1.0
+[project]
+name = "{server_name}"
+version = "1.0.0"
+description = "{description if description else f'Generated MCP server: {server_name}'}"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {{name = "{author}", email = "generated@example.com"}},
+]
+dependencies = [
+    # Core MCP dependencies
+    "mcp>=1.13.1",
+    "mcp-commons>=1.0.0",
+    
+    # Common utilities that may be needed
+    "python-dateutil>=2.8.0",
+    "pydantic>=2.0.0",
+]
 
-# For local development, mcp-commons should be installed separately
-# Run: pip install -e /Users/ldawson/repos/mcp-commons
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+]
+
+[project.scripts]
+{server_name} = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
 '''
     
-    with open(server_dir / "requirements.txt", "w") as f:
-        f.write(requirements_content)
+    with open(server_dir / "pyproject.toml", "w") as f:
+        f.write(pyproject_content)
+    
+    logger.info(f"Successfully created pyproject.toml for server '{server_name}'")
 
 
 def _extract_imports(parsed_code: ast.Module) -> List[str]:
@@ -472,6 +521,47 @@ def validate_code_snippet(code_snippet: str) -> List[str]:
     
     logger.info(f"Validated code snippet with {len(tool_names)} tools: {', '.join(tool_names)}")
     return tool_names
+
+
+def sync_with_cline(server_name: str) -> bool:
+    """
+    Sync the installed server with Cline configuration.
+    
+    Args:
+        server_name: Name of the server to sync
+        
+    Returns:
+        True if sync succeeded, False otherwise
+    """
+    try:
+        logger.info(f"Syncing server '{server_name}' with Cline configuration")
+        result = subprocess.run(
+            ["mcp-manager", "config", "cline"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            logger.info(f"Successfully synced server '{server_name}' with Cline")
+            return True
+        else:
+            logger.warning(f"Cline sync completed with warnings: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error(f"Cline sync for server '{server_name}' timed out after 30 seconds")
+        return False
+    except FileNotFoundError:
+        logger.warning("mcp-manager command not found for Cline sync")
+        return False
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Cline sync failed: {e.stderr if e.stderr else str(e)}")
+        return False
+    except Exception as e:
+        logger.warning(f"Unexpected error during Cline sync: {str(e)}")
+        return False
 
 
 def install_server(server_dir: Path, server_name: str) -> bool:
@@ -651,11 +741,15 @@ Currently, the MCP Server Creator has limitations:
             success = install_server(server_dir, server_name)
             
             if success:
+                # Auto-sync with Cline to register the new server
+                sync_success = sync_with_cline(server_name)
+                sync_message = " and registered with Cline" if sync_success else " (manual Cline sync required)"
+                
                 return {
                     "success": True,
                     "server_name": server_name,
                     "tool_names": tool_names,
-                    "message": f"Server '{server_name}' created and installed successfully. Restart VS Code to use it."
+                    "message": f"Server '{server_name}' created, installed{sync_message}. Restart VS Code to use it."
                 }
             else:
                 return {
