@@ -1138,8 +1138,8 @@ pip install -e .
 python src/main.py stdio
 
 # Test with mcp-manager
-mcp-manager install local hello-world-mcp --source . --pipx --force
-mcp-manager configure vscode
+mcp-manager install local hello-world-mcp --source . --force
+mcp-manager config cline
 ```
 
 ## Integration with mcp-manager
@@ -1151,10 +1151,10 @@ mcp-manager configure vscode
 pipx install ./utils/mcp_manager
 
 # Install your hello-world server
-mcp-manager install local hello-world-mcp --source ./hello-world-mcp --pipx --force
+mcp-manager install local hello-world-mcp --source ./hello-world-mcp --force
 
-# Configure for VSCode/Cline
-mcp-manager configure vscode
+# Configure for Cline
+mcp-manager config cline
 ```
 
 ### 2. Test in Cline
