@@ -104,7 +104,7 @@ authors = [{name = "Your Name", email = "your.email@example.com"}]
 dependencies = [
     "mcp>=1.15.0",
     "mcp-commons>=1.0.0",
-    "pyyaml>=6.0.2"
+    "pyyaml>=6.0.3"
 ]
 requires-python = ">=3.11"
 
@@ -476,8 +476,8 @@ description = "Hello World MCP server demonstrating tools, prompts, and resource
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 dependencies = [
     "mcp>=1.15.0",
-    "pydantic>=2.15.0",
-    "pyyaml>=6.0.2"
+    "pydantic>=2.11.9",
+    "pyyaml>=6.0.3"
 ]
 requires-python = ">=3.11"
 
@@ -494,11 +494,11 @@ package-dir = {"" = "src"}
 Use `uv pip` for fast dependency installation:
 
 ```bash
-# Install dependencies for development
-uv pip install -e .
+# Install dependencies from pyproject.toml
+uv pip install --upgrade -r pyproject.toml
 
-# Or install specific dependencies
-uv pip install "mcp>=1.15.0" "pydantic>=2.15.0" "pyyaml>=6.0.2"
+# Or install in development mode
+uv pip install -e .
 ```
 
 ## Implementing the Domain Layer
