@@ -102,9 +102,9 @@ version = "1.0.0"
 description = "Simple Hello World MCP server"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 dependencies = [
-    "mcp>=1.13.1",
+    "mcp>=1.15.0",
     "mcp-commons>=1.0.0",
-    "pyyaml>=6.0"
+    "pyyaml>=6.0.2"
 ]
 requires-python = ">=3.11"
 
@@ -435,7 +435,6 @@ Create a new directory for your MCP server:
 hello-world-mcp/
 ├── pyproject.toml              # Package configuration for pipx
 ├── config.yaml.example        # Configuration template
-├── requirements.txt            # Dependencies
 ├── src/                        # Source code (src/ layout)
 │   ├── main.py                # Entry point and CLI
 │   ├── config.py              # Configuration management
@@ -476,9 +475,9 @@ version = "1.0.0"
 description = "Hello World MCP server demonstrating tools, prompts, and resources"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 dependencies = [
-    "mcp>=1.12.1",
-    "pydantic>=2.11.7",
-    "pyyaml>=6.0"
+    "mcp>=1.15.0",
+    "pydantic>=2.15.0",
+    "pyyaml>=6.0.2"
 ]
 requires-python = ">=3.11"
 
@@ -490,15 +489,16 @@ packages = ["domain", "application", "infrastructure", "adapters"]
 package-dir = {"" = "src"}
 ```
 
-### 3. Dependencies
+### 3. Install Dependencies
 
-Create `requirements.txt`:
+Use `uv pip` for fast dependency installation:
 
-```txt
-mcp>=1.12.1
-pydantic>=2.11.7
-pyyaml>=6.0
-typer>=0.16.0
+```bash
+# Install dependencies for development
+uv pip install -e .
+
+# Or install specific dependencies
+uv pip install "mcp>=1.15.0" "pydantic>=2.15.0" "pyyaml>=6.0.2"
 ```
 
 ## Implementing the Domain Layer
@@ -1857,8 +1857,8 @@ package-dir = {"your_package" = "src"}
 # 1. Run unit tests
 pytest tests/
 
-# 2. Test installation
-pip install -e .
+# 2. Test installation with uv pip for faster installs
+uv pip install -e .
 
 # 3. Test MCP server manually
 python -m your_mcp_server stdio
