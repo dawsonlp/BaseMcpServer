@@ -192,12 +192,14 @@ def install_remote_wrapper(
 @lifecycle_app.command("start")
 def start_wrapper(
     name: str = typer.Argument(..., help="Server name to start"),
+    transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Override port for SSE transport"),
     background: bool = typer.Option(
         False, "--background", "-b", help="Run in background"
     ),
 ):
     """▶️  Start an MCP server."""
-    start_server(name, background=background)
+    start_server_impl(name, transport, port, background)
 
 
 @lifecycle_app.command("stop")
@@ -242,12 +244,12 @@ def status_wrapper(
 # === INFO COMMANDS ===
 @info_app.command("list")
 def list_servers_wrapper(
-    local: bool = typer.Option(False, "--local", help="Show only local servers"),
-    remote: bool = typer.Option(False, "--remote", help="Show only remote servers"),
-    format: str = typer.Option("table", "--format", "-f", help="Output format (table/json/yaml)"),
+    type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by type (local|remote)"),
+    status_filter: Optional[str] = typer.Option(None, "--status", help="Filter by status (running|stopped|all)"),
+    format: str = typer.Option("human", "--format", "-f", help="Output format (human|json|yaml)"),
 ):
     """📋 List all MCP servers."""
-    list_servers(local=local, remote=remote, format=format)
+    list_servers(type_filter=type_filter, status_filter=status_filter, format=format)
 
 
 @info_app.command("show")
@@ -268,7 +270,7 @@ def tree_wrapper():
 @info_app.command("summary")
 def summary_wrapper():
     """📈 Show system summary and statistics."""
-    show_config()
+    show_system_info()
 
 
 # === CONFIG COMMANDS ===
@@ -339,10 +341,12 @@ def export_config_wrapper(
 @diag_app.command("check")
 def health_check_wrapper(
     name: Optional[str] = typer.Argument(None, help="Server name (optional)"),
-    deep: bool = typer.Option(False, "--deep", help="Perform deep health check"),
+    detailed: bool = typer.Option(False, "--detailed", "-d", help="Perform detailed health check"),
+    timeout: int = typer.Option(30, "--timeout", "-t", help="Health check timeout in seconds"),
+    format: str = typer.Option("human", "--format", "-f", help="Output format (human|json)"),
 ):
     """🏥 Perform health check on servers."""
-    health_check(name=name, deep=deep)
+    health_check(name=name, detailed=detailed, timeout=timeout, format=format)
 
 
 @diag_app.command("monitor")
@@ -359,7 +363,7 @@ def test_connection_wrapper(
     name: str = typer.Argument(..., help="Server name to test"),
 ):
     """🔗 Test server connection and functionality."""
-    system_diagnostics(name=name)
+    troubleshoot_server(name=name, auto_fix=False)
 
 
 @diag_app.command("troubleshoot")
@@ -373,11 +377,14 @@ def troubleshoot_wrapper(
 # === ADVANCED/ADMIN COMMANDS ===
 @advanced_app.command("cleanup")
 def cleanup_wrapper(
-    orphaned: bool = typer.Option(False, "--orphaned", help="Clean orphaned servers only"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleaned"),
+    logs: bool = typer.Option(True, "--logs/--no-logs", help="Clean up old log files"),
+    backups: bool = typer.Option(True, "--backups/--no-backups", help="Clean up old backup files"),
+    processes: bool = typer.Option(True, "--processes/--no-processes", help="Clean up stale process entries"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleaned without making changes"),
+    age_days: int = typer.Option(30, "--age-days", help="Age in days for files to be considered old"),
 ):
     """🧹 Clean up unused servers and files."""
-    cleanup_system(orphaned=orphaned, dry_run=dry_run)
+    cleanup_system(logs=logs, backups=backups, processes=processes, dry_run=dry_run, age_days=age_days)
 
 
 @advanced_app.command("reset")
@@ -399,9 +406,13 @@ def migrate_wrapper(
 
 
 @advanced_app.command("analyze")
-def analyze_wrapper():
+def analyze_wrapper(
+    name: Optional[str] = typer.Argument(None, help="Server name (analyzes all if not specified)"),
+    duration: int = typer.Option(60, "--duration", "-d", help="Analysis duration in seconds"),
+    interval: int = typer.Option(5, "--interval", "-i", help="Sampling interval in seconds"),
+):
     """📊 Analyze system performance and usage."""
-    analyze_performance()
+    analyze_performance(name=name, duration=duration, interval=interval)
 
 
 @advanced_app.command("optimize")

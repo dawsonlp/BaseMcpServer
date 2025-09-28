@@ -121,11 +121,11 @@ class ProcessManager:
         # Prepare command
         cmd = [str(python_path), str(main_script)]
         
-        # Add transport argument
+        # Add transport argument - servers expect transport mode directly
         if transport == TransportType.SSE.value:
-            cmd.extend(["--transport", "sse", "--port", str(port)])
+            cmd.extend(["sse", "--port", str(port)])
         else:
-            cmd.extend(["--transport", "stdio"])
+            cmd.extend(["stdio"])
         
         # Prepare environment
         env = os.environ.copy()

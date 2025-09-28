@@ -107,7 +107,7 @@ def start_server_impl(
         handle_error(e, f"Failed to start server '{name}'")
 
 
-@app.command("start")
+@app.command("start")  
 def start_server(
     name: str = typer.Argument(..., help="Server name to start"),
     transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
