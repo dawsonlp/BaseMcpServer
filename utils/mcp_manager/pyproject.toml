@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-manager"
-version = "0.3.1"
+version = "1.0.0"
 description = "Comprehensive manager for MCP servers"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -62,6 +62,8 @@ from mcp_manager.cli.commands.advanced import (
     analyze_performance,
     export_diagnostics
 )
+# Import removal commands
+from mcp_manager.cli.commands import removal
 
 
 # Create main app
@@ -100,6 +102,7 @@ advanced_app = typer.Typer(
 # Add command groups to main app
 app.add_typer(install_app, name="install")
 app.add_typer(lifecycle_app, name="server")  # More intuitive name
+app.add_typer(removal.app, name="remove")  # Removal commands
 app.add_typer(info_app, name="info")
 app.add_typer(config_app, name="config")
 app.add_typer(diag_app, name="health")  # Shorter name
@@ -502,6 +505,12 @@ def show_help():
   [cyan]mcp-manager server restart my-server[/cyan]         Restart server
   [cyan]mcp-manager server logs my-server --follow[/cyan]   View logs
   [cyan]mcp-manager server status[/cyan]                    Show all server status
+
+[bold yellow]🗑️  SERVER REMOVAL[/bold yellow]
+  [cyan]mcp-manager remove server my-server[/cyan]          Complete removal
+  [cyan]mcp-manager remove from-cline my-server[/cyan]      Remove from Cline only
+  [cyan]mcp-manager remove from-claude my-server[/cyan]     Remove from Claude only
+  [cyan]mcp-manager remove from-registry my-server[/cyan]   Remove from registry only
 
 [bold yellow]📋 INFORMATION & MONITORING[/bold yellow]
   [cyan]mcp-manager info list[/cyan]                        List all servers
