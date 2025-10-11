@@ -23,6 +23,7 @@ from application.use_cases import (
     GetIssueDetailsUseCase,
     GetIssueLinksUseCase,
     GetIssueTransitionsUseCase,
+    GetProjectWorkflowSchemeUseCase,
     GetTimeTrackingInfoUseCase,
     GetWorkLogsUseCase,
     ListConfluencePagesUseCase,
@@ -238,6 +239,12 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': UpdateConfluencePageUseCase,
         'description': 'Update an existing Confluence page.',
         'dependencies': ['confluence_repository']
+    },
+
+    'get_project_workflow_scheme': {
+        'use_case_class': GetProjectWorkflowSchemeUseCase,
+        'description': 'Get comprehensive workflow scheme data for an entire project, including all issue types and their workflows.',
+        'dependencies': ['workflow_service']
     }
 }
 

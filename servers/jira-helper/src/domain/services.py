@@ -517,6 +517,25 @@ class WorkflowService(BaseJiraService):
         if not request.issue_key or not request.issue_key.strip():
             raise JiraValidationError(["Issue key cannot be empty"])
 
+    async def get_project_workflow_scheme(self, project_key: str, instance_name: str | None = None) -> dict[str, Any]:
+        """Get comprehensive workflow scheme data for an entire project."""
+        self._validate_project_key(project_key)
+        instance_name = self._resolve_instance_name(instance_name)
+
+        try:
+            workflow_scheme_data = await self._repository.get_project_workflow_scheme(project_key, instance_name)
+            self._logger.info(f"Retrieved comprehensive workflow scheme for project {project_key}: "
+                            f"{len(workflow_scheme_data['issue_type_workflows'])} issue types")
+            return workflow_scheme_data
+        except Exception as e:
+            self._logger.error(f"Failed to get project workflow scheme for {project_key}: {str(e)}")
+            raise
+
+    def _validate_project_key(self, project_key: str) -> None:
+        """Validate project key."""
+        if not project_key or not project_key.strip():
+            raise JiraValidationError(["Project key cannot be empty"])
+
 
 class ProjectService(BaseJiraService):
     """Domain service for project-related operations."""

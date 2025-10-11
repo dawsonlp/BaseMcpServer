@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "test-echo-server"
+version = "1.0.0"
+description = "Simple test MCP server for testing mcp-manager removal functionality"
+authors = [{name = "MCP Manager Test Suite"}]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.15.0",
+    "mcp-commons",
+]
+
+[project.scripts]
+test-echo-server = "main:main"

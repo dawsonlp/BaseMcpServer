@@ -16,22 +16,31 @@ logger = logging.getLogger(__name__)
 # Find the .env file in current directory or parent directories
 def find_env_file():
     """
-    Find the .env file in the current directory or its parents.
+    Find the .env file in order of preference:
+    1. ~/.config/mcp-manager/servers/template/.env (mcp-manager managed)
+    2. Current directory .env (local development)
+    3. Docker workdir /app/.env (containerized deployment)
     
     Returns:
         str: Path to the .env file or ".env" if not found
     """
+    # MCP-manager managed config location
+    mcp_manager_env = Path.home() / ".config" / "mcp-manager" / "servers" / "template" / ".env"
+    if mcp_manager_env.exists():
+        logger.info(f"Found mcp-manager .env file at: {mcp_manager_env}")
+        return str(mcp_manager_env)
+    
+    # Local development
     current_dir = Path.cwd()
     env_file = current_dir / ".env"
-    
     if env_file.exists():
-        logger.info(f"Found .env file at: {env_file}")
+        logger.info(f"Found local .env file at: {env_file}")
         return str(env_file)
     
-    # Also check for .env in the docker workdir /app
+    # Docker workdir /app
     docker_env = Path("/app/.env")
     if docker_env.exists():
-        logger.info(f"Found .env file at: {docker_env}")
+        logger.info(f"Found docker .env file at: {docker_env}")
         return str(docker_env)
     
     logger.warning("No .env file found, using default settings")

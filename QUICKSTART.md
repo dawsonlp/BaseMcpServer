@@ -102,19 +102,18 @@ This automatically updates your VS Code settings to include the `jira-helper` se
 
 ## 6. Verify Your Setup
 
-Check your complete MCP configuration status:
+Check your complete MCP system status:
 
 ```bash
-mcp-manager info system
+mcp-manager info tree
 ```
 
 This command displays:
-- ✅ Configuration files status (VS Code/Cline, Claude Desktop)
-- 📊 All configured servers with status indicators
-- 🔍 Management source identification (mcpmanager vs manual)
-- ⚙️ Registry consistency analysis
+- System information (Python version, total servers, disk usage)
+- Platform integration status (VS Code Cline, Claude Desktop)
+- Server counts by platform
 
-You should see `jira-helper` listed as "✓ Enabled" and managed by "mcp-manager".
+You should see `jira-helper` counted in the VS Code Cline servers, and both platforms showing "Available" status.
 
 ## 7. Using Multiple Jira Instances
 
@@ -132,10 +131,9 @@ When using Jira tools in your editor, you can specify which instance to use:
 
 If you encounter issues:
 
-1. **Check configuration status**: `mcp-manager info system`
-2. **List installed servers**: `mcp-manager list`
-3. **Test server directly**: `mcp-manager server start jira-helper`
-4. **Verify Jira credentials**: Check your API tokens and URLs
-5. **Restart VS Code** after configuration changes
+1. **List installed servers**: `mcp-manager list`
+2. **Test server directly**: `mcp-manager server start jira-helper`
+3. **Verify Jira credentials**: Check your API tokens and URLs
+4. **Restart VS Code** after configuration changes
 
 You are now ready to use the `jira-helper` with all your configured Jira instances directly from your editor!

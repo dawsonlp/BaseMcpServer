@@ -107,7 +107,7 @@ def start_server_impl(
         handle_error(e, f"Failed to start server '{name}'")
 
 
-@app.command("start")
+@app.command("start")  
 def start_server(
     name: str = typer.Argument(..., help="Server name to start"),
     transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
@@ -255,6 +255,8 @@ def show_logs(
         
         if not log_file.exists():
             output.info(f"No log file found for server '{name}'")
+            output.info(f"📄 Log file location: {log_file}")
+            output.info("Logs will appear here once the server runs and generates output")
             return
         
         if follow:

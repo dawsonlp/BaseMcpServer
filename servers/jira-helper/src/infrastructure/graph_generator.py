@@ -18,30 +18,42 @@ from domain.ports import GraphGenerator, WorkflowAnalyzer
 logger = logging.getLogger(__name__)
 
 try:
-    import graphviz
+    import matplotlib
+    matplotlib.use('Agg')  # Use non-interactive backend for server environments
+    import matplotlib.pyplot as plt
     import networkx as nx
+    import io
     GRAPH_SUPPORT = True
-except ImportError:
+    logger.info("Graph libraries loaded: matplotlib %s, networkx %s", 
+                matplotlib.__version__, nx.__version__)
+except ImportError as e:
+    # Since matplotlib and networkx are now required dependencies,
+    # log as error rather than warning if they're missing
+    logger.error(f"Required graph libraries not available: {e}")
     GRAPH_SUPPORT = False
 
 
-class GraphvizGenerator(GraphGenerator):
-    """Graph generator implementation using GraphViz."""
+class MatplotlibGenerator(GraphGenerator):
+    """Graph generator implementation using matplotlib and NetworkX."""
 
     def __init__(self):
-        if not GRAPH_SUPPORT:
-            logger.warning("GraphViz and NetworkX libraries not available")
+        # Dependencies are now required and checked at module level
+        pass
 
     def is_available(self) -> bool:
         """Check if graph generation is available."""
         return GRAPH_SUPPORT
 
     async def generate_dot_graph(self, workflow: WorkflowGraph) -> str:
-        """Generate a DOT format graph."""
+        """Generate a graph structure description in DOT-like format."""
         if not self.is_available():
-            raise JiraGraphLibraryNotAvailable(["graphviz", "networkx"])
+            raise JiraGraphLibraryNotAvailable(["matplotlib", "networkx"])
 
         try:
+            # Create NetworkX graph for analysis
+            graph = self._create_networkx_graph(workflow)
+            
+            # Generate DOT-style text representation
             dot_lines = [
                 f'digraph "{workflow.project_key}_{workflow.issue_type}_workflow" {{',
                 '    rankdir=LR;',
@@ -49,19 +61,30 @@ class GraphvizGenerator(GraphGenerator):
                 ''
             ]
 
-            # Add nodes
-            for node in workflow.nodes:
-                color = node.color
-                dot_lines.append(f'    "{node.id}" [label="{node.name}", fillcolor="{color}", style="filled,rounded"];')
+            # Add nodes with networkx-analyzed properties
+            for node_id in graph.nodes():
+                node_data = graph.nodes[node_id]
+                color = node_data.get('color', '#9E9E9E')
+                label = node_data.get('label', node_id)
+                dot_lines.append(f'    "{node_id}" [label="{label}", fillcolor="{color}", style="filled,rounded"];')
 
             dot_lines.append('')
 
             # Add edges
-            for edge in workflow.edges:
-                label = edge.label
-                dot_lines.append(f'    "{edge.from_node}" -> "{edge.to_node}" [label="{label}"];')
+            for source, target, edge_data in graph.edges(data=True):
+                label = edge_data.get('label', '')
+                dot_lines.append(f'    "{source}" -> "{target}" [label="{label}"];')
 
             dot_lines.append('}')
+            
+            # Add graph statistics
+            dot_lines.extend([
+                '',
+                f'// Graph Statistics (NetworkX Analysis):',
+                f'// Nodes: {graph.number_of_nodes()}',
+                f'// Edges: {graph.number_of_edges()}',
+                f'// Layout: {"spring" if graph.number_of_nodes() <= 10 else "hierarchical"}'
+            ])
 
             return '\n'.join(dot_lines)
 
@@ -72,92 +95,202 @@ class GraphvizGenerator(GraphGenerator):
     async def generate_visual_graph(self, workflow: WorkflowGraph, format: str = "svg") -> str:
         """Generate a visual graph in SVG or PNG format (base64 encoded)."""
         if not self.is_available():
-            raise JiraGraphLibraryNotAvailable(["graphviz", "networkx"])
+            raise JiraGraphLibraryNotAvailable(["matplotlib", "networkx"])
 
-        try:
-            # Create Graphviz graph
-            dot = graphviz.Digraph(comment=f'{workflow.project_key} {workflow.issue_type} Workflow')
-            dot.attr(rankdir='LR')
-            dot.attr('node', shape='box', style='rounded,filled')
+        # Create NetworkX graph
+        graph = self._create_networkx_graph(workflow)
+        
+        if graph.number_of_nodes() == 0:
+            raise JiraGraphGenerationError("Cannot generate workflow graph: No workflow nodes available. This indicates the workflow data could not be retrieved from Jira.")
+        
+        # Generate matplotlib visualization
+        return self._render_matplotlib_graph(graph, workflow, format)
 
-            # Add nodes
-            for node in workflow.nodes:
-                dot.node(node.id, node.name, fillcolor=node.color)
+    def _create_networkx_graph(self, workflow: WorkflowGraph) -> nx.DiGraph:
+        """Convert WorkflowGraph to NetworkX DiGraph."""
+        graph = nx.DiGraph()
+        
+        # Add nodes with attributes
+        for node in workflow.nodes:
+            graph.add_node(
+                node.id,
+                label=node.name,
+                color=node.color,
+                category=node.category
+            )
+        
+        # Add edges with attributes
+        for edge in workflow.edges:
+            graph.add_edge(
+                edge.from_node,
+                edge.to_node,
+                label=edge.label
+            )
+        
+        return graph
 
-            # Add edges
-            for edge in workflow.edges:
-                dot.edge(edge.from_node, edge.to_node, label=edge.label)
+    def _render_matplotlib_graph(self, graph: nx.DiGraph, workflow: WorkflowGraph, format: str) -> str:
+        """Render NetworkX graph using matplotlib."""
+        # Create figure with appropriate size
+        plt.figure(figsize=(14, 10))
+        plt.clf()
+        
+        # Choose layout based on graph size and structure
+        pos = self._choose_layout(graph)
+        
+        # Extract node colors and sizes
+        node_colors = [graph.nodes[node].get('color', '#9E9E9E') for node in graph.nodes()]
+        node_sizes = [2500 for _ in graph.nodes()]  # Consistent size
+        
+        # Draw nodes
+        nx.draw_networkx_nodes(
+            graph, pos,
+            node_color=node_colors,
+            node_size=node_sizes,
+            alpha=0.9,
+            linewidths=2,
+            edgecolors='black'
+        )
+        
+        # Draw edges with arrows
+        nx.draw_networkx_edges(
+            graph, pos,
+            edge_color='#333333',
+            arrows=True,
+            arrowsize=25,
+            arrowstyle='->',
+            width=2.5,
+            alpha=0.8,
+            connectionstyle="arc3,rad=0.1"
+        )
+        
+        # Draw node labels
+        nx.draw_networkx_labels(
+            graph, pos,
+            labels={node: graph.nodes[node].get('label', node) for node in graph.nodes()},
+            font_size=11,
+            font_weight='bold',
+            font_color='white',
+            bbox=dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.7)
+        )
+        
+        # Draw edge labels
+        edge_labels = nx.get_edge_attributes(graph, 'label')
+        if edge_labels:
+            nx.draw_networkx_edge_labels(
+                graph, pos,
+                edge_labels,
+                font_size=9,
+                font_color='#333333',
+                bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8)
+            )
+        
+        # Add title and styling
+        title = f'{workflow.project_key} - {workflow.issue_type} Workflow'
+        plt.title(title, fontsize=16, fontweight='bold', pad=20)
+        
+        # Remove axis
+        plt.axis('off')
+        plt.tight_layout()
+        
+        # Export to base64
+        return self._export_to_base64(format)
 
-            # Determine output format
-            output_format = "png" if format.lower() == "png" else "svg"
+    def _choose_layout(self, graph: nx.DiGraph) -> dict:
+        """Choose appropriate layout algorithm based on graph characteristics."""
+        node_count = graph.number_of_nodes()
+        
+        if node_count <= 3:
+            # Small graphs: simple circular layout
+            return nx.circular_layout(graph, scale=2)
+        elif node_count <= 8:
+            # Medium graphs: spring layout with good spacing
+            return nx.spring_layout(graph, k=3, iterations=50, seed=42)
+        else:
+            # Large graphs: try hierarchical if possible, otherwise spring
+            try:
+                return nx.nx_agraph.graphviz_layout(graph, prog='dot')
+            except:
+                # Fallback to spring layout with more space
+                return nx.spring_layout(graph, k=4, iterations=100, seed=42)
 
-            # Use a temporary file to render
-            with tempfile.NamedTemporaryFile(suffix=f'.{output_format}', delete=False) as tmp_file:
-                try:
-                    # Render the graph
-                    dot.render(tmp_file.name.replace(f'.{output_format}', ''), format=output_format, cleanup=True)
-
-                    # Read the generated file
-                    output_file = tmp_file.name
-                    with open(output_file, 'rb') as f:
-                        graph_bytes = f.read()
-
-                    # Clean up
-                    os.unlink(output_file)
-
-                    # Return base64 encoded data
-                    return base64.b64encode(graph_bytes).decode('utf-8')
-
-                except Exception as render_error:
-                    # Clean up temp file if it exists
-                    if os.path.exists(tmp_file.name):
-                        os.unlink(tmp_file.name)
-                    raise render_error
-
-        except Exception as e:
-            logger.error(f"Failed to generate visual graph: {str(e)}")
-            # Fallback to text representation
-            return self._format_workflow_as_text(workflow)
+    def _export_to_base64(self, format: str) -> str:
+        """Export matplotlib figure to base64 encoded string."""
+        buffer = io.BytesIO()
+        
+        if format.lower() == 'png':
+            plt.savefig(buffer, format='png', bbox_inches='tight', dpi=150,
+                       facecolor='white', edgecolor='none', pad_inches=0.5)
+        else:
+            plt.savefig(buffer, format='svg', bbox_inches='tight', dpi=150,
+                       facecolor='white', edgecolor='none', pad_inches=0.5)
+        
+        buffer.seek(0)
+        image_data = buffer.read()
+        buffer.close()
+        plt.close()
+        
+        return base64.b64encode(image_data).decode('utf-8')
 
     def _format_workflow_as_text(self, workflow: WorkflowGraph) -> str:
-        """Format workflow as text when visual generation fails."""
-        lines = [f"Workflow for {workflow.project_key} - {workflow.issue_type}", ""]
-
-        lines.append("Nodes:")
+        """Enhanced text representation when visual generation fails."""
+        lines = [f"=== Workflow: {workflow.project_key} - {workflow.issue_type} ===", ""]
+        
+        # Add summary statistics
+        lines.append(f"📊 Summary:")
+        lines.append(f"   Nodes: {len(workflow.nodes)}")
+        lines.append(f"   Transitions: {len(workflow.edges)}")
+        lines.append("")
+        
+        # Add nodes with categories
+        lines.append("🔸 Workflow States:")
         for node in workflow.nodes:
-            lines.append(f"  - {node.name} ({node.category})")
-
-        lines.append("\nTransitions:")
+            lines.append(f"   • {node.name} ({node.category}) - {node.color}")
+        
+        lines.append("")
+        
+        # Add transitions
+        lines.append("🔀 Available Transitions:")
         for edge in workflow.edges:
-            lines.append(f"  - {edge.from_node} --[{edge.label}]--> {edge.to_node}")
-
+            lines.append(f"   {edge.from_node} --[{edge.label}]--> {edge.to_node}")
+        
+        lines.extend(["", "💡 Note: Visual graph unavailable, showing text representation"])
+        
         return "\n".join(lines)
+
+
+# Create alias for backward compatibility during migration
+GraphvizGenerator = MatplotlibGenerator
 
 
 class WorkflowAnalyzerImpl(WorkflowAnalyzer):
     """Workflow analyzer implementation using NetworkX."""
 
     def __init__(self):
-        if not GRAPH_SUPPORT:
-            logger.warning("NetworkX library not available for workflow analysis")
+        # No longer log warnings at init - dependencies are now required
+        pass
 
     async def analyze_workflow(self, workflow_data: dict[str, Any], project_key: str, issue_type: str) -> WorkflowGraph:
         """Analyze workflow data and create a workflow graph."""
-        try:
-            workflow = WorkflowGraph(project_key=project_key, issue_type=issue_type)
+        workflow = WorkflowGraph(project_key=project_key, issue_type=issue_type)
 
-            # Check if we have project workflow data
-            if "workflow_data" in workflow_data:
-                return await self._create_workflow_from_project_data(workflow_data, workflow)
-            elif "available_transitions" in workflow_data:
-                return await self._create_workflow_from_transitions(workflow_data, workflow)
-            else:
-                # Create a minimal workflow
-                return await self._create_minimal_workflow(workflow_data, workflow)
-
-        except Exception as e:
-            logger.error(f"Failed to analyze workflow: {str(e)}")
-            raise JiraGraphGenerationError(f"Workflow analysis failed: {str(e)}")
+        # Check for new multi-strategy workflow data format (preferred)
+        if "statuses" in workflow_data and "transitions" in workflow_data:
+            return await self._create_workflow_from_enhanced_data(workflow_data, workflow)
+        # Legacy format support
+        elif "workflow_data" in workflow_data:
+            return await self._create_workflow_from_project_data(workflow_data, workflow)
+        elif "available_transitions" in workflow_data:
+            return await self._create_workflow_from_transitions(workflow_data, workflow)
+        else:
+            # NO FALLBACKS: Fail explicitly when no real workflow data is available
+            raise JiraGraphGenerationError(
+                f"Cannot generate workflow graph for {project_key} {issue_type}: "
+                f"No workflow data available from Jira API. This indicates either: "
+                f"1) Missing Jira API integration for workflow schemas, or "
+                f"2) Insufficient permissions to access workflow data. "
+                f"(Project: {project_key}, Issue Type: {issue_type})"
+            )
 
     async def create_fallback_workflow(self, transitions: list[WorkflowTransition], current_status: str) -> WorkflowGraph:
         """Create a fallback workflow from available transitions."""
@@ -199,6 +332,91 @@ class WorkflowAnalyzerImpl(WorkflowAnalyzer):
         except Exception as e:
             logger.error(f"Failed to create fallback workflow: {str(e)}")
             raise JiraGraphGenerationError(f"Fallback workflow creation failed: {str(e)}")
+
+    async def _create_workflow_from_enhanced_data(self, workflow_data: dict[str, Any], workflow: WorkflowGraph) -> WorkflowGraph:
+        """Create workflow from enhanced multi-strategy workflow data format."""
+        try:
+            # Extract statuses and transitions from new format
+            statuses = workflow_data.get("statuses", [])
+            transitions = workflow_data.get("transitions", [])
+            
+            logger.info(f"Creating workflow from enhanced data: {len(statuses)} statuses, {len(transitions)} transitions")
+            
+            # Add status nodes
+            for status_info in statuses:
+                status_name = status_info["name"]
+                category = status_info.get("statusCategory", {}).get("name", "Unknown")
+                
+                node = WorkflowNode(
+                    id=status_name,
+                    name=status_name,
+                    category=category,
+                    color=self._get_status_color(category)
+                )
+                workflow.add_node(node)
+            
+            # Add transitions
+            for transition_info in transitions:
+                from_status = transition_info["from"]
+                to_status = transition_info["to"]
+                transition_name = transition_info["name"]
+                
+                edge = WorkflowEdge(
+                    from_node=from_status,
+                    to_node=to_status,
+                    label=transition_name
+                )
+                workflow.add_edge(edge)
+            
+            # Add comprehensive metadata about extraction strategy
+            strategy_info = {
+                "strategy_used": "unknown",
+                "strategy_details": {},
+                "data_quality": "unknown"
+            }
+            
+            if "workflow_scheme" in workflow_data:
+                strategy_info["strategy_used"] = "direct_schema_access"
+                strategy_info["data_quality"] = "high"
+                strategy_info["strategy_details"] = {
+                    "method": "Jira REST API - Workflow Schema",
+                    "permissions": "admin_level_required",
+                    "description": "Direct access to project workflow scheme configuration"
+                }
+                workflow.metadata["source"] = "direct_schema_access"
+            else:
+                # Check if this looks like Strategy 2 (logical transitions)
+                logical_transition_patterns = ["Start ", "Complete to ", "Move to "]
+                logical_transitions = sum(1 for t in transitions if any(t["name"].startswith(pattern) for pattern in logical_transition_patterns))
+                
+                if logical_transitions > len(transitions) * 0.5:
+                    strategy_info["strategy_used"] = "project_statuses_with_logical_transitions"
+                    strategy_info["data_quality"] = "good"
+                    strategy_info["strategy_details"] = {
+                        "method": "Jira REST API - Project Statuses + Generated Transitions",
+                        "permissions": "standard_user",
+                        "description": "Real statuses with logically generated workflow transitions"
+                    }
+                    workflow.metadata["source"] = "project_statuses_with_logical_transitions"
+                else:
+                    strategy_info["strategy_used"] = "sample_issue_extraction"
+                    strategy_info["data_quality"] = "limited"
+                    strategy_info["strategy_details"] = {
+                        "method": "Jira REST API - Sample Issue Analysis",
+                        "permissions": "read_only",
+                        "description": "Workflow data extracted from existing project issues"
+                    }
+                    workflow.metadata["source"] = "sample_issue_extraction"
+            
+            # Add strategy information to workflow metadata
+            workflow.metadata.update(strategy_info)
+            
+            logger.info(f"Successfully created workflow using {strategy_info['strategy_used']}: {len(workflow.nodes)} nodes, {len(workflow.edges)} edges")
+            return workflow
+            
+        except Exception as e:
+            logger.error(f"Failed to create workflow from enhanced data: {str(e)}")
+            raise JiraGraphGenerationError(f"Enhanced workflow creation failed: {str(e)}")
 
     async def _create_workflow_from_project_data(self, workflow_data: dict[str, Any], workflow: WorkflowGraph) -> WorkflowGraph:
         """Create workflow from project workflow data."""
@@ -286,37 +504,6 @@ class WorkflowAnalyzerImpl(WorkflowAnalyzer):
             logger.error(f"Failed to create workflow from transitions: {str(e)}")
             raise
 
-    async def _create_minimal_workflow(self, workflow_data: dict[str, Any], workflow: WorkflowGraph) -> WorkflowGraph:
-        """Create a minimal workflow when limited data is available."""
-        try:
-            # Create a basic workflow with common statuses
-            statuses = ["To Do", "In Progress", "Done"]
-
-            for i, status in enumerate(statuses):
-                category = "To Do" if i == 0 else "In Progress" if i == 1 else "Done"
-                node = WorkflowNode(
-                    id=status,
-                    name=status,
-                    category=category,
-                    color=self._get_status_color(category)
-                )
-                workflow.add_node(node)
-
-            # Add basic transitions
-            for i in range(len(statuses) - 1):
-                edge = WorkflowEdge(
-                    from_node=statuses[i],
-                    to_node=statuses[i + 1],
-                    label="Progress"
-                )
-                workflow.add_edge(edge)
-
-            workflow.metadata["source"] = "minimal_default"
-            return workflow
-
-        except Exception as e:
-            logger.error(f"Failed to create minimal workflow: {str(e)}")
-            raise
 
     def _add_logical_transitions(self, workflow: WorkflowGraph) -> None:
         """Add logical transitions based on status categories."""

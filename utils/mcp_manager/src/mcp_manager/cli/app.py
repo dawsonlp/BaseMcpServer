@@ -62,6 +62,8 @@ from mcp_manager.cli.commands.advanced import (
     analyze_performance,
     export_diagnostics
 )
+# Import removal commands
+from mcp_manager.cli.commands import removal
 
 
 # Create main app
@@ -100,6 +102,7 @@ advanced_app = typer.Typer(
 # Add command groups to main app
 app.add_typer(install_app, name="install")
 app.add_typer(lifecycle_app, name="server")  # More intuitive name
+app.add_typer(removal.app, name="remove")  # Removal commands
 app.add_typer(info_app, name="info")
 app.add_typer(config_app, name="config")
 app.add_typer(diag_app, name="health")  # Shorter name
@@ -139,8 +142,8 @@ def install_local_wrapper(
     force: bool = typer.Option(
         False, "--force", "-f", help="Force installation, overwriting existing server"
     ),
-    pipx: bool = typer.Option(
-        False, "--pipx", help="Install as standalone application (requires pyproject.toml)"
+    no_pipx: bool = typer.Option(
+        False, "--no-pipx", help="Use virtual environment instead of pipx (default: pipx)"
     ),
     port: Optional[int] = typer.Option(
         None, "--port", "-p", help="Port for SSE transport (optional)"
@@ -155,7 +158,7 @@ def install_local_wrapper(
     """📁 Install a local MCP server from a directory."""
     from mcp_manager.core.models import TransportType
     transport_type = TransportType.STDIO if transport == "stdio" else TransportType.SSE
-    install_local(name=name, source=source, transport=transport_type, port=port, force=force, pipx=pipx, auto_approve=auto_approve)
+    install_local(name=name, source=source, transport=transport_type, port=port, force=force, no_pipx=no_pipx, auto_approve=auto_approve)
 
 
 @install_app.command("template")
@@ -192,12 +195,14 @@ def install_remote_wrapper(
 @lifecycle_app.command("start")
 def start_wrapper(
     name: str = typer.Argument(..., help="Server name to start"),
+    transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Override transport protocol"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Override port for SSE transport"),
     background: bool = typer.Option(
         False, "--background", "-b", help="Run in background"
     ),
 ):
     """▶️  Start an MCP server."""
-    start_server(name, background=background)
+    start_server_impl(name, transport, port, background)
 
 
 @lifecycle_app.command("stop")
@@ -242,12 +247,12 @@ def status_wrapper(
 # === INFO COMMANDS ===
 @info_app.command("list")
 def list_servers_wrapper(
-    local: bool = typer.Option(False, "--local", help="Show only local servers"),
-    remote: bool = typer.Option(False, "--remote", help="Show only remote servers"),
-    format: str = typer.Option("table", "--format", "-f", help="Output format (table/json/yaml)"),
+    type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by type (local|remote)"),
+    status_filter: Optional[str] = typer.Option(None, "--status", help="Filter by status (running|stopped|all)"),
+    format: str = typer.Option("human", "--format", "-f", help="Output format (human|json|yaml)"),
 ):
     """📋 List all MCP servers."""
-    list_servers(local=local, remote=remote, format=format)
+    list_servers(type_filter=type_filter, status_filter=status_filter, format=format)
 
 
 @info_app.command("show")
@@ -268,7 +273,7 @@ def tree_wrapper():
 @info_app.command("summary")
 def summary_wrapper():
     """📈 Show system summary and statistics."""
-    show_config()
+    show_system_info()
 
 
 # === CONFIG COMMANDS ===
@@ -339,10 +344,12 @@ def export_config_wrapper(
 @diag_app.command("check")
 def health_check_wrapper(
     name: Optional[str] = typer.Argument(None, help="Server name (optional)"),
-    deep: bool = typer.Option(False, "--deep", help="Perform deep health check"),
+    detailed: bool = typer.Option(False, "--detailed", "-d", help="Perform detailed health check"),
+    timeout: int = typer.Option(30, "--timeout", "-t", help="Health check timeout in seconds"),
+    format: str = typer.Option("human", "--format", "-f", help="Output format (human|json)"),
 ):
     """🏥 Perform health check on servers."""
-    health_check(name=name, deep=deep)
+    health_check(name=name, detailed=detailed, timeout=timeout, format=format)
 
 
 @diag_app.command("monitor")
@@ -359,7 +366,7 @@ def test_connection_wrapper(
     name: str = typer.Argument(..., help="Server name to test"),
 ):
     """🔗 Test server connection and functionality."""
-    system_diagnostics(name=name)
+    troubleshoot_server(name=name, auto_fix=False)
 
 
 @diag_app.command("troubleshoot")
@@ -373,11 +380,14 @@ def troubleshoot_wrapper(
 # === ADVANCED/ADMIN COMMANDS ===
 @advanced_app.command("cleanup")
 def cleanup_wrapper(
-    orphaned: bool = typer.Option(False, "--orphaned", help="Clean orphaned servers only"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleaned"),
+    logs: bool = typer.Option(True, "--logs/--no-logs", help="Clean up old log files"),
+    backups: bool = typer.Option(True, "--backups/--no-backups", help="Clean up old backup files"),
+    processes: bool = typer.Option(True, "--processes/--no-processes", help="Clean up stale process entries"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleaned without making changes"),
+    age_days: int = typer.Option(30, "--age-days", help="Age in days for files to be considered old"),
 ):
     """🧹 Clean up unused servers and files."""
-    cleanup_system(orphaned=orphaned, dry_run=dry_run)
+    cleanup_system(logs=logs, backups=backups, processes=processes, dry_run=dry_run, age_days=age_days)
 
 
 @advanced_app.command("reset")
@@ -399,9 +409,13 @@ def migrate_wrapper(
 
 
 @advanced_app.command("analyze")
-def analyze_wrapper():
+def analyze_wrapper(
+    name: Optional[str] = typer.Argument(None, help="Server name (analyzes all if not specified)"),
+    duration: int = typer.Option(60, "--duration", "-d", help="Analysis duration in seconds"),
+    interval: int = typer.Option(5, "--interval", "-i", help="Sampling interval in seconds"),
+):
     """📊 Analyze system performance and usage."""
-    analyze_performance()
+    analyze_performance(name=name, duration=duration, interval=interval)
 
 
 @advanced_app.command("optimize")
@@ -452,9 +466,25 @@ def show_version():
 @app.command("help")
 def show_help():
     """❓ Show comprehensive help and usage examples."""
+    mcp_home = get_mcp_home()
     output_mgr = get_output_manager()
-    help_text = """
+    help_text = f"""
 [bold blue]🚀 MCP Manager - Usage Guide[/bold blue]
+
+[bold yellow]📁 FILE LOCATIONS[/bold yellow]
+  [bold]Config files[/bold] (checked in order):
+  [dim]1. ~/.config/mcp-manager/servers/{{server-name}}/config.yaml[/dim] (managed)
+  [dim]2. ~/.config/mcp-manager/servers/{{server-name}}/.env[/dim] (managed env vars)
+  [dim]3. Legacy locations (server-specific)[/dim]
+  [dim]4. ./config.yaml or ./.env[/dim] (local development)
+
+  [bold]Log files[/bold]:
+  [dim]~/.config/mcp-manager/logs/{{server-name}}.log[/dim]
+
+  [bold]Virtual environments[/bold]:
+  [dim]~/.config/mcp-manager/servers/{{server-name}}/.venv[/dim]
+
+  [bold]System directory[/bold]: [cyan]{mcp_home}[/cyan]
 
 [bold yellow]📦 INSTALLATION COMMANDS[/bold yellow]
   [cyan]mcp-manager install local my-server --source /path/to/server[/cyan]
@@ -476,11 +506,15 @@ def show_help():
   [cyan]mcp-manager server logs my-server --follow[/cyan]   View logs
   [cyan]mcp-manager server status[/cyan]                    Show all server status
 
+[bold yellow]🗑️  SERVER REMOVAL[/bold yellow]
+  [cyan]mcp-manager remove server my-server[/cyan]          Complete removal
+  [cyan]mcp-manager remove from-cline my-server[/cyan]      Remove from Cline only
+  [cyan]mcp-manager remove from-claude my-server[/cyan]     Remove from Claude only
+  [cyan]mcp-manager remove from-registry my-server[/cyan]   Remove from registry only
+
 [bold yellow]📋 INFORMATION & MONITORING[/bold yellow]
   [cyan]mcp-manager info list[/cyan]                        List all servers
-  [cyan]mcp-manager info show my-server[/cyan]              Show server details
-  [cyan]mcp-manager info tree[/cyan]                        Show server hierarchy
-  [cyan]mcp-manager info summary[/cyan]                     System summary
+  [cyan]mcp-manager info show my-server[/cyan]              Show server details (includes file paths)
 
 [bold yellow]⚙️ CONFIGURATION[/bold yellow]
   [cyan]mcp-manager config cline[/cyan]                    Configure VS Code/Cline
@@ -505,6 +539,10 @@ def show_help():
   [cyan]mcp-manager run my-server[/cyan]                    Quick start server
   [cyan]mcp-manager version[/cyan]                          Version information
 
+[bold yellow]🔍 FINDING YOUR FILES[/bold yellow]
+  [cyan]mcp-manager info show my-server[/cyan]              See which config files exist & are being used
+  [cyan]mcp-manager server logs my-server[/cyan]            View logs (shows log file location)
+  
 [dim]💡 Tip: Use --help with any command for detailed options[/dim]
 """
     output_mgr.console.print(help_text)
