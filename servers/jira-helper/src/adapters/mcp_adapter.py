@@ -31,7 +31,7 @@ startup_logger.info(f"📁 Debug log file: {log_file}")
 # Force flush
 file_handler.flush()
 
-from adapters.mcp_bulk_registration import bulk_register_jira_tools
+from adapters.mcp_bulk_registration import bulk_register_all_tools
 from application.use_cases import (
     AddCommentUseCase,
     ChangeAssigneeUseCase,
@@ -431,10 +431,10 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
         )
 
         # Bulk register all MCP tools using mcp-commons - this replaces 300+ lines of manual @mcp.tool() decorations
-        logger.info("Starting bulk registration of MCP tools using mcp-commons...")
-        registered_tools = bulk_register_jira_tools(server, context)
+        logger.info("Starting bulk registration of MCP tools (Jira + Confluence) using mcp-commons...")
+        registered_tools = bulk_register_all_tools(server, context)
         
-        logger.info(f"Successfully registered {len(registered_tools)} Jira MCP tools")
+        logger.info(f"Successfully registered {len(registered_tools)} MCP tools (Jira + Confluence)")
 
         logger.info("Jira Helper services and MCP tools initialized successfully")
         yield context
