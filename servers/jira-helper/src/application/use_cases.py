@@ -1028,7 +1028,7 @@ class ListConfluenceSpacesUseCase(BaseQueryUseCase):
             }
 
         return await self.execute_query(
-            lambda: self._confluence_service.get_spaces(instance_name),
+            lambda: self._confluence_repository.get_spaces(instance_name),
             result_mapper,
             instance_name=instance_name
         )
