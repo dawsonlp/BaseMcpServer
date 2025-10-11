@@ -330,25 +330,15 @@ class ConfluenceRepository:
         try:
             client = self._client_factory.create_client(instance_name)
 
-            # Prepare page data
-            page_data = {
-                "type": "page",
-                "title": title,
-                "space": {"key": space_key},
-                "body": {
-                    "storage": {
-                        "value": content,
-                        "representation": "storage"
-                    }
-                }
-            }
-
-            # Add parent page if specified
-            if parent_page_id:
-                page_data["ancestors"] = [{"id": parent_page_id}]
-
-            # Create the page
-            created_page_data = await asyncio.to_thread(client.create_page_from_dict, page_data)
+            # Create the page using the correct API method
+            created_page_data = await asyncio.to_thread(
+                client.create_page,
+                space=space_key,
+                title=title,
+                body=content,
+                parent_id=parent_page_id,
+                representation='storage'
+            )
 
             # Convert to domain model
             instance = self._config_provider.get_instance(instance_name)
@@ -385,25 +375,14 @@ class ConfluenceRepository:
             # Get current page to get space info
             current_page_data = await asyncio.to_thread(client.get_page_by_id, page_id, expand="space,version")
 
-            # Prepare update data
-            page_data = {
-                "id": page_id,
-                "type": "page",
-                "title": title,
-                "space": {"key": current_page_data["space"]["key"]},
-                "body": {
-                    "storage": {
-                        "value": content,
-                        "representation": "storage"
-                    }
-                },
-                "version": {
-                    "number": version + 1  # Increment version for update
-                }
-            }
-
-            # Update the page
-            updated_page_data = await asyncio.to_thread(client.update_page, page_data)
+            # Update the page using the correct API method
+            updated_page_data = await asyncio.to_thread(
+                client.update_page,
+                page_id=page_id,
+                title=title,
+                body=content,
+                representation='storage'
+            )
 
             # Convert to domain model
             instance = self._config_provider.get_instance(instance_name)
