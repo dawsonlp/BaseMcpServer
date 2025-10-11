@@ -168,7 +168,14 @@ class JiraHelperContext:
         get_time_tracking_info_use_case: GetTimeTrackingInfoUseCase,
         update_time_estimates_use_case: UpdateTimeEstimatesUseCase,
         create_issue_with_links_use_case: CreateIssueWithLinksUseCase,
-        validate_jql_use_case: ValidateJqlUseCase
+        validate_jql_use_case: ValidateJqlUseCase,
+        # Confluence use cases
+        list_confluence_spaces_use_case: ListConfluenceSpacesUseCase,
+        list_confluence_pages_use_case: ListConfluencePagesUseCase,
+        get_confluence_page_use_case: GetConfluencePageUseCase,
+        search_confluence_pages_use_case: SearchConfluencePagesUseCase,
+        create_confluence_page_use_case: CreateConfluencePageUseCase,
+        update_confluence_page_use_case: UpdateConfluencePageUseCase
     ):
         # Services mapped to dependency names used in tool configuration
         self.project_service = project_service
@@ -229,6 +236,14 @@ class JiraHelperContext:
         self.update_time_estimates_use_case = update_time_estimates_use_case
         self.create_issue_with_links_use_case = create_issue_with_links_use_case
         self.validate_jql_use_case = validate_jql_use_case
+        
+        # Confluence use cases
+        self.list_confluence_spaces_use_case = list_confluence_spaces_use_case
+        self.list_confluence_pages_use_case = list_confluence_pages_use_case
+        self.get_confluence_page_use_case = get_confluence_page_use_case
+        self.search_confluence_pages_use_case = search_confluence_pages_use_case
+        self.create_confluence_page_use_case = create_confluence_page_use_case
+        self.update_confluence_page_use_case = update_confluence_page_use_case
 
 
 @asynccontextmanager
@@ -331,6 +346,26 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             logger=logger_adapter
         )
 
+        # Initialize Confluence use cases
+        list_confluence_spaces_use_case = ListConfluenceSpacesUseCase(
+            confluence_repository=confluence_repository
+        )
+        list_confluence_pages_use_case = ListConfluencePagesUseCase(
+            confluence_repository=confluence_repository
+        )
+        get_confluence_page_use_case = GetConfluencePageUseCase(
+            confluence_repository=confluence_repository
+        )
+        search_confluence_pages_use_case = SearchConfluencePagesUseCase(
+            confluence_repository=confluence_repository
+        )
+        create_confluence_page_use_case = CreateConfluencePageUseCase(
+            confluence_repository=confluence_repository
+        )
+        update_confluence_page_use_case = UpdateConfluencePageUseCase(
+            confluence_repository=confluence_repository
+        )
+
         # Create context with service mappings for bulk registration
         context = JiraHelperContext(
             # Services mapped to dependency names
@@ -385,7 +420,14 @@ async def jira_lifespan(server: FastMCP) -> AsyncIterator[JiraHelperContext]:
             get_time_tracking_info_use_case=get_time_tracking_info_use_case,
             update_time_estimates_use_case=update_time_estimates_use_case,
             create_issue_with_links_use_case=create_issue_with_links_use_case,
-            validate_jql_use_case=validate_jql_use_case
+            validate_jql_use_case=validate_jql_use_case,
+            # Confluence use cases
+            list_confluence_spaces_use_case=list_confluence_spaces_use_case,
+            list_confluence_pages_use_case=list_confluence_pages_use_case,
+            get_confluence_page_use_case=get_confluence_page_use_case,
+            search_confluence_pages_use_case=search_confluence_pages_use_case,
+            create_confluence_page_use_case=create_confluence_page_use_case,
+            update_confluence_page_use_case=update_confluence_page_use_case
         )
 
         # Bulk register all MCP tools using mcp-commons - this replaces 300+ lines of manual @mcp.tool() decorations
