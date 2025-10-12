@@ -373,7 +373,445 @@ def test_get_greeting_styles():
 
 ---
 
-# Hexagonal Architecture Approach
+# Hexagonal Architecture Approach (jira-helper Pattern)
+
+## Real-World Example: Adding Confluence Tools to jira-helper
+
+This section documents the **actual pattern** used in jira-helper, learned from implementing the 6 Confluence tools. This is the production-tested approach for adding tools to complex, enterprise-grade MCP servers.
+
+### The Unified mcp-commons Pattern
+
+**Key Insight:** jira-helper uses **mcp-commons for unified framework** across CLI and HTTP transports, with `tool_config.py` as the single source of truth for all tool registration.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Entry Points                              │
+│  main.py (CLI)  →  tool_config.py  ←  http_main.py (HTTP)  │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Single Source of Truth
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│              tool_config.py (mcp-commons)                   │
+│  - get_tools_config() returns tool dict                    │
+│  - Initializes all services once                           │
+│  - Used by both CLI and HTTP (DRY!)                        │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                 Application Layer                           │
+│  Use Cases: SayHelloUseCase, ListConfluenceSpacesUseCase   │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Domain Layer                              │
+│  Services: GreetingService, ConfluenceService               │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                Infrastructure Layer                         │
+│  Adapters: AtlassianApiRepository, ConfluenceRepository     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Step-by-Step: Adding Confluence Tools to jira-helper
+
+Here's exactly what we did to add 6 Confluence tools to jira-helper, which you can follow for any new tools.
+
+#### Step 1: Infrastructure Layer - External Integration
+
+**File:** `src/infrastructure/atlassian_confluence_adapter.py`
+
+Create the adapter for external API:
+
+```python
+"""
+Confluence adapter for external API integration.
+Handles authentication, HTTP calls, and data transformation.
+"""
+
+from atlassian import Confluence
+from typing import Dict, Any, List
+from infrastructure.config_adapter import ConfigurationAdapter
+
+class ConfluenceClientFactory:
+    """Factory for creating Confluence API clients."""
+    
+    def __init__(self, config_provider: ConfigurationAdapter):
+        self.config = config_provider
+    
+    def create_client(self, instance_name: str) -> Confluence:
+        """Create authenticated Confluence client for instance."""
+        instance = self.config.get_confluence_instance(instance_name)
+        if not instance:
+            raise ValueError(f"Confluence instance '{instance_name}' not found")
+        
+        return Confluence(
+            url=instance.url,
+            username=instance.user,
+            password=instance.token,
+            cloud=True
+        )
+
+class ConfluenceRepository:
+    """Repository for Confluence operations."""
+    
+    def __init__(self, client_factory: ConfluenceClientFactory, config: ConfigurationAdapter):
+        self.client_factory = client_factory
+        self.config = config
+    
+    def list_spaces(self, instance_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """List all Confluence spaces."""
+        client = self.client_factory.create_client(instance_name)
+        
+        # Call Confluence API
+        spaces = client.get_all_spaces(start=0, limit=limit)
+        
+        # Transform to our format
+        return [
+            {
+                "key": space.get("key"),
+                "name": space.get("name"),
+                "type": space.get("type"),
+                "is_personal": space.get("type") == "personal"
+            }
+            for space in spaces.get("results", [])
+        ]
+```
+
+**Key Points:**
+- Handles external API authentication
+- Transforms external data format to internal format
+- Keeps API-specific code isolated
+- One adapter per external system
+
+#### Step 2: Application Layer - Use Cases
+
+**File:** `src/application/use_cases.py`
+
+Add use case for orchestration and validation:
+
+```python
+"""
+Use cases for Confluence operations.
+Handles validation, orchestration, and business rules.
+"""
+
+from typing import Dict, Any
+from infrastructure.atlassian_confluence_adapter import ConfluenceRepository
+
+class ListConfluenceSpacesUseCase:
+    """Use case for listing Confluence spaces."""
+    
+    def __init__(self, confluence_repository: ConfluenceRepository):
+        self.confluence_repository = confluence_repository
+    
+    def execute(self, instance_name: str, limit: int = 10) -> Dict[str, Any]:
+        """Execute the list Confluence spaces use case."""
+        try:
+            # Validate inputs
+            if limit < 1 or limit > 100:
+                return {
+                    "success": False,
+                    "error": "Limit must be between 1 and 100"
+                }
+            
+            # Call repository
+            spaces = self.confluence_repository.list_spaces(instance_name, limit)
+            
+            # Return formatted result
+            return {
+                "success": True,
+                "data": {
+                    "spaces": spaces,
+                    "count": len(spaces),
+                    "instance": instance_name
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+```
+
+**Key Points:**
+- Input validation
+- Error handling
+- Consistent response format
+- Business rule enforcement
+
+#### Step 3: Tool Configuration - Registration
+
+**File:** `src/tool_config.py`
+
+This is the **most important file** - the single source of truth:
+
+```python
+"""
+Tool Configuration for jira-helper MCP Server
+
+Single source of truth for ALL tools (Jira + Confluence).
+Used by both CLI and HTTP transports via mcp-commons.
+"""
+
+from typing import Dict, Any
+from mcp_commons.tools import ToolConfig
+
+# ... existing Jira imports ...
+
+# NEW: Confluence imports
+from application.use_cases import (
+    # ... existing Jira use cases ...
+    ListConfluenceSpacesUseCase,
+    ListConfluencePagesUseCase,
+    GetConfluencePageUseCase,
+    SearchConfluencePagesUseCase,
+    CreateConfluencePageUseCase,
+    UpdateConfluencePageUseCase
+)
+
+from infrastructure.atlassian_confluence_adapter import (
+    ConfluenceClientFactory,
+    ConfluenceRepository
+)
+
+def get_tools_config() -> Dict[str, ToolConfig]:
+    """
+    Get all tool configurations for mcp-commons.
+    
+    This function is called once at startup by both main.py and http_main.py,
+    ensuring identical tool registration across all transports (DRY principle).
+    """
+    
+    # Initialize infrastructure
+    config_provider = ConfigurationAdapter()
+    
+    # Initialize Confluence infrastructure (NEW)
+    confluence_client_factory = ConfluenceClientFactory(config_provider)
+    confluence_repository = ConfluenceRepository(
+        confluence_client_factory,
+        config_provider
+    )
+    
+    # Initialize Confluence use cases (NEW)
+    list_confluence_spaces_use_case = ListConfluenceSpacesUseCase(
+        confluence_repository=confluence_repository
+    )
+    list_confluence_pages_use_case = ListConfluencePagesUseCase(
+        confluence_repository=confluence_repository
+    )
+    get_confluence_page_use_case = GetConfluencePageUseCase(
+        confluence_repository=confluence_repository
+    )
+    search_confluence_pages_use_case = SearchConfluencePagesUseCase(
+        confluence_repository=confluence_repository
+    )
+    create_confluence_page_use_case = CreateConfluencePageUseCase(
+        confluence_repository=confluence_repository
+    )
+    update_confluence_page_use_case = UpdateConfluencePageUseCase(
+        confluence_repository=confluence_repository
+    )
+    
+    # Return tool configuration dictionary
+    return {
+        # ... existing 27 Jira tools ...
+        
+        # NEW: Confluence tools (6 tools)
+        'list_confluence_spaces': {
+            'function': list_confluence_spaces_use_case.execute,
+            'description': 'List all Confluence spaces for an instance',
+            'input_schema': {
+                'type': 'object',
+                'properties': {
+                    'instance_name': {
+                        'type': 'string',
+                        'description': 'Name of the Confluence instance'
+                    },
+                    'limit': {
+                        'type': 'integer',
+                        'description': 'Maximum number of spaces to return (1-100)',
+                        'default': 10
+                    }
+                },
+                'required': ['instance_name']
+            }
+        },
+        
+        'list_confluence_pages': {
+            'function': list_confluence_pages_use_case.execute,
+            'description': 'List pages in a Confluence space',
+            'input_schema': {
+                'type': 'object',
+                'properties': {
+                    'space_key': {'type': 'string'},
+                    'limit': {'type': 'integer', 'default': 25},
+                    'instance_name': {'type': 'string'}
+                },
+                'required': ['space_key', 'instance_name']
+            }
+        },
+        
+        # ... 4 more Confluence tools with similar structure ...
+    }
+```
+
+**Critical Points:**
+1. **Single initialization** - Services created once, shared by all tools
+2. **DRY principle** - Both CLI and HTTP use this function
+3. **Tool dictionary** - Maps tool names to functions and schemas
+4. **mcp-commons format** - Compatible with unified framework
+
+#### Step 4: Configuration Management
+
+**File:** `src/config.py`
+
+Add configuration support for new system:
+
+```python
+"""Configuration management for jira-helper."""
+
+class ConfluenceInstance:
+    """Represents a Confluence instance configuration."""
+    def __init__(self, name: str, url: str, user: str, token: str, description: str = ""):
+        self.name = name
+        self.url = url
+        self.user = user
+        self.token = token
+        self.description = description
+
+class Settings:
+    """Server settings."""
+    
+    def get_confluence_instances(self) -> dict[str, ConfluenceInstance]:
+        """Get all configured Confluence instances from nested config format."""
+        instances = {}
+        
+        # Load from nested format: instances.{name}.confluence
+        nested_instances = self.config_data.get('instances', {})
+        for instance_name, instance_data in nested_instances.items():
+            confluence_config = instance_data.get('confluence', {})
+            if confluence_config and confluence_config.get('url'):
+                instances[instance_name] = ConfluenceInstance(
+                    name=instance_name,
+                    url=confluence_config.get("url", ""),
+                    user=confluence_config.get("username", ""),
+                    token=confluence_config.get("api_token", ""),
+                    description=instance_data.get("description", "")
+                )
+        
+        return instances
+```
+
+**Configuration File Example** (`config.yaml`):
+
+```yaml
+# Unified configuration for multiple services
+instances:
+  personal:
+    description: "Personal Atlassian instance"
+    jira:
+      url: "https://yourname.atlassian.net"
+      username: "your.email@example.com"
+      api_token: "${JIRA_API_TOKEN}"
+    confluence:
+      url: "https://yourname.atlassian.net"
+      username: "your.email@example.com"
+      api_token: "${CONFLUENCE_API_TOKEN}"
+  
+  company:
+    description: "Company Atlassian instance"
+    jira:
+      url: "https://company.atlassian.net"
+      username: "your.work@company.com"
+      api_token: "${COMPANY_JIRA_TOKEN}"
+    confluence:
+      url: "https://company.atlassian.net"
+      username: "your.work@company.com"
+      api_token: "${COMPANY_CONFLUENCE_TOKEN}"
+```
+
+#### Step 5: Entry Points (No Changes Needed!)
+
+The beauty of this pattern: **Entry points don't change** when adding tools!
+
+**File:** `src/main.py` (CLI) - Unchanged
+**File:** `src/http_main.py` (HTTP) - Unchanged
+
+Both simply call `get_tools_config()` which now includes your new tools automatically.
+
+### Complete Checklist for Adding Tools
+
+When adding new tools to jira-helper, update these files in order:
+
+- [ ] **Infrastructure Layer**
+  - [ ] `src/infrastructure/{system}_adapter.py` - Create adapter for external API
+  - [ ] Add client factory if needed
+  - [ ] Add repository class for data operations
+  
+- [ ] **Application Layer**
+  - [ ] `src/application/use_cases.py` - Add use case classes
+  - [ ] Implement `execute()` method
+  - [ ] Add input validation
+  - [ ] Add error handling
+  
+- [ ] **Configuration**
+  - [ ] `src/config.py` - Add configuration classes/methods
+  - [ ] Update `Settings` class
+  - [ ] Add instance getter methods
+  
+- [ ] **Tool Registration** (Single Source of Truth)
+  - [ ] `src/tool_config.py` - **MOST IMPORTANT**
+  - [ ] Import new infrastructure adapters
+  - [ ] Import new use cases  
+  - [ ] Initialize services in `get_tools_config()`
+  - [ ] Add tool entries to return dictionary
+  - [ ] Define input schemas
+  
+- [ ] **Testing**
+  - [ ] Create test file for new functionality
+  - [ ] Test infrastructure adapter
+  - [ ] Test use cases
+  - [ ] Test via mcp-manager
+  
+- [ ] **Documentation**
+  - [ ] Update README with new tools
+  - [ ] Add examples
+  - [ ] Document configuration
+
+### Benefits of This Pattern
+
+**Hexagonal Architecture + mcp-commons:**
+1. ✅ **DRY**: Services initialized once, shared across transports
+2. ✅ **Testable**: Each layer independently testable
+3. ✅ **Maintainable**: Clear separation of concerns
+4. ✅ **Extensible**: Add tools without touching entry points
+5. ✅ **Type-Safe**: Pydantic models and type hints
+6. ✅ **Unified**: CLI and HTTP use identical code
+
+**Proof:** We added 6 Confluence tools (list spaces, pages, get page, search, create, update) without changing `main.py` or `http_main.py` at all!
+
+### Common Pitfalls to Avoid
+
+❌ **Don't** create services in multiple places - use `tool_config.py` only
+❌ **Don't** use relative imports - always absolute (`from domain.models import ...`)
+❌ **Don't** put business logic in adapters - keep in domain services
+❌ **Don't** skip input validation in use cases
+❌ **Don't** forget error handling in use cases
+❌ **Don't** hard-code configuration - use Settings class
+
+✅ **Do** follow the layer pattern: Infrastructure → Domain → Application → Tool Config
+✅ **Do** use mcp-commons format for tool registration
+✅ **Do** keep `tool_config.py` as single source of truth
+✅ **Do** share configuration across similar services (Jira + Confluence)
+✅ **Do** write tests for each layer
+✅ **Do** use type hints everywhere
+
+---
 
 ## Hexagonal Architecture Overview
 
