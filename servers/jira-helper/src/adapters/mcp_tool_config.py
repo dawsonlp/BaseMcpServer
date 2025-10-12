@@ -46,7 +46,7 @@ from application.file_use_cases import (
     UploadFileUseCase,
 )
 
-# Complete tool configuration - single source of truth for all Jira MCP tools
+# Jira tool configuration - tools for Jira issue management
 JIRA_TOOLS: dict[str, dict[str, Any]] = {
     'list_jira_projects': {
         'use_case_class': ListProjectsUseCase,
@@ -204,7 +204,15 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'dependencies': ['file_attachment_port', 'config_provider', 'event_publisher', 'logger']
     },
 
-    # Confluence Tools
+    'get_project_workflow_scheme': {
+        'use_case_class': GetProjectWorkflowSchemeUseCase,
+        'description': 'Get comprehensive workflow scheme data for an entire project, including all issue types and their workflows.',
+        'dependencies': ['workflow_service']
+    }
+}
+
+# Confluence tool configuration - tools for Confluence space and page management
+CONFLUENCE_TOOLS: dict[str, dict[str, Any]] = {
     'list_confluence_spaces': {
         'use_case_class': ListConfluenceSpacesUseCase,
         'description': 'List all Confluence spaces available in the instance.',
@@ -239,24 +247,18 @@ JIRA_TOOLS: dict[str, dict[str, Any]] = {
         'use_case_class': UpdateConfluencePageUseCase,
         'description': 'Update an existing Confluence page.',
         'dependencies': ['confluence_repository']
-    },
-
-    'get_project_workflow_scheme': {
-        'use_case_class': GetProjectWorkflowSchemeUseCase,
-        'description': 'Get comprehensive workflow scheme data for an entire project, including all issue types and their workflows.',
-        'dependencies': ['workflow_service']
     }
 }
 
 
 def get_tool_count() -> int:
-    """Get the total number of configured tools."""
-    return len(JIRA_TOOLS)
+    """Get the total number of configured tools (Jira + Confluence)."""
+    return len(JIRA_TOOLS) + len(CONFLUENCE_TOOLS)
 
 
 def get_tool_names() -> list[str]:
-    """Get list of all tool names."""
-    return list(JIRA_TOOLS.keys())
+    """Get list of all tool names (Jira + Confluence)."""
+    return list(JIRA_TOOLS.keys()) + list(CONFLUENCE_TOOLS.keys())
 
 
 def get_tool_config(tool_name: str) -> dict[str, Any]:
@@ -272,10 +274,14 @@ def get_tool_config(tool_name: str) -> dict[str, Any]:
     Raises:
         KeyError: If tool name not found
     """
-    if tool_name not in JIRA_TOOLS:
+    # Check both Jira and Confluence tools
+    if tool_name in JIRA_TOOLS:
+        config = JIRA_TOOLS[tool_name].copy()
+    elif tool_name in CONFLUENCE_TOOLS:
+        config = CONFLUENCE_TOOLS[tool_name].copy()
+    else:
         raise KeyError(f"Tool '{tool_name}' not found in configuration")
 
-    config = JIRA_TOOLS[tool_name].copy()
     # Add instance_name to all tools except list_jira_instances
     if tool_name != 'list_jira_instances':
         config.setdefault('parameters', {})['instance_name'] = {
@@ -298,7 +304,9 @@ def validate_tool_config() -> dict[str, Any]:
 
     required_keys = ['use_case_class', 'description', 'dependencies']
 
-    for tool_name, config in JIRA_TOOLS.items():
+    # Validate both Jira and Confluence tools
+    all_tools = {**JIRA_TOOLS, **CONFLUENCE_TOOLS}
+    for tool_name, config in all_tools.items():
         # Check required keys
         for key in required_keys:
             if key not in config:
@@ -338,7 +346,9 @@ def get_dependency_summary() -> dict[str, list[str]]:
     """
     dependency_map = {}
 
-    for tool_name, config in JIRA_TOOLS.items():
+    # Check dependencies from both Jira and Confluence tools
+    all_tools = {**JIRA_TOOLS, **CONFLUENCE_TOOLS}
+    for tool_name, config in all_tools.items():
         for dependency in config.get('dependencies', []):
             if dependency not in dependency_map:
                 dependency_map[dependency] = []
@@ -358,10 +368,12 @@ def get_config_stats() -> dict[str, Any]:
     dependencies = get_dependency_summary()
 
     return {
-        'total_tools': len(JIRA_TOOLS),
+        'total_tools': len(JIRA_TOOLS) + len(CONFLUENCE_TOOLS),
+        'jira_tools': len(JIRA_TOOLS),
+        'confluence_tools': len(CONFLUENCE_TOOLS),
         'unique_dependencies': len(dependencies),
         'validation': validation,
         'dependency_usage': {dep: len(tools) for dep, tools in dependencies.items()},
-        'replaces_lines': 300,  # Lines eliminated from manual @mcp.tool() registrations
-        'description': 'Metadata-driven tool configuration replacing manual registrations'
+        'replaces_lines': 400,  # Lines eliminated from manual @mcp.tool() registrations
+        'description': 'Metadata-driven tool configuration with clean Jira/Confluence separation'
     }

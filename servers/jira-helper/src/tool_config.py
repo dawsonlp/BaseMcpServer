@@ -34,11 +34,13 @@ try:
     from application.use_cases import (
         AddCommentUseCase,
         ChangeAssigneeUseCase,
+        CreateConfluencePageUseCase,
         CreateEpicStoryLinkUseCase,
         CreateIssueLinkUseCase,
         CreateIssueUseCase,
         CreateIssueWithLinksUseCase,
         GenerateWorkflowGraphUseCase,
+        GetConfluencePageUseCase,
         GetCustomFieldMappingsUseCase,
         GetFullIssueDetailsUseCase,
         GetIssueDetailsUseCase,
@@ -46,12 +48,16 @@ try:
         GetIssueTransitionsUseCase,
         GetTimeTrackingInfoUseCase,
         GetWorkLogsUseCase,
+        ListConfluencePagesUseCase,
+        ListConfluenceSpacesUseCase,
         ListInstancesUseCase,
         ListProjectsUseCase,
         ListProjectTicketsUseCase,
         LogWorkUseCase,
+        SearchConfluencePagesUseCase,
         SearchIssuesUseCase,
         TransitionIssueUseCase,
+        UpdateConfluencePageUseCase,
         UpdateIssueUseCase,
         UpdateTimeEstimatesUseCase,
         ValidateJqlUseCase,
@@ -89,6 +95,10 @@ try:
     from infrastructure.atlassian_file_adapter import AtlassianFileAdapter
     from infrastructure.file_validation_adapter import StandardFileValidationAdapter
     from infrastructure.file_system_adapter import StandardFileSystemAdapter, FileUploadPolicyAdapter
+    from infrastructure.atlassian_confluence_adapter import (
+        ConfluenceClientFactory,
+        ConfluenceRepository,
+    )
     from application.file_use_cases import (
         UploadFileUseCase,
         ListAttachmentsUseCase,
@@ -125,6 +135,10 @@ try:
     issue_link_service = IssueLinkService(issue_link_adapter, repository, config_provider, None, logger_adapter)
     search_service = SearchService(search_adapter, config_provider, AtlassianJQLValidator(), logger_adapter)
     time_tracking_service = TimeTrackingService(time_tracking_adapter, repository, config_provider, time_format_validator, logger_adapter)
+
+    # Initialize Confluence infrastructure
+    confluence_client_factory = ConfluenceClientFactory(config_provider)
+    confluence_repository = ConfluenceRepository(confluence_client_factory, config_provider)
 
     # Initialize file adapters (copied exactly from mcp_adapter.py)
     file_attachment_port = AtlassianFileAdapter(config_provider, client_factory)
@@ -182,6 +196,26 @@ try:
         config_provider=config_provider,
         event_publisher=None,  # No event publisher needed for now
         logger=logger_adapter
+    )
+
+    # Initialize Confluence use cases
+    list_confluence_spaces_use_case = ListConfluenceSpacesUseCase(
+        confluence_repository=confluence_repository
+    )
+    list_confluence_pages_use_case = ListConfluencePagesUseCase(
+        confluence_repository=confluence_repository
+    )
+    get_confluence_page_use_case = GetConfluencePageUseCase(
+        confluence_repository=confluence_repository
+    )
+    search_confluence_pages_use_case = SearchConfluencePagesUseCase(
+        confluence_repository=confluence_repository
+    )
+    create_confluence_page_use_case = CreateConfluencePageUseCase(
+        confluence_repository=confluence_repository
+    )
+    update_confluence_page_use_case = UpdateConfluencePageUseCase(
+        confluence_repository=confluence_repository
     )
 
     logger.info(f"✅ JIRA HELPER - Successfully initialized {len(locals())} services and use cases")
@@ -328,6 +362,37 @@ JIRA_TOOLS: Dict[str, Dict[str, Any]] = {
     'delete_issue_attachment': {
         'function': delete_attachment_use_case.execute,
         'description': 'Delete an attachment from a Jira issue.'
+    },
+    
+    # Confluence operations (6 tools)
+    'list_confluence_spaces': {
+        'function': list_confluence_spaces_use_case.execute,
+        'description': 'List all Confluence spaces available in the instance.'
+    },
+    
+    'list_confluence_pages': {
+        'function': list_confluence_pages_use_case.execute,
+        'description': 'List pages in a specific Confluence space.'
+    },
+    
+    'get_confluence_page': {
+        'function': get_confluence_page_use_case.execute,
+        'description': 'Get detailed information about a specific Confluence page.'
+    },
+    
+    'search_confluence_pages': {
+        'function': search_confluence_pages_use_case.execute,
+        'description': 'Search for Confluence pages using text query.'
+    },
+    
+    'create_confluence_page': {
+        'function': create_confluence_page_use_case.execute,
+        'description': 'Create a new Confluence page.'
+    },
+    
+    'update_confluence_page': {
+        'function': update_confluence_page_use_case.execute,
+        'description': 'Update an existing Confluence page.'
     }
 }
 
@@ -421,10 +486,11 @@ def get_config_stats() -> Dict[str, Any]:
     
     # Count tools by category
     categories = {
-        'Core Operations': 13,  # list_projects, get_issue_details, create_ticket, etc.
-        'Search & Advanced': 6,  # search_issues, validate_jql, create_link, etc.
-        'Time Tracking': 4,     # log_work, get_work_logs, etc.
-        'File Operations': 3    # upload_file, list_attachments, delete_attachment
+        'Core Operations': 13,    # list_projects, get_issue_details, create_ticket, etc.
+        'Search & Advanced': 6,   # search_issues, validate_jql, create_link, etc.
+        'Time Tracking': 4,       # log_work, get_work_logs, etc.
+        'File Operations': 3,     # upload_file, list_attachments, delete_attachment
+        'Confluence': 6           # list_spaces, list_pages, get_page, search, create, update
     }
     
     return {

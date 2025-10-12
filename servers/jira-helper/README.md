@@ -54,7 +54,7 @@ This project implements a **hexagonal (ports and adapters) architecture** with s
 
 ## 🚀 Features
 
-### Core Jira Operations
+### Core Jira Operations (27 tools)
 - **Project Management**: List projects, get project overviews
 - **Issue Management**: Create, read, update, transition issues
 - **Comment System**: Add and manage issue comments
@@ -63,12 +63,20 @@ This project implements a **hexagonal (ports and adapters) architecture** with s
 - **Custom Fields**: Field mapping and management
 - **Multi-Instance Support**: Multiple Jira instance configuration
 
+### Confluence Integration (6 tools)
+- **Space Management**: List and browse Confluence spaces
+- **Page Operations**: List, get, create, and update pages
+- **Content Search**: Search across Confluence pages
+- **Rich Content**: Full support for Confluence storage format
+- **Multi-Instance**: Same multi-instance support as Jira
+
 ### Advanced Features
 - **Workflow Visualization**: Generate SVG/PNG workflow graphs
 - **Bulk Operations**: Bulk issue transitions and updates
 - **Complex Workflows**: Multi-step issue creation with comments and transitions
 - **Performance Optimized**: Concurrent operations and caching
 - **Comprehensive Validation**: Input validation with detailed error messages
+- **Unified Configuration**: Single config file for both Jira and Confluence
 
 ## 📁 Project Structure
 
@@ -136,51 +144,108 @@ servers/jira-helper/
 
 ### Configuration
 
-Create `config.yaml` with your Jira instances:
+Create `config.yaml` with your Atlassian instances. The configuration now supports both Jira and Confluence in a nested format:
 
 ```yaml
+# Unified configuration for multiple Atlassian services
 instances:
-  production:
-    url: "https://your-company.atlassian.net"
-    user: "your-email@company.com"
-    token: "your-api-token"
-    description: "Production Jira instance"
+  personal:
+    description: "Personal Atlassian instance"
+    jira:
+      url: "https://yourname.atlassian.net"
+      username: "your.email@example.com"
+      api_token: "${JIRA_API_TOKEN}"
+    confluence:
+      url: "https://yourname.atlassian.net"
+      username: "your.email@example.com"
+      api_token: "${CONFLUENCE_API_TOKEN}"
   
-  staging:
-    url: "https://staging.atlassian.net"
-    user: "your-email@company.com"
-    token: "staging-api-token"
-    description: "Staging environment"
+  company:
+    description: "Company Atlassian instance"
+    jira:
+      url: "https://company.atlassian.net"
+      username: "your.work@company.com"
+      api_token: "${COMPANY_JIRA_TOKEN}"
+    confluence:
+      url: "https://company.atlassian.net"
+      username: "your.work@company.com"
+      api_token: "${COMPANY_CONFLUENCE_TOKEN}"
 
-default_instance: "production"
+default_instance: "personal"
+
+# Server settings
+server:
+  name: "jira-helper"
+  host: "localhost"
+  port: 8000
+  log_file: "/tmp/jira_helper_debug.log"
+  log_level: "INFO"
 ```
 
-## 🔧 Available MCP Tools
+**Key Changes in Configuration Format:**
+- **Nested Structure**: Each instance now has separate `jira` and `confluence` sections
+- **Unified Credentials**: Support for multiple Atlassian services per instance
+- **Environment Variables**: Use `${VAR_NAME}` for sensitive values
+- **Backward Compatible**: Instances with only Jira config still work
 
-### Project Operations
+**Migration from Old Format:**
+If you have an existing flat configuration, it will still work but won't support Confluence tools. To migrate:
+1. Create nested `jira:` section under each instance
+2. Move `url`, `user`, `token` fields under the `jira:` section
+3. Add `confluence:` section if you need Confluence support
+4. Keep `description` at the instance level
+
+## 🔧 Available MCP Tools (33 total)
+
+### Jira Project Operations
 - `list_jira_projects` - List all accessible projects
 - `list_project_tickets` - Get issues for a specific project
 
-### Issue Operations
+### Jira Issue Operations
 - `get_issue_details` - Get basic issue information
 - `get_full_issue_details` - Get comprehensive issue details with comments
 - `create_jira_ticket` - Create new issues
 - `update_jira_issue` - Update existing issues
+- `create_issue_with_links` - Create issues with relationships
+- `create_issue_link` - Link two existing issues
+- `create_epic_story_link` - Create Epic-Story relationships
+- `get_issue_links` - Get all links for an issue
 
-### Comment Operations
+### Jira Comment Operations
 - `add_comment_to_jira_ticket` - Add comments to issues
 
-### Workflow Operations
+### Jira Workflow Operations
 - `get_issue_transitions` - Get available workflow transitions
 - `transition_jira_issue` - Move issues through workflow
 - `change_issue_assignee` - Change issue assignee
 
-### Advanced Operations
+### Jira Advanced Operations
 - `search_jira_issues` - Execute JQL searches
 - `validate_jql_query` - Validate JQL syntax
 - `get_custom_field_mappings` - Get custom field information
 - `generate_project_workflow_graph` - Create workflow visualizations
 - `list_jira_instances` - List configured instances
+
+### Jira Time Tracking
+- `log_work` - Log time spent on issues
+- `get_work_logs` - Get work log entries
+- `get_time_tracking_info` - Get time tracking details
+- `update_time_estimates` - Update time estimates
+
+### Jira Attachments
+- `upload_file_to_jira` - Attach files to issues
+- `list_issue_attachments` - List issue attachments
+- `delete_issue_attachment` - Remove attachments
+
+### Confluence Space Operations
+- `list_confluence_spaces` - List all Confluence spaces
+- `search_confluence_pages` - Search across pages
+
+### Confluence Page Operations
+- `list_confluence_pages` - List pages in a space
+- `get_confluence_page` - Get detailed page information
+- `create_confluence_page` - Create new pages
+- `update_confluence_page` - Update existing pages
 
 ## 🧪 Testing
 
