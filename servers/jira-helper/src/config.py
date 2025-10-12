@@ -73,6 +73,21 @@ class JiraInstance:
         return f"JiraInstance(name='{self.name}', url='{self.url}', user='{self.user}')"
 
 
+class ConfluenceInstance:
+    """
+    Represents a single Confluence instance configuration.
+    """
+    def __init__(self, name: str, url: str, user: str, token: str, description: str = ""):
+        self.name = name
+        self.url = url
+        self.user = user
+        self.token = token
+        self.description = description or f"Confluence instance at {url}"
+
+    def __repr__(self):
+        return f"ConfluenceInstance(name='{self.name}', url='{self.url}', user='{self.user}')"
+
+
 class Settings:
     """
     Server settings and configuration loaded from YAML files.
@@ -124,24 +139,39 @@ class Settings:
         """
         Get all configured Jira instances.
 
+        Supports both new nested format and old flat format for backward compatibility.
+
         Returns:
             Dict[str, JiraInstance]: Dictionary mapping instance names to JiraInstance objects
         """
         instances = {}
 
-        # Load instances from YAML configuration
-        jira_instances = self.config_data.get('jira_instances', [])
-
-        for instance_config in jira_instances:
-            name = instance_config.get("name")
-            if name:
-                instances[name] = JiraInstance(
-                    name=name,
-                    url=instance_config.get("url", ""),
-                    user=instance_config.get("user", ""),
-                    token=instance_config.get("token", ""),
-                    description=instance_config.get("description", "")
+        # Try new nested format first: instances.{name}.jira
+        nested_instances = self.config_data.get('instances', {})
+        for instance_name, instance_data in nested_instances.items():
+            jira_config = instance_data.get('jira', {})
+            if jira_config and jira_config.get('url'):
+                instances[instance_name] = JiraInstance(
+                    name=instance_name,
+                    url=jira_config.get("url", ""),
+                    user=jira_config.get("username", jira_config.get("user", "")),
+                    token=jira_config.get("api_token", jira_config.get("token", "")),
+                    description=instance_data.get("description", "")
                 )
+
+        # Fallback to old flat format: jira_instances (for backward compatibility)
+        if not instances:
+            jira_instances = self.config_data.get('jira_instances', [])
+            for instance_config in jira_instances:
+                name = instance_config.get("name")
+                if name:
+                    instances[name] = JiraInstance(
+                        name=name,
+                        url=instance_config.get("url", ""),
+                        user=instance_config.get("user", ""),
+                        token=instance_config.get("token", ""),
+                        description=instance_config.get("description", "")
+                    )
 
         # Add legacy single instance if configured and not already present
         if (self.JIRA_URL and self.JIRA_URL != "https://example.atlassian.net" and
@@ -194,6 +224,51 @@ class Settings:
             Optional[JiraInstance]: The requested instance, or None if not found
         """
         instances = self.get_jira_instances()
+        if not instances:
+            return None
+
+        if instance_name is None:
+            instance_name = self.get_default_instance_name()
+
+        return instances.get(instance_name) if instance_name else None
+
+    def get_confluence_instances(self) -> dict[str, ConfluenceInstance]:
+        """
+        Get all configured Confluence instances.
+
+        Supports nested format: instances.{name}.confluence
+
+        Returns:
+            Dict[str, ConfluenceInstance]: Dictionary mapping instance names to ConfluenceInstance objects
+        """
+        instances = {}
+
+        # Load from nested format: instances.{name}.confluence
+        nested_instances = self.config_data.get('instances', {})
+        for instance_name, instance_data in nested_instances.items():
+            confluence_config = instance_data.get('confluence', {})
+            if confluence_config and confluence_config.get('url'):
+                instances[instance_name] = ConfluenceInstance(
+                    name=instance_name,
+                    url=confluence_config.get("url", ""),
+                    user=confluence_config.get("username", confluence_config.get("user", "")),
+                    token=confluence_config.get("api_token", confluence_config.get("token", "")),
+                    description=instance_data.get("description", "")
+                )
+
+        return instances
+
+    def get_confluence_instance(self, instance_name: str | None = None) -> ConfluenceInstance | None:
+        """
+        Get a specific Confluence instance by name, or the default instance.
+
+        Args:
+            instance_name: Name of the instance to get, or None for default
+
+        Returns:
+            Optional[ConfluenceInstance]: The requested instance, or None if not found
+        """
+        instances = self.get_confluence_instances()
         if not instances:
             return None
 
