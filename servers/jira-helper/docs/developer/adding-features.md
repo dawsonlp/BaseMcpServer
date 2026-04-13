@@ -157,3 +157,77 @@ async def test_new_feature_use_case():
 ---
 
 **Most features can be added in under 30 minutes following this pattern.**
+
+---
+
+## Output Sanitization Requirement
+
+**All new tools that return user-authored content must sanitize those fields before returning them.**
+
+The current architecture uses a flat module structure under `src/tools/`. Tool functions extract
+fields from Jira/Confluence API responses and return plain dicts. There is no automatic
+sanitization at the serialization boundary -- sanitization is applied explicitly at each
+extraction point.
+
+### What Must Be Sanitized
+
+User-authored fields are any field whose value originates from free-text entered by a human in
+Jira or Confluence. These include:
+
+| Field type | Examples |
+|-----------|---------|
+| Issue summary | The single-line title of a Jira ticket |
+| Issue description | The body of a Jira ticket |
+| Comment body | Text of a comment on a Jira ticket |
+| Linked issue summary | Summary of an issue referenced via an issue link |
+| Confluence page title | Title of a Confluence page |
+| Confluence page body | HTML/wiki content stored in a Confluence page |
+
+For the full classification table, see
+[docs/architecture/cline-safe-output.md](architecture/cline-safe-output.md).
+
+### What Does NOT Need Sanitization
+
+Structural metadata fields whose values come from Jira's controlled vocabulary do not contain
+angle brackets and do not require sanitization. These include: `status`, `assignee`, `reporter`,
+`priority`, `issue_type`, `project`, `key`, `id`, `created`, `updated`, `labels`, `components`,
+`filename`, `size`, `version`, `type`, `space_key`, `transition`, `message`.
+
+### How to Apply Sanitization
+
+Import from `output_sanitizer` and call `sanitize_string()` on each user-authored field at the
+point of extraction:
+
+```python
+from output_sanitizer import sanitize_string, truncate_string
+
+def my_new_tool(project_key: str, instance_name: str = None, **kwargs) -> dict:
+    # ... fetch from Jira API ...
+    return {
+        "key": issue.get("key", ""),           # Jira-controlled -- no sanitization needed
+        "status": fields.get("status", ""),    # Jira-controlled -- no sanitization needed
+        "summary": sanitize_string(fields.get("summary", "")),      # User-authored -- sanitize
+        "description": sanitize_string(fields.get("description", "")),  # User-authored -- sanitize
+    }
+```
+
+For list-view responses (returning many items), also apply `truncate_string()` to cap field
+length:
+
+```python
+# List view: sanitize then truncate
+"summary": truncate_string(sanitize_string(fields.get("summary", "")), 200),
+
+# Detail view: sanitize only (no truncation)
+"summary": sanitize_string(fields.get("summary", "")),
+```
+
+### Why This Convention Exists
+
+Cline and other XML-sensitive MCP clients inject protocol markers (e.g.,
+`<environment_details>`) into their context pipelines. If a tool response contains the same
+literal string, the client parser silently truncates the response. The failure is
+data-dependent and intermittent, making it very hard to diagnose.
+
+See [docs/user/cline-compatibility.md](../../docs/user/cline-compatibility.md) for the full
+explanation and limitation documentation.

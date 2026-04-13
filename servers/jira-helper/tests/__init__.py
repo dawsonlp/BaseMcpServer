@@ -1,0 +1,1 @@
+"""Jira Helper MCP Server tests."""

@@ -24,20 +24,18 @@ from mcp_manager.cli.commands.install import (
     list_templates
 )
 from mcp_manager.cli.commands.lifecycle import (
-    start_server,
     start_server_impl,
     stop_server,
     restart_server,
-    show_logs,
     show_server_status,
-    kill_server
+    kill_server,
 )
 from mcp_manager.cli.commands.info import (
     list_servers,
     show_status,
     show_system_info,
     show_logs,
-    show_config
+    show_config,
 )
 from mcp_manager.cli.commands.config import (
     edit_server_config,
@@ -47,13 +45,13 @@ from mcp_manager.cli.commands.config import (
     import_config,
     backup_config,
     configure_cline,
-    configure_claude_desktop
+    configure_claude_desktop,
 )
 from mcp_manager.cli.commands.diagnostics import (
     health_check,
     monitor_health,
     troubleshoot_server,
-    system_diagnostics
+    system_diagnostics,
 )
 from mcp_manager.cli.commands.advanced import (
     cleanup_system,
@@ -109,7 +107,7 @@ app.add_typer(diag_app, name="health")  # Shorter name
 app.add_typer(advanced_app, name="admin")  # More intuitive name
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def callback(
     version: bool = typer.Option(
         False, "--version", "-V", help="Show version and exit"
@@ -244,6 +242,14 @@ def status_wrapper(
     show_server_status(name)
 
 
+@lifecycle_app.command("kill")
+def kill_wrapper(
+    name: str = typer.Argument(..., help="Server name to force kill"),
+):
+    """💀 Force kill an MCP server process."""
+    kill_server(name)
+
+
 # === INFO COMMANDS ===
 @info_app.command("list")
 def list_servers_wrapper(
@@ -276,6 +282,15 @@ def summary_wrapper():
     show_system_info()
 
 
+@info_app.command("config")
+def show_config_wrapper(
+    name: str = typer.Argument(..., help="Server name to show config for"),
+    format: str = typer.Option("rich", "--format", "-f", help="Output format (rich/json/yaml)"),
+):
+    """⚙️  Show server configuration details."""
+    show_config(name=name, format=format)
+
+
 # === CONFIG COMMANDS ===
 @config_app.command("cline")
 def configure_cline_wrapper(
@@ -302,16 +317,38 @@ def sync_wrapper(
     sync_platforms(platform=platform, dry_run=dry_run)
 
 
+@config_app.command("edit")
+def edit_config_wrapper(
+    name: str = typer.Argument(..., help="Server name to edit config for"),
+    transport: Optional[str] = typer.Option(None, "--transport", "-t", help="Set transport type"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Set port"),
+    enabled: Optional[bool] = typer.Option(None, "--enabled/--disabled", help="Enable or disable server"),
+    add_auto_approve: list[str] = typer.Option([], "--add-auto-approve", help="Add auto-approve tools"),
+    remove_auto_approve: list[str] = typer.Option([], "--remove-auto-approve", help="Remove auto-approve tools"),
+    clear_auto_approve: bool = typer.Option(False, "--clear-auto-approve", help="Clear all auto-approve tools"),
+):
+    """✏️  Edit server configuration."""
+    from mcp_manager.core.models import TransportType
+    transport_type = TransportType(transport) if transport else None
+    edit_server_config(
+        name=name, transport=transport_type, port=port, enabled=enabled,
+        add_auto_approve=add_auto_approve, remove_auto_approve=remove_auto_approve,
+        clear_auto_approve=clear_auto_approve,
+    )
+
+
 @config_app.command("validate")
-def validate_wrapper():
+def validate_wrapper(
+    name: Optional[str] = typer.Argument(None, help="Server name (optional, validates all if not specified)"),
+):
     """✅ Validate all configurations."""
-    validate_config()
+    validate_config(name=name)
 
 
 @config_app.command("backup")
 def backup_wrapper():
     """💾 Create backup of configurations."""
-    backup_config()
+    backup_config(backup_dir=None)
 
 
 @config_app.command("restore")
@@ -319,7 +356,7 @@ def restore_wrapper(
     backup_file: str = typer.Argument(..., help="Backup file to restore from"),
 ):
     """🔄 Restore configurations from backup."""
-    import_config(backup_file)
+    import_config(Path(backup_file))
 
 
 @config_app.command("import")
@@ -328,16 +365,18 @@ def import_config_wrapper(
     merge: bool = typer.Option(False, "--merge", help="Merge with existing config"),
 ):
     """📥 Import configuration from file."""
-    import_config(file, overwrite=not merge)
+    import_config(Path(file), overwrite=not merge)
 
 
 @config_app.command("export")
 def export_config_wrapper(
     file: str = typer.Argument(..., help="File to export configuration to"),
     format: str = typer.Option("yaml", "--format", "-f", help="Export format (json/yaml)"),
+    include_sensitive: bool = typer.Option(False, "--include-sensitive", help="Include sensitive data like API keys"),
+    servers: list[str] = typer.Option([], "--server", "-s", help="Specific servers to export (all if not specified)"),
 ):
     """📤 Export configuration to file."""
-    export_config(Path(file), format=format)
+    export_config(output_file=Path(file), format=format, include_sensitive=include_sensitive, servers=servers)
 
 
 # === HEALTH/DIAGNOSTIC COMMANDS ===
@@ -371,10 +410,16 @@ def test_connection_wrapper(
 
 @diag_app.command("troubleshoot")
 def troubleshoot_wrapper(
-    name: Optional[str] = typer.Argument(None, help="Server name (optional)"),
+    name: str = typer.Argument(..., help="Server name to troubleshoot"),
 ):
     """🔧 Run troubleshooting diagnostics."""
     troubleshoot_server(name=name)
+
+
+@diag_app.command("system")
+def system_diagnostics_wrapper():
+    """🖥️  Run full system diagnostics."""
+    system_diagnostics()
 
 
 # === ADVANCED/ADMIN COMMANDS ===
@@ -419,9 +464,17 @@ def analyze_wrapper(
 
 
 @advanced_app.command("optimize")
-def optimize_wrapper():
-    """⚡ Optimize system performance."""
-    export_diagnostics()
+def optimize_wrapper(
+    output_file: str = typer.Argument(None, help="Output file for diagnostics (default: /tmp/mcp-diagnostics.json)"),
+):
+    """⚡ Export diagnostics report."""
+    from datetime import datetime
+    if output_file:
+        path = Path(output_file)
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = Path(f"/tmp/mcp-diagnostics-{timestamp}.json")
+    export_diagnostics(output_file=path)
 
 
 @advanced_app.command("benchmark")

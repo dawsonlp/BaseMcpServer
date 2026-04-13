@@ -16,6 +16,7 @@ import psutil
 from pydantic import BaseModel, Field
 
 from mcp_manager.core.models import Server, HealthStatus, HealthReport, ProcessInfo
+from mcp_manager.core.models import HealthCheck as ModelsHealthCheck
 from mcp_manager.core.logging import MCPManagerLogger
 
 
@@ -159,13 +160,26 @@ class HealthChecker:
         
         duration = time.time() - start_time
         
-        return HealthReport(
+        # Convert HealthCheckResult objects to models.HealthCheck for HealthReport
+        model_checks = [
+            ModelsHealthCheck(
+                name=r.check_name,
+                status=r.status,
+                message=r.message,
+                details=r.details,
+                timestamp=r.timestamp,
+                response_time_ms=r.duration_ms,
+            )
+            for r in results
+        ]
+        
+        report = HealthReport(
             server_name=server.name,
             overall_status=overall_status,
-            checks=results,
-            duration_ms=duration * 1000,
-            process_info=process_info
+            checks=model_checks,
         )
+        report.calculate_health_score()
+        return report
     
     async def _run_single_check(
         self,

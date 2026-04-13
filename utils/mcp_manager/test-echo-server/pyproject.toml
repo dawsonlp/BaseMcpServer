@@ -9,8 +9,8 @@ description = "Simple test MCP server for testing mcp-manager removal functional
 authors = [{name = "MCP Manager Test Suite"}]
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.15.0",
-    "mcp-commons",
+    "mcp>=1.26.0",
+    "mcp-commons>=1.33",
 ]
 
 [project.scripts]

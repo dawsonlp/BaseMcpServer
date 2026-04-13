@@ -124,3 +124,65 @@ npx @modelcontextprotocol/inspector
 MCP server development for Cline requires careful attention to transport selection, configuration format, and known compatibility issues. Use SSE transport, avoid StreamableHttpTransport, and implement robust error handling. Monitor the GitHub issue tracker for updates and fixes.
 
 The MCP ecosystem is rapidly evolving, and many of these issues are being actively addressed by the Cline development team.
+
+---
+
+## Protocol Delimiter Collision Risk
+
+### What It Is
+
+Cline injects XML-style tags (e.g., `<environment_details>`) into its internal context pipeline when
+processing MCP tool results. If a tool response payload contains the same literal string, the Cline
+parser treats it as a context injection point and silently truncates the tool result at that position.
+The AI receives no result and may retry the call repeatedly, causing session degradation.
+
+### What Triggers It
+
+User-generated text fields returned in tool responses -- Jira ticket summaries, descriptions, comment
+bodies, and Confluence page titles and content -- may contain angle bracket sequences if users have
+pasted terminal output, IDE snippets, HTML templates, or prior Cline session content into ticket fields.
+
+The failure is data-dependent and intermittent. It resolves on retry only if the retry happens to
+return a different page of results that does not include the offending content.
+
+### Protection in jira-helper (v2.1.0+)
+
+jira-helper applies HTML entity escaping to all user-authored string fields before returning them in
+tool responses. The character `<` is replaced with `&lt;` in:
+
+- Jira issue `summary` (all tools)
+- Jira issue `description` (`get_issue_details`, `get_full_issue_details`)
+- Jira comment `body` (`get_full_issue_details`)
+- Linked issue `summary` embedded in `get_full_issue_details` responses
+- Confluence page `title` (`list_confluence_pages`, `get_confluence_page`, `search_confluence_pages`)
+- Confluence page `body` (`get_confluence_page`)
+
+Structural metadata fields (status names, assignee names, project keys, issue keys, dates, labels,
+component names) are not altered -- these values come from Jira's controlled vocabulary and do not
+contain angle brackets.
+
+### Known Limitation: Confluence Body Entity-Escaping
+
+`get_confluence_page` returns the page body with `<` replaced by `&lt;`. The AI reads this content
+correctly for analysis and summarization purposes.
+
+If a use case requires verbatim Confluence HTML to be written back to Confluence unchanged (read,
+modify, write-back), the caller must reverse the entity escaping before passing the body to
+`update_confluence_page` or `create_confluence_page`. Input parameters to write operations are
+never sanitized -- only output fields are affected.
+
+### Protection Coverage and Remaining Risk
+
+The escaping protects against the known trigger class (angle bracket sequences in user-authored
+fields) for the standard jira-helper tools. It does not protect against:
+
+- Custom fields that may contain user-authored text returned via `raw_data=True` in
+  `get_full_issue_details` (raw mode returns the unprocessed Jira API response)
+- Future Cline protocol markers that do not use angle bracket syntax
+
+### Workaround (Pre-fix or Raw Mode)
+
+If the collision recurs in raw mode or via a future protocol marker:
+- Use `max_results=5` or `max_results=10` to reduce the number of tickets returned per call
+- Use `get_issue_details` for a specific known ticket key rather than bulk search
+- Avoid pasting Cline session output directly into Jira ticket description fields

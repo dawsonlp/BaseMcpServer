@@ -118,7 +118,7 @@ def install_local(
                 pip_exe = venv_dir / "bin" / "pip"
                 
                 result = subprocess.run(
-                    [str(pip_exe), "install", "-e", str(source)],
+                    [str(pip_exe), "install", str(source)],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -211,7 +211,7 @@ def install_local(
                     if requirements_file.name == "requirements.txt":
                         cmd = [str(python_exe), "-m", "pip", "install", "-r", str(requirements_file)]
                     else:
-                        cmd = [str(python_exe), "-m", "pip", "install", "-e", str(source)]
+                        cmd = [str(python_exe), "-m", "pip", "install", str(source)]
                     
                     result = subprocess.run(cmd, capture_output=True, text=True)
                     if result.returncode != 0:

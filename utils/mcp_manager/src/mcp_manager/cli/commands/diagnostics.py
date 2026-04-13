@@ -7,6 +7,7 @@ Provides comprehensive health monitoring, troubleshooting, and system diagnostic
 import typer
 import json
 import time
+import asyncio
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from rich.table import Table
@@ -53,7 +54,7 @@ def health_check(
                 
                 task = progress.add_task(f"Checking health of '{name}'...", total=None)
                 
-                health_report = health_checker.check_server_health(name, timeout=timeout)
+                health_report = asyncio.run(health_checker.check_server_health(server))
                 
                 progress.update(task, description=f"Health check complete for '{name}'")
             
@@ -145,7 +146,13 @@ def health_check(
                     task = progress.add_task(f"Checking '{server_name}'...", total=None)
                     
                     try:
-                        health_report = health_checker.check_server_health(server_name, timeout=timeout)
+                        srv = state.get_server(server_name)
+                        if not srv:
+                            output.warning(f"Server '{server_name}' not found, skipping")
+                            health_results[server_name] = None
+                            progress.remove_task(task)
+                            continue
+                        health_report = asyncio.run(health_checker.check_server_health(srv))
                         health_results[server_name] = health_report
                     except Exception as e:
                         output.warning(f"Health check failed for '{server_name}': {e}")
@@ -254,7 +261,10 @@ def monitor_health(
                 
                 for server_name in servers_to_monitor:
                     try:
-                        health_report = health_checker.check_server_health(server_name, timeout=10)
+                        srv = state.get_server(server_name)
+                        if not srv:
+                            raise MCPManagerError(f"Server '{server_name}' not found")
+                        health_report = asyncio.run(health_checker.check_server_health(srv))
                         
                         status_color = {
                             HealthStatus.HEALTHY: "green",
