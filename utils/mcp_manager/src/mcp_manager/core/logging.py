@@ -108,6 +108,7 @@ class MCPManagerLogger:
         """Create a file handler for persistent logging."""
         try:
             logs_dir = get_logs_dir()
+            logs_dir.mkdir(parents=True, exist_ok=True)
             log_file = logs_dir / "mcp-manager.log"
             
             handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
