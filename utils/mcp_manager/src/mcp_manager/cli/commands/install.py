@@ -30,12 +30,12 @@ def install_local(
     transport: TransportType = typer.Option(TransportType.STDIO, "--transport", "-t", help="Transport protocol"),
     port: Optional[int] = typer.Option(None, "--port", "-p", help="Port for SSE transport"),
     force: bool = typer.Option(False, "--force", "-f", help="Force reinstall if exists"),
-    no_pipx: bool = typer.Option(False, "--no-pipx", help="Use virtual environment instead of pipx"),
+    no_pipx: bool = typer.Option(False, "--no-pipx", help="Use legacy source-copy virtual environment flow"),
     auto_approve: List[str] = typer.Option([], "--auto-approve", help="Auto-approve tools (can be used multiple times)"),
 ):
     """Install a local MCP server from source directory."""
     try:
-        # Determine installation method (pipx is default unless --no-pipx is used)
+        # Determine installation method (--no-pipx is retained for compatibility).
         use_pipx = not no_pipx
         
         # Validate server name
@@ -50,11 +50,11 @@ def install_local(
         if not source.exists() or not source.is_dir():
             raise MCPManagerError(f"Source directory does not exist: {source}")
         
-        # For pipx installation, check for pyproject.toml
+        # Package installation requires project metadata so the server executable can be installed.
         if use_pipx and not (source / "pyproject.toml").exists():
             error_msg = (
-                "A pyproject.toml file is required for pipx-style installation. "
-                "Use --no-pipx to install with virtual environment instead."
+                "A pyproject.toml file is required for isolated package installation. "
+                "Use --no-pipx to install with the legacy source-copy virtual environment flow."
             )
             raise MCPManagerError(error_msg)
         
@@ -82,7 +82,7 @@ def install_local(
         server_dir.mkdir(parents=True, exist_ok=True)
         
         # Show installation method being used
-        method_name = "pipx (standalone application)" if use_pipx else "virtual environment"
+        method_name = "isolated package environment" if use_pipx else "source-copy virtual environment"
         output.info(f"Installing server '{name}' using {method_name}")
         
         # Install server with progress
@@ -94,8 +94,8 @@ def install_local(
         ) as progress:
             
             if use_pipx:
-                # Pipx-style installation
-                task = progress.add_task("Installing as standalone application...", total=100)
+                # Isolated package installation.
+                task = progress.add_task("Installing package into isolated environment...", total=100)
                 
                 # Step 1: Create virtual environment (25%)
                 progress.update(task, description="Creating virtual environment...", advance=25)

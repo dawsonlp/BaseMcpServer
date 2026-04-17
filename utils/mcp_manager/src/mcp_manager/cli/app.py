@@ -141,7 +141,7 @@ def install_local_wrapper(
         False, "--force", "-f", help="Force installation, overwriting existing server"
     ),
     no_pipx: bool = typer.Option(
-        False, "--no-pipx", help="Use virtual environment instead of pipx (default: pipx)"
+        False, "--no-pipx", help="Use legacy source-copy virtual environment flow"
     ),
     port: Optional[int] = typer.Option(
         None, "--port", "-p", help="Port for SSE transport (optional)"
@@ -545,9 +545,6 @@ def show_help():
 
   [cyan]mcp-manager install git my-server --repo https://github.com/user/repo[/cyan]
     Install from Git repository
-
-  [cyan]mcp-manager install pipx my-server --package server-package[/cyan]
-    Install using pipx
 
   [cyan]mcp-manager install remote my-server --url https://api.server.com[/cyan]
     Add remote server
