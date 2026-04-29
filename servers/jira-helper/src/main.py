@@ -4,6 +4,19 @@ Main entry point for the Jira Helper MCP server.
 Supports stdio, sse, and streamable-http transports via mcp-commons.
 """
 
+# Force IDNA codec registration before any network calls.
+#
+# On macOS with Homebrew's Framework-build Python, encodings.idna (a stdlib
+# codec submodule, not the third-party 'idna' package) can fail to load when
+# Python is spawned as a headless subprocess via stdio pipes -- the transport
+# used by MCP hosts such as Cline.  Pre-importing it here, while sys.path is
+# still in a reliable state during the normal import phase, ensures the codec
+# is registered before requests/atlassian-python-api triggers a lazy
+# codecs.lookup('idna') call on the first network connection.
+#
+# See: bug report "No module named 'encodings.idna'" / jira-helper 2.1.0
+import encodings.idna  # noqa: F401
+
 import sys
 import logging
 
