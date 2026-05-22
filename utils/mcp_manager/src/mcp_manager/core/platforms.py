@@ -238,7 +238,7 @@ class ClinePlatformAdapter(PlatformAdapter):
                 return None
             
             # Determine server type (best guess)
-            server_type = ServerType.PIPX  # Default assumption for Cline servers
+            server_type = ServerType.LOCAL  # Default assumption for Cline servers
             
             return Server(
                 name=name,
@@ -453,7 +453,7 @@ class ClaudeDesktopAdapter(PlatformAdapter):
             
             return Server(
                 name=name,
-                type=ServerType.PIPX,  # Default assumption
+                type=ServerType.LOCAL,  # Default assumption
                 transport=transport,
                 command=command,
                 args=args,

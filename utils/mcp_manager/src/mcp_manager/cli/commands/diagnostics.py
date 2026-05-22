@@ -440,15 +440,22 @@ def troubleshoot_server(
                 # Auto-fix 1: Recreate virtual environment if missing
                 if server.is_local() and server.venv_dir and not server.venv_dir.exists():
                     try:
+                        import shutil as _shutil
                         import subprocess
-                        result = subprocess.run(
-                            ["python", "-m", "venv", str(server.venv_dir)],
-                            capture_output=True,
-                            text=True
-                        )
-                        if result.returncode == 0:
-                            output.success("✓ Recreated virtual environment")
-                            fixes_applied += 1
+                        uv_exe = _shutil.which("uv")
+                        if not uv_exe:
+                            output.error("uv is not available on PATH; cannot recreate virtual environment")
+                        else:
+                            result = subprocess.run(
+                                [uv_exe, "venv", str(server.venv_dir)],
+                                capture_output=True,
+                                text=True,
+                            )
+                            if result.returncode == 0:
+                                output.success("✓ Recreated virtual environment with uv")
+                                fixes_applied += 1
+                            else:
+                                output.error(f"uv venv failed: {result.stderr.strip()}")
                     except Exception as e:
                         output.error(f"Failed to recreate virtual environment: {e}")
                 

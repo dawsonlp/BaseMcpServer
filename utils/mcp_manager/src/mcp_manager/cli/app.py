@@ -140,9 +140,6 @@ def install_local_wrapper(
     force: bool = typer.Option(
         False, "--force", "-f", help="Force installation, overwriting existing server"
     ),
-    no_pipx: bool = typer.Option(
-        False, "--no-pipx", help="Use legacy source-copy virtual environment flow"
-    ),
     port: Optional[int] = typer.Option(
         None, "--port", "-p", help="Port for SSE transport (optional)"
     ),
@@ -156,7 +153,7 @@ def install_local_wrapper(
     """📁 Install a local MCP server from a directory."""
     from mcp_manager.core.models import TransportType
     transport_type = TransportType.STDIO if transport == "stdio" else TransportType.SSE
-    install_local(name=name, source=source, transport=transport_type, port=port, force=force, no_pipx=no_pipx, auto_approve=auto_approve)
+    install_local(name=name, source=source, transport=transport_type, port=port, force=force, auto_approve=auto_approve)
 
 
 @install_app.command("template")

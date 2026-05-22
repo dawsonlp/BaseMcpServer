@@ -26,8 +26,7 @@ class TransportType(str, Enum):
 
 class InstallationType(str, Enum):
     """Installation methods for local servers."""
-    VENV = "venv"
-    PIPX = "pipx"
+    UV = "uv"
     SYSTEM = "system"
 
 
@@ -123,6 +122,13 @@ class Server(BaseModel):
                 'remote_sse': 'remote'
             }
             return legacy_mapping.get(v, v)
+        return v
+
+    @validator('installation_type', pre=True)
+    def migrate_legacy_installation_type(cls, v):
+        """Map deprecated installation_type values to UV."""
+        if isinstance(v, str) and v in ('pipx', 'venv'):
+            return 'uv'
         return v
     
     def is_local(self) -> bool:

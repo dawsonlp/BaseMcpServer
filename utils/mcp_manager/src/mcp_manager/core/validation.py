@@ -16,7 +16,7 @@ import yaml
 
 from mcp_manager.core.models import (
     ValidationResult, ValidationError, Server, ServerType, 
-    TransportType, InstallationType, SourceType
+    TransportType, SourceType
 )
 from mcp_manager.core.logging import get_logger
 
@@ -394,18 +394,16 @@ class ConfigValidator:
     
     def _validate_server_consistency(self, server: Server, result: ValidationResult):
         """Perform cross-field validation checks."""
-        
-        # Check Python executable exists for venv installations
-        if (server.is_local() and server.installation_type == InstallationType.VENV and
-            server.venv_dir):
+
+        if server.is_local() and server.venv_dir:
             python_path = server.get_python_executable()
             if python_path and not python_path.exists():
                 result.add_error(
                     "venv_dir",
                     "Python executable not found in virtual environment",
-                    "Recreate the virtual environment or check the path"
+                    "Recreate the virtual environment or reinstall the server",
                 )
-        
+
         # Check main script exists for local servers
         if server.is_local() and server.source_dir:
             main_script = server.get_main_script_path()

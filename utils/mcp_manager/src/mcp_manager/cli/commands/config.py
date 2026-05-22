@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
-from mcp_manager.core.models import Server, PlatformType, TransportType, ServerType, InstallationType
+from mcp_manager.core.models import Server, PlatformType, TransportType, ServerType
 from mcp_manager.core.state import get_state_manager
 from mcp_manager.core.platforms import PlatformManager
 from mcp_manager.core.validation import validate_server_config
@@ -525,53 +525,21 @@ def configure_cline(
                 continue
 
             try:
-                if server.installation_type == InstallationType.PIPX:
-                    # Handle pipx-installed servers
-                    if not server.venv_dir:
-                        output.error(f"venv_dir not set for pipx server '{name}', skipping")
-                        continue
+                if not server.venv_dir:
+                    output.error(f"venv_dir not set for server '{name}', skipping")
+                    continue
 
-                    import sys
-                    executable_path = server.venv_dir / "bin" / name  # Use server name as executable
-                    if not executable_path.exists():
-                        output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
-                        continue
+                executable_path = server.venv_dir / "bin" / name
+                if not executable_path.exists():
+                    output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
+                    continue
 
-                    settings["mcpServers"][name] = {
-                        "command": str(executable_path),
-                        "args": ["stdio"],
-                        "disabled": not server.enabled if hasattr(server, 'enabled') else False,
-                        "autoApprove": server.auto_approve or [],
-                    }
-
-                else:
-                    # Handle venv-installed servers
-                    if not server.venv_dir or not server.source_dir:
-                        output.error(f"Required directories not set for server '{name}', skipping")
-                        continue
-
-                    import sys
-                    python_exe = server.venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-                    main_script = server.source_dir / "main.py"
-
-                    if not python_exe.exists():
-                        output.error(f"Python executable not found for server '{name}' at '{python_exe}', skipping")
-                        continue
-
-                    if not main_script.exists():
-                        output.error(f"main.py not found for server '{name}' at '{main_script}', skipping")
-                        continue
-
-                    settings["mcpServers"][name] = {
-                        "command": str(python_exe),
-                        "args": [str(main_script), "stdio"],
-                        "options": {
-                            "cwd": str(server.source_dir),
-                            "env": {"PYTHONPATH": str(server.source_dir)},
-                        },
-                        "disabled": not server.enabled if hasattr(server, 'enabled') else False,
-                        "autoApprove": server.auto_approve or [],
-                    }
+                settings["mcpServers"][name] = {
+                    "command": str(executable_path),
+                    "args": ["stdio"],
+                    "disabled": not server.enabled if hasattr(server, 'enabled') else False,
+                    "autoApprove": server.auto_approve or [],
+                }
 
                 configured_count += 1
                 output.success(f"Configured server '{name}' for Cline")
@@ -637,45 +605,19 @@ def configure_claude_desktop(
                 continue
 
             try:
-                if server.installation_type == InstallationType.PIPX:
-                    # Handle pipx-installed servers
-                    if not server.venv_dir:
-                        output.error(f"venv_dir not set for pipx server '{name}', skipping")
-                        continue
+                if not server.venv_dir:
+                    output.error(f"venv_dir not set for server '{name}', skipping")
+                    continue
 
-                    executable_path = server.venv_dir / "bin" / name  # Use server name as executable
-                    if not executable_path.exists():
-                        output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
-                        continue
+                executable_path = server.venv_dir / "bin" / name
+                if not executable_path.exists():
+                    output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
+                    continue
 
-                    settings["mcpServers"][name] = {
-                        "command": str(executable_path),
-                        "args": ["stdio"]
-                    }
-
-                else:
-                    # Handle venv-installed servers
-                    if not server.venv_dir or not server.source_dir:
-                        output.error(f"Required directories not set for server '{name}', skipping")
-                        continue
-
-                    import sys
-                    python_exe = server.venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-                    main_script = server.source_dir / "main.py"
-
-                    if not python_exe.exists():
-                        output.error(f"Python executable not found for server '{name}' at '{python_exe}', skipping")
-                        continue
-
-                    if not main_script.exists():
-                        output.error(f"main.py not found for server '{name}' at '{main_script}', skipping")
-                        continue
-
-                    settings["mcpServers"][name] = {
-                        "command": str(python_exe),
-                        "args": [str(main_script), "stdio"],
-                        "env": {"PYTHONPATH": str(server.source_dir)}
-                    }
+                settings["mcpServers"][name] = {
+                    "command": str(executable_path),
+                    "args": ["stdio"]
+                }
 
                 configured_count += 1
                 output.success(f"Configured server '{name}' for Claude Desktop")

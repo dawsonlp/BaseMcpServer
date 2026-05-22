@@ -72,25 +72,19 @@ This shows:
 
 ### Installing a Local MCP Server
 
-Local servers are installed into isolated per-server environments under `~/.config/mcp-manager/servers/`.
-For package-based servers, MCP Manager installs the package into that environment so editor integrations can run the server executable directly.
+Local servers are installed into isolated per-server environments under `~/.config/mcp-manager/servers/<name>/.venv` using [uv](https://docs.astral.sh/uv/). The server's package is installed into that environment so editor integrations can run the server executable directly.
 
 ```bash
-# Install from a local directory (default: isolated package installation)
+# Install from a local directory
 mcp-manager install local example-server --source ./example
-
-# Use the legacy source-copy virtual environment flow instead
-mcp-manager install local example-server --source ./example --no-pipx
 
 # Install from a Git repository
 mcp-manager install git jira-server --repo https://github.com/username/repo --path path/to/server
 ```
 
-**Requirements**: 
-- For default package installation: `pyproject.toml` file is required in the server directory
-- For `--no-pipx` source-copy installation: `requirements.txt` or `pyproject.toml` file is required
-
-**Note:** The default local-server installer currently uses MCP Manager's own per-server virtual environment and `pip` internally. The `--no-pipx` option name is retained for compatibility with earlier releases.
+**Requirements**:
+- `uv` must be available on `PATH`
+- A `pyproject.toml` file is required in the server directory
 
 ### Adding a Remote MCP Server
 
@@ -150,33 +144,9 @@ MCP Manager creates the following directory structure under `~/.config/mcp-manag
 
 **Migration**: If you have existing configurations under `~/.mcp_servers/`, they will be automatically migrated to the new location on first run.
 
-## Migration Notes (v0.3.0)
+## Migration Notes (v1.1.0)
 
-**Breaking Change**: Default installation method changed from source-copy virtual environments to isolated package installation.
-
-### For Existing Users
-
-- **Existing servers**: All previously installed servers continue to work normally
-- **New installations**: Now default to isolated package installation (requires `pyproject.toml`)
-- **Migration path**: Use `--no-pipx` flag if your server lacks `pyproject.toml`
-
-### Example Migration
-
-```bash
-# Before v0.3.0
-mcp-manager install local my-server --source ./my-server
-
-# v0.3.0+ (default - isolated package installation, requires pyproject.toml)
-mcp-manager install local my-server --source ./my-server
-
-# v0.3.0+ (if no pyproject.toml - source-copy virtual environment)
-mcp-manager install local my-server --source ./my-server --no-pipx
-```
-
-### Benefits of New Default
-- **Better Isolation**: Complete isolation from system Python
-- **Easier Management**: Cleaner upgrades and dependency handling
-- **Modern Standards**: Follows current Python packaging best practices
+**Breaking Change**: The legacy `--no-pipx` source-copy install flow has been removed. Local servers are now always installed as isolated packages using `uv`. Existing server records using the older `pipx`/`venv` installation_type values are auto-migrated to `uv` on load. Servers installed via the old source-copy flow must be reinstalled.
 
 ## VS Code Cline Integration
 
@@ -193,8 +163,7 @@ This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp
 | Command | Description |
 |---------|-------------|
 | `mcp-manager info system` | Show comprehensive configuration status with Rich formatting |
-| `mcp-manager install local <name> --source <path>` | Install local MCP server with isolated package environment |
-| `mcp-manager install local <name> --source <path> --no-pipx` | Install local MCP server with source-copy virtual environment |
+| `mcp-manager install local <name> --source <path>` | Install local MCP server into an isolated uv-managed environment |
 | `mcp-manager list` | List all configured servers |
 | `mcp-manager server start <server>` | Run a local server |
 | `mcp-manager config cline` | Configure VS Code Cline integration |
