@@ -83,6 +83,15 @@ INFRASTRUCTURE_TOOLS: Dict[str, Dict[str, str]] = {
 }
 
 
+# Top-level keys Alpha Vantage uses to signal a problem instead of returning data.
+# Order matters: probed first-to-last and the first match wins.
+_ALPHAVANTAGE_ERROR_KEYS = {
+    "Information": "API rate limit",   # current quota-exceeded format
+    "Note": "API rate limit",          # legacy rate-limit format
+    "Error Message": "API error",      # malformed request / invalid symbol
+}
+
+
 # ---------------------------------------------------------------------------
 # Low-level fetch helpers
 # ---------------------------------------------------------------------------
@@ -96,66 +105,72 @@ def _parse_date(raw: str) -> str:
         return "unknown"
 
 
-def fetch_pypi_version(package: str) -> Dict[str, Any]:
-    """Fetch version info for a single Python package from PyPI."""
+def _fetch_json(url: str, *, source_label: str, name: str) -> Any:
+    """GET `url`, return parsed JSON on success or an error dict on failure.
+
+    Callers branch on `isinstance(result, dict) and "error" in result`. The
+    error envelope always carries `name` and `source` so downstream display
+    code (and the "X tools tracked, Y errored" summary) works uniformly.
+    """
     try:
         with httpx.Client(timeout=10) as client:
-            response = client.get(f"https://pypi.org/pypi/{package}/json")
-
+            response = client.get(url)
         if response.status_code != 200:
-            return {"name": package, "error": f"HTTP {response.status_code}", "source": "PyPI"}
-
-        data = response.json()
-        info = data.get("info", {})
-        latest = info.get("version", "unknown")
-        releases = data.get("releases", {})
-
-        release_date = "unknown"
-        if latest in releases and releases[latest]:
-            raw = releases[latest][0].get("upload_time", "")
-            if raw:
-                release_date = _parse_date(raw)
-
-        return {
-            "name": package,
-            "latest_version": latest,
-            "release_date": release_date,
-            "source": "PyPI",
-            "homepage": info.get("home_page", ""),
-            "summary": (info.get("summary", "") or "")[:100],
-        }
+            return {"name": name, "error": f"HTTP {response.status_code}", "source": source_label}
+        return response.json()
     except httpx.TimeoutException:
-        return {"name": package, "error": "timeout", "source": "PyPI"}
+        return {"name": name, "error": "timeout", "source": source_label}
     except Exception as e:
-        return {"name": package, "error": str(e), "source": "PyPI"}
+        return {"name": name, "error": str(e), "source": source_label}
+
+
+def _is_error(result: Any) -> bool:
+    return isinstance(result, dict) and "error" in result
+
+
+def fetch_pypi_version(package: str) -> Dict[str, Any]:
+    """Fetch version info for a single Python package from PyPI."""
+    data = _fetch_json(f"https://pypi.org/pypi/{package}/json", source_label="PyPI", name=package)
+    if _is_error(data):
+        return data
+
+    info = data.get("info", {})
+    latest = info.get("version", "unknown")
+    releases = data.get("releases", {})
+
+    release_date = "unknown"
+    if latest in releases and releases[latest]:
+        raw = releases[latest][0].get("upload_time", "")
+        if raw:
+            release_date = _parse_date(raw)
+
+    return {
+        "name": package,
+        "latest_version": latest,
+        "release_date": release_date,
+        "source": "PyPI",
+        "homepage": info.get("home_page", ""),
+        "summary": (info.get("summary", "") or "")[:100],
+    }
 
 
 def fetch_github_release_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
     """Fetch latest published release from GitHub Releases API."""
     name = tool_cfg["name"]
-    try:
-        url = f"https://api.github.com/repos/{tool_cfg['repo']}/releases/latest"
-        with httpx.Client(timeout=10) as client:
-            response = client.get(url)
+    url = f"https://api.github.com/repos/{tool_cfg['repo']}/releases/latest"
+    data = _fetch_json(url, source_label="GitHub", name=name)
+    if _is_error(data):
+        return data
 
-        if response.status_code != 200:
-            return {"name": name, "error": f"HTTP {response.status_code}", "source": "GitHub"}
-
-        data = response.json()
-        release_date = _parse_date(data.get("published_at", "")) if data.get("published_at") else "unknown"
-
-        return {
-            "name": name,
-            "latest_version": data.get("tag_name", "unknown").lstrip("v"),
-            "release_date": release_date,
-            "source": "GitHub",
-            "url": data.get("html_url", ""),
-            "description": (data.get("body", "") or "")[:100],
-        }
-    except httpx.TimeoutException:
-        return {"name": name, "error": "timeout", "source": "GitHub"}
-    except Exception as e:
-        return {"name": name, "error": str(e), "source": "GitHub"}
+    release_date = _parse_date(data.get("published_at", "")) if data.get("published_at") else "unknown"
+    return {
+        "name": name,
+        "latest_version": data.get("tag_name", "unknown").lstrip("v"),
+        "release_date": release_date,
+        "source": "GitHub",
+        "url": data.get("html_url", ""),
+        "description": (data.get("body", "") or "")[:100],
+    }
 
 
 # Stable release tag: leading optional "v", then 1-3 dotted numeric components.
@@ -178,84 +193,64 @@ def fetch_github_tag_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
     GitHub Releases (e.g. Apache Kafka).
     """
     name = tool_cfg["name"]
-    try:
-        url = f"https://api.github.com/repos/{tool_cfg['repo']}/tags?per_page=100"
-        with httpx.Client(timeout=10) as client:
-            response = client.get(url)
+    url = f"https://api.github.com/repos/{tool_cfg['repo']}/tags?per_page=100"
+    tags = _fetch_json(url, source_label="GitHub tags", name=name)
+    if _is_error(tags):
+        return tags
 
-        if response.status_code != 200:
-            return {"name": name, "error": f"HTTP {response.status_code}", "source": "GitHub tags"}
+    stable = []
+    for tag in tags:
+        parsed = _parse_stable_tag(tag.get("name", ""))
+        if parsed is not None:
+            stable.append((parsed, tag.get("name", "")))
 
-        tags = response.json()
-        stable: list[tuple[tuple[int, int, int], str, str]] = []
-        for tag in tags:
-            tag_name = tag.get("name", "")
-            parsed = _parse_stable_tag(tag_name)
-            if parsed is not None:
-                stable.append((parsed, tag_name, tag.get("commit", {}).get("sha", "")))
+    if not stable:
+        return {"name": name, "error": "no stable tags found", "source": "GitHub tags"}
 
-        if not stable:
-            return {"name": name, "error": "no stable tags found", "source": "GitHub tags"}
-
-        stable.sort(key=lambda t: t[0], reverse=True)
-        _version, tag_name, _sha = stable[0]
-
-        return {
-            "name": name,
-            "latest_version": tag_name.lstrip("v"),
-            "release_date": "unknown",  # tags API does not include date
-            "source": "GitHub tags",
-            "url": f"https://github.com/{tool_cfg['repo']}/releases/tag/{tag_name}",
-            "description": "",
-        }
-    except httpx.TimeoutException:
-        return {"name": name, "error": "timeout", "source": "GitHub tags"}
-    except Exception as e:
-        return {"name": name, "error": str(e), "source": "GitHub tags"}
+    stable.sort(key=lambda t: t[0], reverse=True)
+    _version, tag_name = stable[0]
+    return {
+        "name": name,
+        "latest_version": tag_name.lstrip("v"),
+        "release_date": "unknown",  # tags API does not include date
+        "source": "GitHub tags",
+        "url": f"https://github.com/{tool_cfg['repo']}/releases/tag/{tag_name}",
+        "description": "",
+    }
 
 
 def fetch_postgresql_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
     """Fetch the latest stable PostgreSQL minor release from postgresql.org."""
     name = tool_cfg["name"]
-    try:
-        with httpx.Client(timeout=10) as client:
-            response = client.get("https://www.postgresql.org/versions.json")
+    versions = _fetch_json("https://www.postgresql.org/versions.json", source_label="postgresql.org", name=name)
+    if _is_error(versions):
+        return versions
 
-        if response.status_code != 200:
-            return {"name": name, "error": f"HTTP {response.status_code}", "source": "postgresql.org"}
+    # Pick the highest-numbered supported branch (filter out EOL).
+    supported = [v for v in versions if v.get("supported")]
+    if not supported:
+        return {"name": name, "error": "no supported versions in feed", "source": "postgresql.org"}
 
-        versions = response.json()
+    def _major_key(entry: Dict[str, Any]):
+        try:
+            return tuple(int(part) for part in str(entry.get("major", "0")).split("."))
+        except ValueError:
+            return (0,)
 
-        # Pick the highest-numbered supported branch (filter out EOL).
-        supported = [v for v in versions if v.get("supported")]
-        if not supported:
-            return {"name": name, "error": "no supported versions in feed", "source": "postgresql.org"}
+    latest = max(supported, key=_major_key)
+    major = str(latest.get("major", "")).strip()
+    minor = str(latest.get("latestMinor", "")).strip()
+    version = f"{major}.{minor}" if major and minor else (major or "unknown")
+    rel_date = latest.get("relDate", "") or latest.get("last_minor_release", "")
 
-        def _major_key(entry: Dict[str, Any]):
-            try:
-                return tuple(int(part) for part in str(entry.get("major", "0")).split("."))
-            except ValueError:
-                return (0,)
-
-        latest = max(supported, key=_major_key)
-
-        major = str(latest.get("major", "")).strip()
-        minor = str(latest.get("latestMinor", "")).strip()
-        version = f"{major}.{minor}" if major and minor else (major or "unknown")
-        rel_date = latest.get("relDate", "") or latest.get("last_minor_release", "")
-
-        return {
-            "name": name,
-            "latest_version": version,
-            "release_date": _parse_date(rel_date) if rel_date else "unknown",
-            "source": "postgresql.org",
-            "url": "https://www.postgresql.org/docs/release/",
-            "description": "",
-        }
-    except httpx.TimeoutException:
-        return {"name": name, "error": "timeout", "source": "postgresql.org"}
-    except Exception as e:
-        return {"name": name, "error": str(e), "source": "postgresql.org"}
+    return {
+        "name": name,
+        "latest_version": version,
+        "release_date": _parse_date(rel_date) if rel_date else "unknown",
+        "source": "postgresql.org",
+        "url": "https://www.postgresql.org/docs/release/",
+        "description": "",
+    }
 
 
 _INFRA_FETCHERS = {
@@ -414,14 +409,15 @@ def get_stock_market_overview() -> Dict[str, Any]:
                     "change_percent": quote.get("10. change percent", "N/A"),
                     "last_updated": quote.get("07. latest trading day", "N/A"),
                 }
-            elif "Information" in data:
-                # Alpha Vantage's current rate-limit / quota-exceeded response.
-                market_data[symbol] = {"name": name, "error": "API rate limit", "note": data["Information"]}
-            elif "Note" in data:
-                # Legacy rate-limit response format.
-                market_data[symbol] = {"name": name, "error": "API rate limit", "note": data["Note"]}
-            elif "Error Message" in data:
-                market_data[symbol] = {"name": name, "error": "API error", "note": data["Error Message"]}
+                continue
+
+            # Alpha Vantage signals problems via one of three top-level keys.
+            # "Information" is the current quota-exceeded format; "Note" is the
+            # legacy rate-limit format; "Error Message" is for malformed requests.
+            for key, label in _ALPHAVANTAGE_ERROR_KEYS.items():
+                if key in data:
+                    market_data[symbol] = {"name": name, "error": label, "note": data[key]}
+                    break
             else:
                 market_data[symbol] = {"name": name, "error": "Unexpected response format", "raw_keys": list(data.keys())}
         except Exception as e:

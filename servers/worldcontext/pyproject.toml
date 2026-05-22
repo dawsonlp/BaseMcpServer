@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "worldcontext-mcp-server"
-version = "1.2.0"
+version = "1.2.1"
 description = "WorldContext MCP Server - Provides current context information including date/time, stock market overview, and news headlines"
 authors = [
     {name = "MCP Server Team", email = "example@example.com"}
