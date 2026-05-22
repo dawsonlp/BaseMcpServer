@@ -10,6 +10,9 @@ Complete guide for creating new MCP (Model Context Protocol) servers, including 
 ### [MCP Result Adapter](mcp-result-adapter.md)
 Technical documentation for the MCP result adapter system, including implementation details and usage patterns.
 
+### [MCP Client Support Research](mcp-client-support.md)
+Research findings and configuration formats for extending mcp-manager to additional MCP clients (Claude Code, ChatGPT, etc.) beyond the currently-supported Cline and Claude Desktop.
+
 ## Architecture & Patterns
 
 This project follows hexagonal (ports-and-adapters) architecture principles:

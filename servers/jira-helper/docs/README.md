@@ -22,6 +22,7 @@ The Jira Helper MCP Server provides comprehensive Jira integration capabilities 
 - **[Hexagonal Architecture](architecture/hexagonal-design.md)** - Core architectural patterns
 - **[Search System](architecture/search-system.md)** - Search functionality design
 - **[MCP Integration](architecture/mcp-integration.md)** - MCP protocol implementation
+- **[MCP Resource System (design)](architecture/mcp-resource-system.md)** - Proposed design for serving workflow-graph images via MCP resources instead of base64 strings (status: design-complete, not yet implemented)
 
 ## Quick Start
 

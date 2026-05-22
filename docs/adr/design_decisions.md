@@ -149,7 +149,6 @@ The benefits of removing redundant files and clarifying the actual server discov
 
 ### References
 
-- FastMCP automatic schema generation: See readme_fastmcp.md
 - VSCode/Cline MCP settings configuration: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
 
 ## 2025-04-21: Removing .env Files from Git Tracking and Adding .gitignore
@@ -415,7 +414,6 @@ The tradeoffs heavily favor FastMCP for our use case. The minimal loss of direct
 
 ### References
 
-- [FastMCP vs Low-Level Server Implementation](readme_fastmcp.md)
 - [MCP Python SDK Documentation](https://modelcontextprotocol.io)
 
 ## 2025-01-22: Jira Helper Architectural Review and Refactoring Plan

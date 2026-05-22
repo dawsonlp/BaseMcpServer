@@ -3,7 +3,7 @@
 **Author:** Chief Architect
 **Date:** 2026-04-13
 **Status:** Approved
-**Related:** [Requirements -- Cline-Safe Output](../requirements-cline-safe-output.md)
+<!-- Original requirements doc removed after the feature shipped in v2.1.0 (commit c266a9e). -->
 
 ---
 

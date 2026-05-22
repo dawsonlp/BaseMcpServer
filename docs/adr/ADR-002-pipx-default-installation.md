@@ -104,7 +104,8 @@ Currently, mcp-manager defaults to virtual environment (venv) installation for l
 - **Migration Support**: Documentation and examples updated
 
 ## Related Documents
-- Implementation checklist: `docs/miscellaneous/PIPX_DEFAULT_IMPLEMENTATION_CHECKLIST.md`
+<!-- Implementation checklist was removed; the work shipped in mcp-manager 0.3.0 and is superseded by ADR-003. -->
+- Superseded by [ADR-003](ADR-003-uv-standardization.md)
 - Original design decisions: `docs/adr/design_decisions.md`
 
 ---

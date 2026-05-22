@@ -13,9 +13,6 @@ Technical documentation for developers building and extending MCP servers.
 ### 🏛️ [Architectural Decision Records (ADRs)](adr/)
 Historical record of important architectural decisions made during development.
 
-### 📋 [Miscellaneous Documentation](miscellaneous/)
-Working documents, planning materials, and temporary documentation that supported development but may not have long-term usefulness.
-
 ## Quick Links
 
 - **Getting Started**: See [QUICKSTART.md](../QUICKSTART.md) in the project root
@@ -32,11 +29,9 @@ BaseMcpServer/
 ├── docs/                       # All documentation (this directory)
 │   ├── user/                   # End-user documentation
 │   ├── developer/              # Technical/developer documentation
-│   ├── adr/                    # Architectural Decision Records
-│   └── miscellaneous/          # Working docs and planning materials
+│   └── adr/                    # Architectural Decision Records
 ├── servers/                    # MCP server implementations
-├── utils/                      # Utility tools (mcp-manager, etc.)
-└── libs/                       # Shared libraries
+└── utils/                      # Utility tools (mcp-manager, etc.)
 ```
 
 ## Contributing to Documentation
@@ -46,6 +41,6 @@ When adding new documentation:
 - **User guides** and tutorials → `docs/user/`
 - **Technical specifications** and API docs → `docs/developer/`
 - **Architecture decisions** → `docs/adr/`
-- **Temporary planning docs** → `docs/miscellaneous/`
+- **In-progress bug reports** → live alongside the server they describe (e.g. `servers/jira-helper/BUG_*.md`)
 
 Keep the main project `readme.md` and `QUICKSTART.md` in the root for immediate visibility.
