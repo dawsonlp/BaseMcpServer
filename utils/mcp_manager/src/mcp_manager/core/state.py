@@ -6,7 +6,6 @@ and configuration handling.
 """
 
 import json
-import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -77,34 +76,8 @@ def get_claude_desktop_settings_path() -> Path:
         return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
 
 
-def migrate_from_old_location() -> bool:
-    """Migrate existing data from ~/.mcp_servers to ~/.config/mcp-manager."""
-    old_home = Path.home() / ".mcp_servers"
-    new_home = get_mcp_home()
-    
-    # If old directory exists and new directory doesn't exist (or is empty)
-    if old_home.exists() and not new_home.exists():
-        try:
-            # Create parent directory
-            new_home.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Copy the entire old directory to new location
-            shutil.copytree(old_home, new_home)
-            
-            print(f"✓ Migrated MCP manager data from {old_home} to {new_home}")
-            return True
-        except Exception as e:
-            print(f"⚠ Warning: Failed to migrate data from {old_home}: {e}")
-            return False
-    
-    return False
-
-
 def create_directory_structure() -> None:
     """Create the MCP directory structure if it doesn't exist."""
-    # First, try to migrate from old location
-    migrate_from_old_location()
-    
     # Create main directories
     directories = [
         get_mcp_home(),
@@ -156,21 +129,34 @@ class StateManager:
         """Load servers from registry file."""
         if not self.registry_file.exists():
             return {}
-        
+
         try:
             data = json.loads(self.registry_file.read_text())
-            servers = {}
-            
-            for name, server_data in data.get("servers", {}).items():
-                try:
-                    servers[name] = Server.model_validate(server_data)
-                except Exception as e:
-                    print(f"Warning: Failed to load server {name}: {e}")
-            
-            return servers
         except Exception as e:
-            print(f"Error loading servers registry: {e}")
+            print(f"Error reading servers registry: {e}")
             return {}
+
+        servers: Dict[str, Server] = {}
+        legacy_skipped: list[str] = []
+
+        for name, server_data in data.get("servers", {}).items():
+            try:
+                servers[name] = Server.model_validate(server_data)
+            except Exception as e:
+                legacy_skipped.append(name)
+                print(f"Warning: skipped registry entry {name!r}: {e}")
+
+        if legacy_skipped:
+            print(
+                f"\n{len(legacy_skipped)} server registry entr{'y' if len(legacy_skipped) == 1 else 'ies'} "
+                "could not be loaded (likely from a pre-1.2.0 mcp-manager).\n"
+                "Reinstall each with:\n"
+                "  mcp-manager install local <name> --source <path> --force\n"
+                "Per-server config.yaml files in ~/.config/mcp-manager/servers/<name>/ "
+                "(API keys, credentials) are preserved automatically on reinstall.\n"
+            )
+
+        return servers
     
     def _save_servers(self, servers: Dict[str, Server]):
         """Save servers to registry file."""

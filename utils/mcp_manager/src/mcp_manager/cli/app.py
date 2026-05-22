@@ -20,8 +20,6 @@ from mcp_manager.cli.common.errors import handle_error
 from mcp_manager.cli.commands.install import (
     install_local,
     install_remote,
-    install_from_template,
-    list_templates
 )
 from mcp_manager.cli.commands.lifecycle import (
     start_server_impl,
@@ -154,23 +152,6 @@ def install_local_wrapper(
     from mcp_manager.core.models import TransportType
     transport_type = TransportType.STDIO if transport == "stdio" else TransportType.SSE
     install_local(name=name, source=source, transport=transport_type, port=port, force=force, auto_approve=auto_approve)
-
-
-@install_app.command("template")
-def install_template_wrapper(
-    name: str = typer.Argument(..., help="Name for the MCP server"),
-    template: str = typer.Option(..., "--template", "-t", help="Template name"),
-    force: bool = typer.Option(
-        False, "--force", "-f", help="Force installation"
-    ),
-):
-    """📁 Install from template."""
-    install_from_template(name=name, template=template, force=force)
-
-@install_app.command("list-templates")
-def list_templates_wrapper():
-    """📋 List available templates."""
-    list_templates()
 
 
 @install_app.command("remote")
@@ -307,11 +288,13 @@ def configure_claude_wrapper(
 
 @config_app.command("sync")
 def sync_wrapper(
-    platform: Optional[str] = typer.Option(None, "--platform", "-p", help="Specific platform to sync (cline|claude)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be synced"),
+    platform: Optional[str] = typer.Option(
+        None, "--platform", "-p",
+        help="Specific platform to sync (cline|claude). Default: all installed.",
+    ),
 ):
-    """🔄 Sync servers with platform configurations."""
-    sync_platforms(platform=platform, dry_run=dry_run)
+    """🔄 Push the current server registry into each AI platform's settings."""
+    sync_platforms(platform=platform)
 
 
 @config_app.command("edit")

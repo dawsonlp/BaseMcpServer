@@ -16,7 +16,7 @@ from rich.text import Text
 
 from mcp_manager.core.models import Server, PlatformType, TransportType, ServerType
 from mcp_manager.core.state import get_state_manager
-from mcp_manager.core.platforms import PlatformManager
+from mcp_manager.core.platforms import discover_installed_platforms, sync_to_platform
 from mcp_manager.core.validation import validate_server_config
 from mcp_manager.cli.common.output import get_output_manager
 from mcp_manager.cli.common.errors import handle_error, MCPManagerError
@@ -27,7 +27,6 @@ app = typer.Typer(help="Configuration management")
 output = get_output_manager()
 validator = CLIValidator()
 state = get_state_manager()
-platform_manager = PlatformManager()
 
 
 @app.command("edit")
@@ -167,98 +166,56 @@ def validate_config(
         handle_error(e, "Failed to validate configuration")
 
 
+_PLATFORM_ALIASES = {
+    "cline": PlatformType.CLINE,
+    "vscode": PlatformType.CLINE,
+    "claude": PlatformType.CLAUDE_DESKTOP,
+    "claude-desktop": PlatformType.CLAUDE_DESKTOP,
+}
+
+
 @app.command("sync")
 def sync_platforms(
-    platform: Optional[str] = typer.Option(None, "--platform", "-p", help="Specific platform to sync (cline|claude)"),
-    direction: str = typer.Option("both", "--direction", "-d", help="Sync direction (import|export|both)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be synced without making changes"),
+    platform: Optional[str] = typer.Option(
+        None, "--platform", "-p",
+        help="Specific platform to sync (cline|claude). Default: all installed.",
+    ),
 ):
-    """Synchronize server configurations with AI platforms."""
+    """Push the current server registry into each AI platform's settings.
+
+    Existing `mcpServers` entries that the user added by hand are preserved;
+    only entries with the same name as a registered server are overwritten.
+    Remote servers and non-stdio transports are skipped (the editor settings
+    files only support local stdio commands).
+    """
     try:
-        servers = state.get_servers()
-        
-        # Determine platforms to sync
         if platform:
-            if platform == "cline":
-                platforms = [PlatformType.CLINE]
-            elif platform == "claude":
-                platforms = [PlatformType.CLAUDE_DESKTOP]
-            else:
-                raise MCPManagerError(f"Unknown platform: {platform}")
+            key = platform.lower()
+            if key not in _PLATFORM_ALIASES:
+                raise MCPManagerError(
+                    f"Unknown platform: {platform!r}. "
+                    f"Valid choices: {', '.join(sorted(_PLATFORM_ALIASES))}."
+                )
+            platforms = [_PLATFORM_ALIASES[key]]
         else:
-            platforms = list(PlatformType)
-        
-        # Show what will be synced
-        if dry_run:
-            output.info("Dry run mode - showing what would be synced:")
-            
-            for platform_type in platforms:
-                output.info(f"\nPlatform: {platform_type.value}")
-                
-                if direction in ["import", "both"]:
-                    imported_servers = platform_manager.sync_from_platform(platform_type)
-                    if imported_servers:
-                        output.info(f"  Would import {len(imported_servers)} servers:")
-                        for server in imported_servers:
-                            output.info(f"    • {server.name}")
-                    else:
-                        output.info(f"  No servers to import from {platform_type.value}")
-                
-                if direction in ["export", "both"]:
-                    output.info(f"  Would export {len(servers)} servers to {platform_type.value}")
-            
+            platforms = discover_installed_platforms()
+            if not platforms:
+                output.warning("No supported platforms detected on this system.")
+                return
+
+        servers = list(state.get_servers().values())
+        if not servers:
+            output.warning("No servers registered. Install one with `mcp-manager install local`.")
             return
-        
-        # Perform actual sync
-        sync_results = {}
-        
+
         for platform_type in platforms:
-            platform_name = platform_type.value
-            output.info(f"Syncing with {platform_name}...")
-            
-            try:
-                if direction in ["import", "both"]:
-                    # Import from platform
-                    imported_servers = platform_manager.sync_from_platform(platform_type)
-                    if imported_servers:
-                        for server in imported_servers:
-                            # Check if server already exists
-                            existing = state.get_server(server.name)
-                            if existing:
-                                output.warning(f"Server '{server.name}' already exists, skipping import")
-                            else:
-                                state.add_server(server)
-                                output.success(f"Imported server '{server.name}' from {platform_name}")
-                        
-                        sync_results[f"{platform_name}_imported"] = len(imported_servers)
-                    else:
-                        output.info(f"No servers to import from {platform_name}")
-                        sync_results[f"{platform_name}_imported"] = 0
-                
-                if direction in ["export", "both"]:
-                    # Export to platform
-                    server_list = list(servers.values())
-                    success = platform_manager.sync_to_platform(platform_type, server_list)
-                    
-                    if success:
-                        output.success(f"Exported {len(server_list)} servers to {platform_name}")
-                        sync_results[f"{platform_name}_exported"] = len(server_list)
-                    else:
-                        output.error(f"Failed to export servers to {platform_name}")
-                        sync_results[f"{platform_name}_exported"] = 0
-                
-            except Exception as e:
-                output.error(f"Failed to sync with {platform_name}: {e}")
-                sync_results[f"{platform_name}_error"] = str(e)
-        
-        # Show summary
-        output.info("\nSync Summary:")
-        for key, value in sync_results.items():
-            if key.endswith("_error"):
-                output.error(f"  {key}: {value}")
-            else:
-                output.info(f"  {key}: {value}")
-        
+            output.info(f"Syncing {len(servers)} server(s) to {platform_type.value}...")
+            result = sync_to_platform(platform_type, servers)
+            for name in result["configured"]:
+                output.success(f"  ✓ {name}")
+            for skip in result["skipped"]:
+                output.warning(f"  skipped {skip['name']}: {skip['reason']}")
+
     except Exception as e:
         handle_error(e, "Failed to sync platforms")
 

@@ -17,7 +17,6 @@ from rich.text import Text
 from mcp_manager.core.models import Server, ServerState, SystemInfo, PlatformType
 from mcp_manager.core.state import get_state_manager
 from mcp_manager.core.health import HealthChecker
-from mcp_manager.core.platforms import PlatformManager
 from mcp_manager.cli.common.output import get_output_manager, OutputFormat
 from mcp_manager.cli.common.errors import handle_error, MCPManagerError
 
@@ -26,7 +25,6 @@ app = typer.Typer(help="Information and status commands")
 output = get_output_manager()
 state = get_state_manager()
 health_checker = HealthChecker()
-platform_manager = PlatformManager()
 
 
 @app.command("list")

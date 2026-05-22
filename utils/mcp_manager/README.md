@@ -129,24 +129,30 @@ MCP Manager creates the following directory structure under `~/.config/mcp-manag
 
 ```
 ~/.config/mcp-manager/
-├── servers/                  # Local server installations
-│   ├── example-server/       
-│   │   ├── .venv/            # Virtual environment
-│   │   ├── src/              # Source code
-│   │   └── meta.json         # Metadata
-├── bin/                      # Generated wrapper scripts
-│   ├── example-server.sh     # Wrapper for stdio mode
-└── config/                   # Configuration
-    ├── servers.json          # Server registry
-    └── editors/              # Editor configurations
-        └── vscode-cline.json # Generated VS Code Cline config
+├── servers/                  # Per-server isolated environments
+│   └── <server-name>/
+│       ├── .venv/            # uv-managed virtual environment (the server is `uv pip install`ed here)
+│       └── config.yaml       # Server-specific config / credentials (preserved across reinstall)
+├── logs/                     # Per-server log files
+└── config/
+    └── servers.json          # Registry of installed servers
 ```
 
-**Migration**: If you have existing configurations under `~/.mcp_servers/`, they will be automatically migrated to the new location on first run.
+## Migration Notes (v1.2.0)
 
-## Migration Notes (v1.1.0)
+**Breaking Change**: Legacy state migrations and the `install from-template` / `list-templates` stub commands have been removed. Registry entries from pre-1.1.0 installs (`installation_type: "pipx"` or `"venv"`; `server_type: "local_stdio"`/`"local_sse"`/etc.) and data under `~/.mcp_servers/` are no longer auto-migrated.
 
-**Breaking Change**: The legacy `--no-pipx` source-copy install flow has been removed. Local servers are now always installed as isolated packages using `uv`. Existing server records using the older `pipx`/`venv` installation_type values are auto-migrated to `uv` on load. Servers installed via the old source-copy flow must be reinstalled.
+On startup, any registry entries that fail to validate are skipped with a clear message instructing you to reinstall them:
+
+```
+mcp-manager install local <name> --source <path> --force
+```
+
+Per-server `config.yaml` files under `~/.config/mcp-manager/servers/<name>/` (API keys, credentials) **are preserved automatically** on reinstall — `install local --force` backs up and restores `config.yaml` so authentication details survive the migration.
+
+### v1.1.0 (earlier)
+
+The `--no-pipx` source-copy install flow was removed. Local servers are always installed as isolated packages using `uv`.
 
 ## VS Code Cline Integration
 

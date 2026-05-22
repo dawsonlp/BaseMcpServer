@@ -213,35 +213,5 @@ def install_remote(
         handle_error(e, "Failed to install remote server")
 
 
-@app.command("from-template")
-def install_from_template(
-    name: str = typer.Argument(..., help="Server name"),
-    template: str = typer.Option(..., "--template", "-t", help="Template name or path"),
-    destination: Optional[Path] = typer.Option(None, "--dest", "-d", help="Destination directory"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force reinstall if exists"),
-):
-    """Install a server from a template."""
-    try:
-        output.info("Template installation not yet implemented")
-        output.info("This feature will be available in a future version")
-
-    except Exception as e:
-        handle_error(e, "Failed to install from template")
-
-
-@app.command("list-templates")
-def list_templates():
-    """List available server templates."""
-    try:
-        output.info("Available templates:")
-        output.info("• basic-server - Basic MCP server template")
-        output.info("• fastapi-server - FastAPI-based MCP server")
-        output.info("• tool-server - Tool-focused MCP server")
-        output.info("\nTemplate system not yet fully implemented")
-
-    except Exception as e:
-        handle_error(e, "Failed to list templates")
-
-
 if __name__ == "__main__":
     app()

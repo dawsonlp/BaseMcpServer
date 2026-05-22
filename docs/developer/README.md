@@ -37,7 +37,6 @@ This project follows hexagonal (ports-and-adapters) architecture principles:
 Individual MCP servers may have their own documentation in their respective directories:
 
 - `servers/jira-helper/docs/` - Jira Helper MCP server
-- `servers/document-processor/` - Document processing server
 - `servers/worldcontext/` - World context server
 
 ## Tools and Utilities

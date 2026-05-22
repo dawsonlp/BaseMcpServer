@@ -19,7 +19,6 @@ from rich.text import Text
 from mcp_manager.core.models import Server, ServerState, SystemInfo
 from mcp_manager.core.state import get_state_manager, get_logs_dir, get_config_dir, get_mcp_home
 from mcp_manager.core.process_manager import ProcessManager
-from mcp_manager.core.platforms import PlatformManager
 from mcp_manager.cli.common.output import get_output_manager
 from mcp_manager.cli.common.errors import handle_error, MCPManagerError
 from mcp_manager.cli.common.validation import CLIValidator
@@ -30,7 +29,6 @@ output = get_output_manager()
 validator = CLIValidator()
 state = get_state_manager()
 process_manager = ProcessManager()
-platform_manager = PlatformManager()
 
 
 @app.command("cleanup")

@@ -110,27 +110,6 @@ class Server(BaseModel):
             raise ValueError("Server name must contain only alphanumeric characters, hyphens, and underscores")
         return v
     
-    @validator('server_type', pre=True)
-    def convert_legacy_server_type(cls, v):
-        """Convert legacy server type values for backward compatibility."""
-        if isinstance(v, str):
-            # Convert legacy values to new enum values
-            legacy_mapping = {
-                'local_stdio': 'local',
-                'local_sse': 'local',
-                'remote_stdio': 'remote',
-                'remote_sse': 'remote'
-            }
-            return legacy_mapping.get(v, v)
-        return v
-
-    @validator('installation_type', pre=True)
-    def migrate_legacy_installation_type(cls, v):
-        """Map deprecated installation_type values to UV."""
-        if isinstance(v, str) and v in ('pipx', 'venv'):
-            return 'uv'
-        return v
-    
     def is_local(self) -> bool:
         return self.server_type == ServerType.LOCAL
     
