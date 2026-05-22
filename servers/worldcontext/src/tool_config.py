@@ -6,6 +6,7 @@ Contains tool implementations and the registration dictionary for bulk registrat
 
 import datetime
 import logging
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
@@ -75,10 +76,10 @@ PYTHON_PACKAGES = [
 ]
 
 INFRASTRUCTURE_TOOLS: Dict[str, Dict[str, str]] = {
-    "postgresql": {"source": "github", "repo": "postgresql/postgresql", "name": "PostgreSQL"},
-    "quarkus": {"source": "github", "repo": "quarkusio/quarkus", "name": "Quarkus"},
-    "kafka": {"source": "github", "repo": "apache/kafka", "name": "Apache Kafka"},
-    "redpanda": {"source": "github", "repo": "redpanda-data/redpanda", "name": "Redpanda"},
+    "postgresql": {"source": "postgresql", "name": "PostgreSQL"},
+    "quarkus": {"source": "github_release", "repo": "quarkusio/quarkus", "name": "Quarkus"},
+    "kafka": {"source": "github_tag", "repo": "apache/kafka", "name": "Apache Kafka"},
+    "redpanda": {"source": "github_release", "repo": "redpanda-data/redpanda", "name": "Redpanda"},
 }
 
 
@@ -129,8 +130,8 @@ def fetch_pypi_version(package: str) -> Dict[str, Any]:
         return {"name": package, "error": str(e), "source": "PyPI"}
 
 
-def fetch_github_version(tool_name: str, tool_cfg: Dict[str, str]) -> Dict[str, Any]:
-    """Fetch latest release info from GitHub."""
+def fetch_github_release_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
+    """Fetch latest published release from GitHub Releases API."""
     name = tool_cfg["name"]
     try:
         url = f"https://api.github.com/repos/{tool_cfg['repo']}/releases/latest"
@@ -157,6 +158,126 @@ def fetch_github_version(tool_name: str, tool_cfg: Dict[str, str]) -> Dict[str, 
         return {"name": name, "error": str(e), "source": "GitHub"}
 
 
+# Stable release tag: leading optional "v", then 1-3 dotted numeric components.
+_STABLE_TAG_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?$")
+
+
+def _parse_stable_tag(tag_name: str):
+    """Return a (major, minor, patch) int tuple for stable tags, or None."""
+    match = _STABLE_TAG_RE.match(tag_name)
+    if not match:
+        return None
+    major, minor, patch = match.groups()
+    return (int(major), int(minor), int(patch) if patch is not None else 0)
+
+
+def fetch_github_tag_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
+    """Fetch latest stable tag from GitHub Tags API.
+
+    Use this for projects that tag releases on GitHub but do not publish
+    GitHub Releases (e.g. Apache Kafka).
+    """
+    name = tool_cfg["name"]
+    try:
+        url = f"https://api.github.com/repos/{tool_cfg['repo']}/tags?per_page=100"
+        with httpx.Client(timeout=10) as client:
+            response = client.get(url)
+
+        if response.status_code != 200:
+            return {"name": name, "error": f"HTTP {response.status_code}", "source": "GitHub tags"}
+
+        tags = response.json()
+        stable: list[tuple[tuple[int, int, int], str, str]] = []
+        for tag in tags:
+            tag_name = tag.get("name", "")
+            parsed = _parse_stable_tag(tag_name)
+            if parsed is not None:
+                stable.append((parsed, tag_name, tag.get("commit", {}).get("sha", "")))
+
+        if not stable:
+            return {"name": name, "error": "no stable tags found", "source": "GitHub tags"}
+
+        stable.sort(key=lambda t: t[0], reverse=True)
+        _version, tag_name, _sha = stable[0]
+
+        return {
+            "name": name,
+            "latest_version": tag_name.lstrip("v"),
+            "release_date": "unknown",  # tags API does not include date
+            "source": "GitHub tags",
+            "url": f"https://github.com/{tool_cfg['repo']}/releases/tag/{tag_name}",
+            "description": "",
+        }
+    except httpx.TimeoutException:
+        return {"name": name, "error": "timeout", "source": "GitHub tags"}
+    except Exception as e:
+        return {"name": name, "error": str(e), "source": "GitHub tags"}
+
+
+def fetch_postgresql_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
+    """Fetch the latest stable PostgreSQL minor release from postgresql.org."""
+    name = tool_cfg["name"]
+    try:
+        with httpx.Client(timeout=10) as client:
+            response = client.get("https://www.postgresql.org/versions.json")
+
+        if response.status_code != 200:
+            return {"name": name, "error": f"HTTP {response.status_code}", "source": "postgresql.org"}
+
+        versions = response.json()
+
+        # Pick the highest-numbered supported branch (filter out EOL).
+        supported = [v for v in versions if v.get("supported")]
+        if not supported:
+            return {"name": name, "error": "no supported versions in feed", "source": "postgresql.org"}
+
+        def _major_key(entry: Dict[str, Any]):
+            try:
+                return tuple(int(part) for part in str(entry.get("major", "0")).split("."))
+            except ValueError:
+                return (0,)
+
+        latest = max(supported, key=_major_key)
+
+        major = str(latest.get("major", "")).strip()
+        minor = str(latest.get("latestMinor", "")).strip()
+        version = f"{major}.{minor}" if major and minor else (major or "unknown")
+        rel_date = latest.get("relDate", "") or latest.get("last_minor_release", "")
+
+        return {
+            "name": name,
+            "latest_version": version,
+            "release_date": _parse_date(rel_date) if rel_date else "unknown",
+            "source": "postgresql.org",
+            "url": "https://www.postgresql.org/docs/release/",
+            "description": "",
+        }
+    except httpx.TimeoutException:
+        return {"name": name, "error": "timeout", "source": "postgresql.org"}
+    except Exception as e:
+        return {"name": name, "error": str(e), "source": "postgresql.org"}
+
+
+_INFRA_FETCHERS = {
+    "github_release": fetch_github_release_version,
+    "github_tag": fetch_github_tag_version,
+    "postgresql": fetch_postgresql_version,
+}
+
+
+def fetch_infrastructure_version(tool_cfg: Dict[str, str]) -> Dict[str, Any]:
+    """Dispatch to the right fetcher based on the tool's `source` key."""
+    source = tool_cfg.get("source", "")
+    fetcher = _INFRA_FETCHERS.get(source)
+    if fetcher is None:
+        return {
+            "name": tool_cfg.get("name", "unknown"),
+            "error": f"unknown source type: {source!r}",
+            "source": source or "unknown",
+        }
+    return fetcher(tool_cfg)
+
+
 def _fetch_versions_concurrently() -> tuple:
     """Fetch all Python + infrastructure versions in parallel."""
     python_data: Dict[str, Any] = {}
@@ -165,7 +286,7 @@ def _fetch_versions_concurrently() -> tuple:
     with ThreadPoolExecutor(max_workers=6) as pool:
         py_futures = {pool.submit(fetch_pypi_version, p): p for p in PYTHON_PACKAGES}
         infra_futures = {
-            pool.submit(fetch_github_version, name, cfg): name
+            pool.submit(fetch_infrastructure_version, cfg): name
             for name, cfg in INFRASTRUCTURE_TOOLS.items()
         }
 
@@ -184,7 +305,8 @@ def _fetch_versions_concurrently() -> tuple:
                 key = result.get("name", tool).lower().replace(" ", "_")
                 infra_data[key] = result
             except Exception as e:
-                infra_data[tool] = {"name": INFRASTRUCTURE_TOOLS[tool]["name"], "error": str(e), "source": "GitHub"}
+                cfg = INFRASTRUCTURE_TOOLS[tool]
+                infra_data[tool] = {"name": cfg["name"], "error": str(e), "source": cfg.get("source", "unknown")}
 
     return python_data, infra_data
 
@@ -283,19 +405,25 @@ def get_stock_market_overview() -> Dict[str, Any]:
                 continue
 
             data = response.json()
-            if "Global Quote" in data:
-                q = data["Global Quote"]
+            quote = data.get("Global Quote")
+            if isinstance(quote, dict) and quote:
                 market_data[symbol] = {
                     "name": name,
-                    "price": q.get("05. price", "N/A"),
-                    "change": q.get("09. change", "N/A"),
-                    "change_percent": q.get("10. change percent", "N/A"),
-                    "last_updated": q.get("07. latest trading day", "N/A"),
+                    "price": quote.get("05. price", "N/A"),
+                    "change": quote.get("09. change", "N/A"),
+                    "change_percent": quote.get("10. change percent", "N/A"),
+                    "last_updated": quote.get("07. latest trading day", "N/A"),
                 }
+            elif "Information" in data:
+                # Alpha Vantage's current rate-limit / quota-exceeded response.
+                market_data[symbol] = {"name": name, "error": "API rate limit", "note": data["Information"]}
             elif "Note" in data:
+                # Legacy rate-limit response format.
                 market_data[symbol] = {"name": name, "error": "API rate limit", "note": data["Note"]}
+            elif "Error Message" in data:
+                market_data[symbol] = {"name": name, "error": "API error", "note": data["Error Message"]}
             else:
-                market_data[symbol] = {"name": name, "error": "Unexpected response format"}
+                market_data[symbol] = {"name": name, "error": "Unexpected response format", "raw_keys": list(data.keys())}
         except Exception as e:
             market_data[symbol] = {"name": name, "error": str(e)}
 
@@ -353,7 +481,7 @@ def get_news_headlines(count: int = 5) -> Dict[str, Any]:
             "Tennessee",
             "https://newsapi.org/v2/everything",
             {
-                "q": "(Tennessee OR Nashville OR Memphis OR Knoxville) AND (government OR economy OR education OR health OR infrastructure OR environment)",
+                "q": "Tennessee OR Nashville OR Memphis OR Knoxville OR Chattanooga",
                 "language": "en",
                 "sortBy": "publishedAt",
                 "pageSize": max(1, count // 4),
