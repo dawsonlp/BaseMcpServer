@@ -75,11 +75,8 @@ This shows:
 Local servers are installed into isolated per-server environments under `~/.config/mcp-manager/servers/<name>/.venv` using [uv](https://docs.astral.sh/uv/). The server's package is installed into that environment so editor integrations can run the server executable directly.
 
 ```bash
-# Install from a local directory
+# Install from a local directory containing a pyproject.toml
 mcp-manager install local example-server --source ./example
-
-# Install from a Git repository
-mcp-manager install git jira-server --repo https://github.com/username/repo --path path/to/server
 ```
 
 **Requirements**:
@@ -169,10 +166,20 @@ This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp
 | Command | Description |
 |---------|-------------|
 | `mcp-manager info system` | Show comprehensive configuration status with Rich formatting |
+| `mcp-manager info list` | List all configured servers |
 | `mcp-manager install local <name> --source <path>` | Install local MCP server into an isolated uv-managed environment |
-| `mcp-manager list` | List all configured servers |
-| `mcp-manager server start <server>` | Run a local server |
-| `mcp-manager config cline` | Configure VS Code Cline integration |
+| `mcp-manager install remote <name> --url <url>` | Register a remote MCP server |
+| `mcp-manager server start <name>` | Run a local server |
+| `mcp-manager server stop <name>` | Stop a running server |
+| `mcp-manager server restart <name>` | Restart a server |
+| `mcp-manager config cline` | Write the registry to VS Code/Cline settings |
+| `mcp-manager config claude` | Write the registry to Claude Desktop settings |
+| `mcp-manager config sync` | Push the registry to all installed AI platforms |
+| `mcp-manager config validate` | Validate every server's installation |
+| `mcp-manager remove server <name>` | Remove a server completely from all locations |
+| `mcp-manager remove from-cline <name>` | Remove a server from VS Code/Cline only |
+| `mcp-manager remove from-claude <name>` | Remove a server from Claude Desktop only |
+| `mcp-manager remove from-registry <name>` | Remove a server from the mcp-manager registry only |
 | `mcp-manager --help` | Show detailed help and examples |
 
 ## Quick Start

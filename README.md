@@ -148,11 +148,8 @@ pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=util
 ### Basic Usage
 
 ```bash
-# Install a local MCP server
+# Install a local MCP server (requires a pyproject.toml in the source dir)
 mcp-manager install local example-server --source ./example
-
-# Install from a Git repository
-mcp-manager install git jira-server --repo https://github.com/example/jira-mcp-server.git
 
 # List installed servers
 mcp-manager list
@@ -262,8 +259,6 @@ To connect your MCP server to Claude Desktop or Cline in VS Code:
 2. **Make Small Changes**: Make one change at a time and test after each change
 3. **Test Core Functionality**: Test with simple tools like the calculator before adding complex integrations
 4. **Examine Error Messages**: Pay close attention to error messages in both the server logs and Claude's responses
-
-For more detailed debugging notes, see `debugging_notes.md` in the project root.
 
 ## Key Features
 
@@ -493,8 +488,8 @@ This repository contains:
 - `docker/Dockerfile`: Multi-stage Dockerfile for the base image
 - `build.sh`: Build script with Docker Hub integration
 - `requirements-base.txt`: Base Python dependencies
-- Server-specific implementation directories (example/, jira-clone/)
-- Local development scripts (setup.sh, run.sh)
+- Server-specific implementation directories under `servers/`: `jira-helper/`, `mcpservercreator/`, `template/`, `worldcontext/`
+- The `utils/mcp_manager/` CLI for installing and managing servers
 
 ## License
 

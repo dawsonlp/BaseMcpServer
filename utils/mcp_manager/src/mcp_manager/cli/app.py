@@ -521,13 +521,10 @@ def show_help():
 
 [bold yellow]📦 INSTALLATION COMMANDS[/bold yellow]
   [cyan]mcp-manager install local my-server --source /path/to/server[/cyan]
-    Install from local directory
-
-  [cyan]mcp-manager install git my-server --repo https://github.com/user/repo[/cyan]
-    Install from Git repository
+    Install from local directory (requires pyproject.toml in source)
 
   [cyan]mcp-manager install remote my-server --url https://api.server.com[/cyan]
-    Add remote server
+    Register a remote MCP server
 
 [bold yellow]🔄 SERVER LIFECYCLE[/bold yellow]
   [cyan]mcp-manager server start my-server[/cyan]           Start server
