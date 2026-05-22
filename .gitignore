@@ -41,3 +41,7 @@ ENV/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Local-only working notes / dev plans (never committed)
+DEV_PLAN.md
+DEV_PLAN_*.md
