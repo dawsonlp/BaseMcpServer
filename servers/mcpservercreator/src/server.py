@@ -646,7 +646,7 @@ SAFETY RECOMMENDATIONS:
 - ALWAYS review generated code before using the server
 - NEVER include API keys or sensitive credentials in code snippets
 - USE with caution in production or sensitive environments
-- INSPECT code in ~/.mcp_servers directory after creation
+- INSPECT generated code under ~/.config/mcp-manager/servers/<name>/ after creation
 - CONSIDER security implications before creating servers that access external services
 - DISABLE the server when not in active use
             """,
@@ -673,7 +673,7 @@ These measures provide basic protection but ARE NOT FOOLPROOF.
             
             "limitations": """
 Currently, the MCP Server Creator has limitations:
-- No automated handling for .env files (manual configuration in ~/.mcp_servers required)
+- No automated handling for .env / config.yaml files (place per-server credentials at ~/.config/mcp-manager/servers/<name>/config.yaml)
 - Limited management of external dependencies
 - No mandatory code review step before installation
 - Basic validation that can potentially be bypassed by sophisticated code
@@ -786,43 +786,29 @@ Currently, the MCP Server Creator has limitations:
               - error: Error message if success is False
         """
         try:
-            # Find the mcp-manager executable by checking multiple locations
-            mcpmanager_paths = [
-                # Check common paths for pipx installations
-                os.path.expanduser("~/.local/bin/mcp-manager"),  # Linux/macOS pipx default
-                os.path.expanduser("~/Library/Python/*/bin/mcp-manager"),  # macOS user Python
-                os.path.expanduser("~/AppData/Roaming/Python/*/Scripts/mcp-manager.exe"),  # Windows
-                # Check if it's in the system PATH
-                "mcp-manager",
-            ]
-            
-            # Find the first valid path that exists
-            mcpmanager_cmd = None
-            for path in mcpmanager_paths:
-                # Handle glob patterns (for version-specific paths)
-                if "*" in path:
-                    import glob
-                    matching_paths = glob.glob(path)
-                    if matching_paths:
-                        mcpmanager_cmd = matching_paths[0]
-                        break
-                elif path != "mcpmanager" and os.path.isfile(path):
-                    mcpmanager_cmd = path
-                    break
-            
-            # Default to just the name if no specific path was found
-            if mcpmanager_cmd is None:
-                mcpmanager_cmd = "mcp-manager"
-                
+            # Resolve mcp-manager via PATH. uv tool install places it at
+            # ~/.local/bin/mcp-manager on macOS/Linux by default, which is on
+            # PATH after `uv tool update-shell`.
+            import shutil
+            mcpmanager_cmd = shutil.which("mcp-manager")
+            if not mcpmanager_cmd:
+                return {
+                    "success": False,
+                    "error": (
+                        "mcp-manager not found on PATH. Install it with "
+                        "`uv tool install ./utils/mcp_manager` and run "
+                        "`uv tool update-shell`."
+                    ),
+                }
+
             logger.info(f"Using mcp-manager at: {mcpmanager_cmd}")
-            
+
             # Call mcp-manager list command (without --json flag as it's not supported)
             result = subprocess.run(
                 [mcpmanager_cmd, "list"],
                 check=True,
                 capture_output=True,
                 text=True,
-                env={**os.environ, "PATH": f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}"}
             )
             
             # Parse the text output into a structured format

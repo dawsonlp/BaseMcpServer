@@ -856,7 +856,7 @@ The jira-helper server uses **Hexagonal Architecture** (Ports and Adapters) with
 
 ## 🚫 ABSOLUTE IMPORT REQUIREMENT
 
-**RELATIVE IMPORTS ARE COMPLETELY BANNED** - There is no valid use case for relative imports in MCP servers. They will break when installed with pipx and cause "attempted relative import beyond top-level package" errors.
+**RELATIVE IMPORTS ARE COMPLETELY BANNED** - There is no valid use case for relative imports in MCP servers. They will break when installed as an isolated package (via `uv pip install`, `mcp-manager install local`, or any standard packaging tool) and cause "attempted relative import beyond top-level package" errors.
 
 **✅ ALWAYS USE:** `from domain.models import SomeModel`  
 **❌ NEVER USE:** `from .models import SomeModel` or `from ..domain.models import SomeModel`
@@ -871,7 +871,7 @@ Create a new directory for your MCP server:
 
 ```
 hello-world-mcp/
-├── pyproject.toml              # Package configuration for pipx
+├── pyproject.toml              # Package configuration (uv / mcp-manager)
 ├── config.yaml.example        # Configuration template
 ├── src/                        # Source code (src/ layout)
 │   ├── main.py                # Entry point and CLI
@@ -900,7 +900,7 @@ hello-world-mcp/
 
 ### 2. Package Configuration
 
-Create `pyproject.toml` for pipx compatibility:
+Create `pyproject.toml` so the server can be installed as an isolated package (this is what `mcp-manager install local` invokes under the hood via `uv pip install`):
 
 ```toml
 [build-system]
@@ -1586,7 +1586,7 @@ mcp-manager config cline
 
 ```bash
 # Install mcp-manager if you haven't already
-pipx install ./utils/mcp_manager
+uv tool install ./utils/mcp_manager
 
 # Install your hello-world server
 mcp-manager install local hello-world-mcp --source ./hello-world-mcp --force

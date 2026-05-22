@@ -5,33 +5,33 @@ This guide provides a streamlined set of instructions for developers to get up a
 ## 1. Prerequisites
 
 -   Python 3.11+
--   `pipx` (for installing `mcp-manager`)
+-   [`uv`](https://docs.astral.sh/uv/) (for installing `mcp-manager` and managing per-server environments)
 
-If you don't have `pipx`, you can install it with:
+If you don't have `uv`, install it with:
 ```bash
-pip install pipx
-pipx ensurepath
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool update-shell   # ensure uv's tool bin dir is on your PATH
 ```
 
 ## 2. Install `mcp-manager`
 
-Install the `mcp-manager` CLI tool globally using `pipx`. This will make it available system-wide:
+Install the `mcp-manager` CLI tool globally with `uv`:
 
 ```bash
-# Install from local source directory
-pipx install ./utils/mcp_manager
+# Install from this checkout
+uv tool install ./utils/mcp_manager
 
-# Or install from GitHub repository
-pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
+# Or install from GitHub
+uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager"
 ```
 
-Verify the installation using the primary command name:
+Verify the installation:
 ```bash
 mcp-manager --version
 mcp-manager --help
 ```
 
-**Note:** For backward compatibility, `mcpmanager` (without hyphen) still works as an alias.
+**Note:** `mcpmanager` (without the hyphen) is registered as an alias.
 
 ## 3. Install the `jira-helper` Server
 

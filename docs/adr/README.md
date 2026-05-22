@@ -4,8 +4,14 @@ This directory contains Architectural Decision Records that document significant
 
 ## Available ADRs
 
+### [ADR-003: Standardize Local Server Installs on uv](ADR-003-uv-standardization.md) — **Accepted** (May 2026)
+mcp-manager 1.1.0 replaced the previous pipx/virtualenv internals with a single `uv venv` + `uv pip install` path. Removed the `--no-pipx` flag and the legacy source-copy branch.
+
+### [ADR-002: Default to Pipx Installation Method](ADR-002-pipx-default-installation.md) — **Superseded** by ADR-003
+Historical context: in mcp-manager 0.3.0 the default install changed to pipx-style isolated installs. Superseded once the project standardized on uv.
+
 ### [Design Decisions](design_decisions.md)
-Historical record of important design and architectural decisions made during development, including rationale and context for each decision.
+Historical record of important design and architectural decisions made during early development.
 
 ## About ADRs
 

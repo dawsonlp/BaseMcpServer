@@ -17,9 +17,9 @@ MCP servers can be deployed in various ways: as local stdio-based processes, as 
 Creating a dedicated management tool offers several benefits:
 1. **Unified Interface**: A single tool manages all types of MCP servers
 2. **Isolated Environments**: Each MCP server gets its own virtual environment
-3. **Simplified Configuration**: Automatic generation of wrapper scripts and VS Code settings
-4. **Consistent Structure**: Standardized directory structure under ~/.mcp_servers
-5. **Modern Python Practices**: Using pipx for isolated CLI tool installation
+3. **Simplified Configuration**: Automatic generation of editor settings (VS Code/Cline, Claude Desktop)
+4. **Consistent Structure**: Standardized directory structure under `~/.config/mcp-manager/`
+5. **Modern Python Practices**: Uses [uv](https://docs.astral.sh/uv/) for venv creation and isolated package installation (see [ADR-003](ADR-003-uv-standardization.md))
 
 ### Implementation
 
@@ -37,16 +37,15 @@ The implementation follows modern Python best practices:
    - `run`: Run local servers with different transport modes
    - `configure`: Set up editor integration
 
-3. **Directory Structure**:
+3. **Directory Structure** (current — was `~/.mcp_servers/` historically):
    ```
-   ~/.mcp_servers/
-   ├── servers/                # Local server installations
-   │   ├── example-server/     # Each server gets its own directory
-   │   │   ├── .venv/          # Isolated virtual environment
-   │   │   ├── src/            # Source code (symlinked)
-   │   │   └── meta.json       # Metadata
-   ├── bin/                    # Generated wrapper scripts
-   └── config/                 # Configuration files
+   ~/.config/mcp-manager/
+   ├── servers/                # Per-server isolated environments
+   │   └── <server-name>/
+   │       ├── .venv/          # uv-managed virtual environment
+   │       └── config.yaml     # Server-specific config / credentials (preserved across reinstall)
+   ├── logs/                   # Per-server log files
+   └── config/
        └── servers.json        # Server registry
    ```
 
@@ -63,7 +62,7 @@ The implementation follows modern Python best practices:
   - Support for both stdio and HTTP+SSE transport modes
 
 - **Cons**:
-  - Additional dependency (pipx) for installation
+  - Additional dependency (`uv`) for installation
   - More complex than direct configuration for simple use cases
 
 The benefits of having a dedicated management tool significantly outweigh the minor complexity it introduces, especially as the number of MCP servers grows.
@@ -72,7 +71,7 @@ The benefits of having a dedicated management tool significantly outweigh the mi
 
 - Python packaging best practices: https://packaging.python.org/
 - Typer documentation: https://typer.tiangolo.com/
-- pipx documentation: https://pypa.github.io/pipx/
+- uv documentation: https://docs.astral.sh/uv/
 
 ## 2025-04-22: Improved MCP Server Architecture with Command-Line Support
 

@@ -1,7 +1,11 @@
 # ADR-002: Default to Pipx Installation Method
 
 ## Status
-**Proposed**
+**Superseded by [ADR-003: Standardize Local Server Installs on uv](ADR-003-uv-standardization.md)** (mcp-manager 1.1.0, May 2026)
+
+The default-to-pipx direction described below was implemented in mcp-manager 0.3.0 but was itself superseded a few versions later when the project standardized on `uv` for all server installation. Both the `--pipx` and `--no-pipx` flags have been removed; there is now a single install path. The historical text is preserved below for context.
+
+---
 
 ## Context
 Currently, mcp-manager defaults to virtual environment (venv) installation for local servers, requiring users to explicitly specify `--pipx` flag for standalone application installation. This creates friction for users wanting isolated server deployments and doesn't align with modern Python packaging best practices.

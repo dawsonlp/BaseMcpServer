@@ -19,7 +19,7 @@ The MCP Server Creator poses significant security risks:
 - **ALWAYS** review generated code before using the server
 - **NEVER** include API keys or sensitive credentials in code snippets
 - **USE** with caution in production or sensitive environments
-- **INSPECT** code in `~/.mcp_servers` directory after creation
+- **INSPECT** generated code under `~/.config/mcp-manager/servers/<name>/` after creation
 - **CONSIDER** security implications before creating servers that access external services
 - **DISABLE** the server when not in active use
 

@@ -15,77 +15,17 @@ This image provides all the common dependencies and configuration needed for MCP
 
 ## Local Development
 
-For local development without Docker, each MCP server includes setup scripts to create and manage Python virtual environments with the necessary dependencies.
-
-### Prerequisites
-
-- Python 3.11+ installed (recommended)
-- Git (to clone this repository)
-
-### Using Setup and Run Scripts
-
-Each MCP server includes two shell scripts for easy setup and execution:
-
-#### 1. Setup Script
-
-The `setup.sh` script creates a virtual environment and installs all dependencies:
+For local development of any MCP server in this repository, install it via the [MCP Manager Utility](#mcp-manager-utility) below. The canonical workflow is:
 
 ```bash
-# Navigate to the desired MCP server directory
-cd example/
-
-# Run the setup script
-./setup.sh
+uv tool install ./utils/mcp_manager                                   # one time
+mcp-manager install local <server> --source ./servers/<server>        # per server
+mcp-manager config sync                                                # update editor settings
 ```
 
-This will:
-- Create a `.venv` directory with a Python virtual environment
-- Install all required dependencies from `requirements.txt`
-- Configure the environment for local development
+`mcp-manager install local` creates a `uv`-managed virtual environment under `~/.config/mcp-manager/servers/<server>/.venv`, installs the server's package into it, and writes the server's settings. See [`utils/mcp_manager/README.md`](utils/mcp_manager/README.md) for details. Per-server credentials and overrides go in `~/.config/mcp-manager/servers/<server>/config.yaml`.
 
-#### 2. Run Script
-
-The `run.sh` script activates the virtual environment and runs the MCP server:
-
-```bash
-# Start with SSE protocol (for Claude/Cline integration)
-./run.sh sse
-
-# Or start with stdio protocol (for direct stdin/stdout communication)
-./run.sh stdio
-```
-
-### Manual Setup (If Scripts Don't Work)
-
-If the scripts don't work on your system, you can manually set up the environment:
-
-```bash
-# Navigate to the desired MCP server directory
-cd example/
-
-# Create a virtual environment
-python3.11 -m venv .venv
-
-# Activate the virtual environment
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set PYTHONPATH and run the server
-export PYTHONPATH="$PWD/src:$PYTHONPATH"  # On Windows: set PYTHONPATH=%CD%\src;%PYTHONPATH%
-cd src
-python main.py sse  # Or: python main.py stdio
-```
-
-### Virtual Environment Structure
-
-The virtual environment approach:
-- Creates an isolated Python environment for each MCP server
-- Installs only the dependencies needed for that specific server
-- Allows for easy activation/deactivation
-- Sets the correct PYTHONPATH automatically
-- Provides a consistent environment across different systems
+Older per-server `setup.sh` / `run.sh` scripts are vestigial; new servers should not add them.
 
 ## Best Practices for Custom MCP Servers
 
@@ -126,39 +66,46 @@ When creating custom MCP servers based on this template, follow these best pract
 
 ## MCP Manager Utility
 
-The project now includes an `mcp-manager` utility for easy installation and management of MCP servers. This tool simplifies the process of setting up, configuring, and running MCP servers.
+The `mcp-manager` CLI is the canonical way to install, configure, and run MCP servers from this repository. It installs each server into an isolated `uv`-managed environment under `~/.config/mcp-manager/servers/<name>/.venv`.
 
 ### Installing MCP Manager
 
 ```bash
-# install pipx
-brew install pipx
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install directly from the repository
-pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
+# Install mcp-manager globally from this checkout
+uv tool install ./utils/mcp_manager
+
+# Or from the repository directly
+uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager"
+
+# Ensure uv's tool bin directory is on your PATH
+uv tool update-shell
 ```
+
+See [`utils/mcp_manager/README.md`](utils/mcp_manager/README.md) for the full command reference. Detailed jira-helper setup is in [`QUICKSTART.md`](QUICKSTART.md).
 
 ### Key Features
 
-- **Server Installation**: Install MCP servers from local directories or Git repositories
-- **Server Configuration**: Configure servers for use with VS Code/Cline
-- **Server Management**: List, run, and manage installed servers
-- **Isolated Environments**: Each server runs in its own Python virtual environment
+- **Isolated environments**: Each server gets its own uv-managed venv with the package installed via `uv pip install`
+- **Editor integration**: One command writes the correct `mcpServers` entries into VS Code/Cline and Claude Desktop
+- **Per-server config**: API keys and credentials live in `~/.config/mcp-manager/servers/<name>/config.yaml` and are preserved across reinstall
 
 ### Basic Usage
 
 ```bash
 # Install a local MCP server (requires a pyproject.toml in the source dir)
-mcp-manager install local example-server --source ./example
+mcp-manager install local jira-helper --source ./servers/jira-helper
 
 # List installed servers
-mcp-manager list
+mcp-manager info list
 
-# Configure VS Code integration
-mcp-manager configure vscode
+# Push the current registry into Cline + Claude Desktop settings
+mcp-manager config sync
 
-# Run a server manually (if needed)
-mcp-manager run server-name --transport stdio
+# Start a server manually (mcp-manager normally launches them on demand via the editor)
+mcp-manager server start jira-helper
 ```
 
 ### Connecting to Claude/Cline
@@ -180,27 +127,21 @@ To connect your MCP server to Claude Desktop or Cline in VS Code:
    ```
 
 3. **For Cline in VS Code**:
-   
-   With mcp-manager, you can simply run:
+
+   With mcp-manager, run:
    ```bash
-   mcp-manager configure vscode
+   mcp-manager config cline
    ```
-   
-   Or manually edit the settings file:
-   Path: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
-   
-   Example configuration:
+
+   Or manually edit the settings file at `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (macOS) or `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (Linux).
+
+   Example configuration written by `mcp-manager config cline`:
    ```json
    {
      "mcpServers": {
-       "example-mcp-server": {
-         "url": "http://localhost:7501/sse",
-         "apiKey": "example_key",
-         "disabled": false,
-         "autoApprove": []
-       },
-       "directlyruntest": {
-         "command": "/home/user/.mcp_servers/bin/directlyruntest.sh",
+       "jira-helper": {
+         "command": "/Users/<you>/.config/mcp-manager/servers/jira-helper/.venv/bin/jira-helper",
+         "args": ["stdio"],
          "disabled": false,
          "autoApprove": []
        }

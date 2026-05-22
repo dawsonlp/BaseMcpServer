@@ -15,7 +15,7 @@ A comprehensive command-line tool for managing Model Context Protocol (MCP) serv
 
 ## Installation
 
-You can install MCP Manager globally using uv:
+MCP Manager is distributed as a [uv](https://docs.astral.sh/uv/) tool. Internally it installs every managed MCP server into its own uv-managed environment, so a working `uv` on `PATH` is a hard requirement.
 
 ```bash
 # Install uv if you don't have it
@@ -25,33 +25,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install ./utils/mcp_manager
 
 # Or directly from the repository
-uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git@v1.0.4#subdirectory=utils/mcp_manager"
+uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager"
 
 # Ensure uv's tool executable directory is on your PATH
 uv tool update-shell
 ```
 
-You can also install MCP Manager globally using pipx:
-
-```bash
-# Install pip and pipx if you don't have them
-pip install --user pipx
-pipx ensurepath
-
-# Install MCP Manager globally from this checkout
-pipx install ./utils/mcp_manager
-
-# Or directly from the repository
-pipx install git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=utils/mcp_manager
-```
-
-After installation, you can use the `mcp-manager` command globally:
+After installation:
 
 ```bash
 mcp-manager --help
 ```
 
-**Note:** For backward compatibility, `mcpmanager` (without hyphen) still works as an alias.
+`mcpmanager` (without the hyphen) is registered as an alias for the same command.
 
 ## Usage
 
