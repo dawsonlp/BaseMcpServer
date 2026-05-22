@@ -1,5 +1,5 @@
 """
-Core data models for MCP Manager 3.0.
+Core data models for MCP Manager.
 
 Defines all data structures used throughout the application.
 """
@@ -27,7 +27,6 @@ class TransportType(str, Enum):
 class InstallationType(str, Enum):
     """Installation methods for local servers."""
     UV = "uv"
-    SYSTEM = "system"
 
 
 class ProcessStatus(str, Enum):

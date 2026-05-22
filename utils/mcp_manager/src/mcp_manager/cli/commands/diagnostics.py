@@ -1,5 +1,5 @@
 """
-Diagnostics and health checking commands for MCP Manager 3.0.
+Diagnostics and health checking commands for MCP Manager.
 
 Provides comprehensive health monitoring, troubleshooting, and system diagnostics.
 """

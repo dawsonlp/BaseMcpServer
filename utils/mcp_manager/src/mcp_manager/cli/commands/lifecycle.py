@@ -1,5 +1,5 @@
 """
-Server lifecycle management commands for MCP Manager 3.0.
+Server lifecycle management commands for MCP Manager.
 
 Handles starting, stopping, restarting, and monitoring MCP servers.
 """

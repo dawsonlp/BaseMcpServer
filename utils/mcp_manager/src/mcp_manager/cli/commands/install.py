@@ -1,5 +1,5 @@
 """
-Installation commands for MCP Manager 3.0.
+Installation commands for MCP Manager.
 
 Handles installation of local and remote MCP servers with various options.
 """

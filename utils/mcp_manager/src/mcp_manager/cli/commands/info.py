@@ -1,5 +1,5 @@
 """
-Information and status commands for MCP Manager 3.0.
+Information and status commands for MCP Manager.
 
 Provides server listing, status display, and system information commands.
 """

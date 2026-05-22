@@ -1,5 +1,5 @@
 """
-Advanced operations for MCP Manager 3.0.
+Advanced operations for MCP Manager.
 
 Provides specialized operations for development, maintenance, and system administration.
 """
@@ -16,6 +16,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.text import Text
 
+from mcp_manager import __version__
 from mcp_manager.core.models import Server, ServerState, SystemInfo
 from mcp_manager.core.state import get_state_manager, get_logs_dir, get_config_dir, get_mcp_home
 from mcp_manager.core.process_manager import ProcessManager
@@ -182,7 +183,7 @@ def reset_system(
                 all_servers = state.get_servers()
                 backup_data = {
                     "reset_backup": {
-                        "version": "3.0",
+                        "version": __version__,
                         "created_at": datetime.now().isoformat(),
                         "reason": "Pre-reset backup"
                     },
@@ -369,7 +370,7 @@ def migrate_data(
             output.console.print(summary_table)
             
             if not dry_run and migration_stats["servers_migrated"] > 0:
-                output.info("Note: You may need to reconfigure server settings for version 3.0 compatibility")
+                output.info(f"Note: You may need to reconfigure server settings for version {__version__} compatibility")
         
         else:
             output.error(f"Migration from version {from_version} is not supported")
@@ -552,7 +553,7 @@ def export_diagnostics(
         
         diagnostic_data = {
             "export_info": {
-                "version": "3.0",
+                "version": __version__,
                 "exported_at": datetime.now().isoformat(),
                 "hostname": None,
                 "platform": None

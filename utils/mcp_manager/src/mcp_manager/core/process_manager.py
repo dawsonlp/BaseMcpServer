@@ -1,5 +1,5 @@
 """
-Process management system for MCP Manager 3.0.
+Process management system for MCP Manager.
 
 Handles starting, stopping, monitoring, and managing MCP server processes
 with proper lifecycle management and resource cleanup.

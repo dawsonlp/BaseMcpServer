@@ -1,5 +1,5 @@
 """
-Core state management for MCP Manager 3.0.
+Core state management for MCP Manager.
 
 This module provides centralized state management, directory structure,
 and configuration handling.
@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import os
 
+from mcp_manager import __version__
 from mcp_manager.core.models import (
     Server, ServerState, ProcessInfo, SystemInfo, PlatformInfo,
     ProcessStatus, HealthStatus, ConfigStatus, SyncStatus
@@ -96,8 +97,11 @@ def create_directory_structure() -> None:
     # Create empty files if they don't exist
     registry_file = get_registry_file()
     if not registry_file.exists():
-        registry_file.write_text('{"servers": {}, "version": "3.0", "created_at": "' + 
-                               datetime.now().isoformat() + '"}')
+        registry_file.write_text(json.dumps({
+            "servers": {},
+            "version": __version__,
+            "created_at": datetime.now().isoformat(),
+        }, indent=2))
     
     processes_file = get_processes_file()
     if not processes_file.exists():
@@ -169,7 +173,7 @@ class StateManager:
             # Create registry structure
             registry_data = {
                 "servers": servers_data,
-                "version": "3.0",
+                "version": __version__,
                 "last_updated": datetime.now().isoformat()
             }
             

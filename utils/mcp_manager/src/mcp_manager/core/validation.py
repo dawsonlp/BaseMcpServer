@@ -1,5 +1,5 @@
 """
-Configuration validation framework for MCP Manager 3.0.
+Configuration validation framework for MCP Manager.
 
 Provides comprehensive validation for server configurations, environment
 variables, and other settings with clear error messages and fix suggestions.

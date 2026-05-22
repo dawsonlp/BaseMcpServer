@@ -1,5 +1,5 @@
 """
-Configuration management commands for MCP Manager 3.0.
+Configuration management commands for MCP Manager.
 
 Handles server configuration, platform synchronization, and settings management.
 """
@@ -14,9 +14,14 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
+from mcp_manager import __version__
 from mcp_manager.core.models import Server, PlatformType, TransportType, ServerType
 from mcp_manager.core.state import get_state_manager
-from mcp_manager.core.platforms import discover_installed_platforms, sync_to_platform
+from mcp_manager.core.platforms import (
+    discover_installed_platforms,
+    get_platform_settings_path,
+    sync_to_platform,
+)
 from mcp_manager.core.validation import validate_server_config
 from mcp_manager.cli.common.output import get_output_manager
 from mcp_manager.cli.common.errors import handle_error, MCPManagerError
@@ -248,7 +253,7 @@ def export_config(
         
         # Convert to export format
         export_data = {
-            "version": "3.0",
+            "version": __version__,
             "exported_at": state.get_system_info().last_updated.isoformat(),
             "servers": {}
         }
@@ -401,7 +406,7 @@ def backup_config(
         # Create backup data
         backup_data = {
             "backup_info": {
-                "version": "3.0",
+                "version": __version__,
                 "created_at": datetime.now().isoformat(),
                 "server_count": len(all_servers)
             },
@@ -435,82 +440,67 @@ def backup_config(
         handle_error(e, "Failed to create backup")
 
 
+def _backup_settings_file(settings_path: Path) -> Optional[Path]:
+    """Timestamped copy of an existing settings file. No-op if it doesn't exist."""
+    if not settings_path.exists():
+        return None
+    import shutil
+    from datetime import datetime as _dt
+    backup_path = settings_path.with_suffix(
+        f"{settings_path.suffix}.backup.{_dt.now().strftime('%Y%m%d%H%M%S')}"
+    )
+    shutil.copy2(settings_path, backup_path)
+    return backup_path
+
+
+def _configure_platform(
+    platform: PlatformType,
+    *,
+    backup: bool,
+    display_name: str,
+    restart_hint: str,
+) -> None:
+    """Shared implementation for `config cline` and `config claude`.
+
+    Delegates entry-building + settings-write to `core.platforms.sync_to_platform`
+    (which knows the editor formats for each platform). This function adds the
+    user-facing flow: backup, per-server status output, restart hint.
+    """
+    all_servers = state.get_servers()
+    if not all_servers:
+        output.warning("No servers found to configure")
+        return
+
+    settings_path = get_platform_settings_path(platform)
+
+    if backup:
+        backup_path = _backup_settings_file(settings_path)
+        if backup_path is not None:
+            output.info(f"Backed up existing settings to: {backup_path}")
+
+    result = sync_to_platform(platform, list(all_servers.values()))
+    for name in result["configured"]:
+        output.success(f"Configured server '{name}' for {display_name}")
+    for skip in result["skipped"]:
+        output.warning(f"Skipped server '{skip['name']}': {skip['reason']}")
+
+    output.success(f"Updated {display_name} settings at: {settings_path}")
+    output.info(f"Configured {len(result['configured'])} server(s)")
+    output.info(restart_hint)
+
+
 @app.command("cline")
 def configure_cline(
     backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
 ):
     """Configure VS Code Cline integration."""
     try:
-        # Get all servers
-        all_servers = state.get_servers()
-        if not all_servers:
-            output.warning("No servers found to configure")
-            return
-
-        # Get Cline settings path
-        settings_path = _get_cline_settings_path()
-        settings_dir = settings_path.parent
-        settings_dir.mkdir(parents=True, exist_ok=True)
-
-        # Backup existing settings
-        if settings_path.exists() and backup:
-            from datetime import datetime
-            backup_path = settings_path.with_suffix(f".backup.{datetime.now().strftime('%Y%m%d%H%M%S')}")
-            import shutil
-            shutil.copy2(settings_path, backup_path)
-            output.info(f"Backed up existing settings to: {backup_path}")
-
-        # Load existing settings or create new
-        if settings_path.exists():
-            try:
-                settings = json.loads(settings_path.read_text())
-            except json.JSONDecodeError:
-                output.warning("Existing settings file is not valid JSON. Creating new settings.")
-                settings = {}
-        else:
-            settings = {}
-
-        # Ensure mcpServers exists
-        if "mcpServers" not in settings:
-            settings["mcpServers"] = {}
-
-        # Configure each server
-        configured_count = 0
-        for name, server in all_servers.items():
-            if server.server_type != ServerType.LOCAL:
-                output.warning(f"Skipping remote server '{name}' - Cline only supports local servers")
-                continue
-
-            try:
-                if not server.venv_dir:
-                    output.error(f"venv_dir not set for server '{name}', skipping")
-                    continue
-
-                executable_path = server.venv_dir / "bin" / name
-                if not executable_path.exists():
-                    output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
-                    continue
-
-                settings["mcpServers"][name] = {
-                    "command": str(executable_path),
-                    "args": ["stdio"],
-                    "disabled": not server.enabled if hasattr(server, 'enabled') else False,
-                    "autoApprove": server.auto_approve or [],
-                }
-
-                configured_count += 1
-                output.success(f"Configured server '{name}' for Cline")
-
-            except Exception as e:
-                output.error(f"Failed to configure server '{name}': {e}")
-
-        # Save settings
-        settings_path.write_text(json.dumps(settings, indent=2))
-        
-        output.success(f"Updated Cline settings at: {settings_path}")
-        output.info(f"Configured {configured_count} servers")
-        output.info("You may need to restart VS Code for the changes to take effect.")
-
+        _configure_platform(
+            PlatformType.CLINE,
+            backup=backup,
+            display_name="Cline",
+            restart_hint="You may need to restart VS Code for the changes to take effect.",
+        )
     except Exception as e:
         handle_error(e, "Failed to configure Cline")
 
@@ -521,102 +511,14 @@ def configure_claude_desktop(
 ):
     """Configure Claude Desktop integration."""
     try:
-        # Get all servers
-        all_servers = state.get_servers()
-        if not all_servers:
-            output.warning("No servers found to configure")
-            return
-
-        # Get Claude Desktop settings path
-        settings_path = _get_claude_desktop_settings_path()
-        settings_dir = settings_path.parent
-        settings_dir.mkdir(parents=True, exist_ok=True)
-
-        # Backup existing settings
-        if settings_path.exists() and backup:
-            from datetime import datetime
-            backup_path = settings_path.with_suffix(f".backup.{datetime.now().strftime('%Y%m%d%H%M%S')}")
-            import shutil
-            shutil.copy2(settings_path, backup_path)
-            output.info(f"Backed up existing settings to: {backup_path}")
-
-        # Load existing settings or create new
-        if settings_path.exists():
-            try:
-                settings = json.loads(settings_path.read_text())
-            except json.JSONDecodeError:
-                output.warning("Existing settings file is not valid JSON. Creating new settings.")
-                settings = {}
-        else:
-            settings = {}
-
-        # Ensure mcpServers exists
-        if "mcpServers" not in settings:
-            settings["mcpServers"] = {}
-
-        # Configure each server
-        configured_count = 0
-        for name, server in all_servers.items():
-            if server.server_type != ServerType.LOCAL:
-                output.warning(f"Skipping remote server '{name}' - Claude Desktop only supports local servers")
-                continue
-
-            try:
-                if not server.venv_dir:
-                    output.error(f"venv_dir not set for server '{name}', skipping")
-                    continue
-
-                executable_path = server.venv_dir / "bin" / name
-                if not executable_path.exists():
-                    output.error(f"Executable '{executable_path}' not found for server '{name}', skipping")
-                    continue
-
-                settings["mcpServers"][name] = {
-                    "command": str(executable_path),
-                    "args": ["stdio"]
-                }
-
-                configured_count += 1
-                output.success(f"Configured server '{name}' for Claude Desktop")
-
-            except Exception as e:
-                output.error(f"Failed to configure server '{name}': {e}")
-
-        # Save settings
-        settings_path.write_text(json.dumps(settings, indent=2))
-        
-        output.success(f"Updated Claude Desktop settings at: {settings_path}")
-        output.info(f"Configured {configured_count} servers")
-        output.info("You may need to restart Claude Desktop for the changes to take effect.")
-
+        _configure_platform(
+            PlatformType.CLAUDE_DESKTOP,
+            backup=backup,
+            display_name="Claude Desktop",
+            restart_hint="You may need to restart Claude Desktop for the changes to take effect.",
+        )
     except Exception as e:
         handle_error(e, "Failed to configure Claude Desktop")
-
-
-def _get_cline_settings_path() -> Path:
-    """Get the VS Code Cline settings path."""
-    import os
-    home = Path.home()
-    
-    if os.name == 'nt':  # Windows
-        return home / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
-    elif sys.platform == 'darwin':  # macOS
-        return home / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
-    else:  # Linux
-        return home / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
-
-
-def _get_claude_desktop_settings_path() -> Path:
-    """Get the Claude Desktop settings path."""
-    import os
-    home = Path.home()
-    
-    if os.name == 'nt':  # Windows
-        return home / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
-    elif sys.platform == 'darwin':  # macOS
-        return home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
-    else:  # Linux
-        return home / ".config" / "Claude" / "claude_desktop_config.json"
 
 
 if __name__ == "__main__":

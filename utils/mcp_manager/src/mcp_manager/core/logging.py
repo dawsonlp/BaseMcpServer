@@ -1,5 +1,5 @@
 """
-Logging infrastructure for MCP Manager 3.0.
+Logging infrastructure for MCP Manager.
 
 Provides structured, configurable logging with multiple output formats
 and log levels. Supports both file and console output with rich formatting.
