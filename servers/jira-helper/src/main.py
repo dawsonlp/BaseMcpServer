@@ -1,15 +1,11 @@
-"""
-Main entry point for the Jira Helper MCP server.
-
-Supports stdio, sse, and streamable-http transports via mcp-commons.
-"""
+"""Main entry point for the Jira Helper MCP server."""
 
 # Force IDNA codec registration before any network calls.
 #
 # On macOS with Homebrew's Framework-build Python, encodings.idna (a stdlib
 # codec submodule, not the third-party 'idna' package) can fail to load when
 # Python is spawned as a headless subprocess via stdio pipes -- the transport
-# used by MCP hosts such as Cline.  Pre-importing it here, while sys.path is
+# used by MCP hosts such as Cline. Pre-importing it here, while sys.path is
 # still in a reliable state during the normal import phase, ensures the codec
 # is registered before requests/atlassian-python-api triggers a lazy
 # codecs.lookup('idna') call on the first network connection.
@@ -17,56 +13,27 @@ Supports stdio, sse, and streamable-http transports via mcp-commons.
 # See: bug report "No module named 'encodings.idna'" / jira-helper 2.1.0
 import encodings.idna  # noqa: F401
 
-import sys
-import logging
-
-from mcp_commons import run_mcp_server, create_mcp_app, print_mcp_help
+from mcp_commons import create_mcp_app, run_cli
 
 from config import settings
 from tool_config import get_tools_config
 
 
-# Configure logging to file (avoid stdout corruption with stdio transport)
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(settings.log_file, mode="a")],
-)
-
-
 def main() -> None:
-    """Parse CLI arguments and start the server."""
-    if len(sys.argv) <= 1 or sys.argv[1] in ("help", "--help", "-h"):
-        print_mcp_help("Jira Helper", "- Jira & Confluence Integration MCP Server")
-        return
-
-    # Parse transport argument
-    if sys.argv[1] == "--transport" and len(sys.argv) > 2:
-        transport = sys.argv[2]
-    else:
-        transport = sys.argv[1]
-
-    logger = logging.getLogger(__name__)
-
-    if transport in ("stdio", "sse", "streamable-http"):
-        logger.info(f"Starting Jira Helper with {transport} transport")
-        kwargs = {
-            "server_name": settings.server_name,
-            "tools_config": get_tools_config(),
-            "transport": transport,
-        }
-        if transport != "stdio":
-            kwargs["host"] = settings.host
-            kwargs["port"] = settings.port
-        run_mcp_server(**kwargs)
-    else:
-        print(f"Unknown transport: {transport}", file=sys.stderr)
-        print("Use 'stdio', 'sse', 'streamable-http', or 'help'.", file=sys.stderr)
-        sys.exit(1)
+    run_cli(
+        server_name=settings.server_name,
+        tools_config=get_tools_config(),
+        description="- Jira & Confluence Integration MCP Server",
+        host=settings.host,
+        port=settings.port,
+        transports=("stdio", "sse", "streamable-http"),
+        log_level=settings.log_level,
+        log_file=settings.log_file,
+    )
 
 
 def create_app():
-    """Create an ASGI application for external ASGI servers."""
+    """ASGI factory for running under an external server (uvicorn, etc.)."""
     return create_mcp_app(
         server_name=settings.server_name,
         tools_config=get_tools_config(),

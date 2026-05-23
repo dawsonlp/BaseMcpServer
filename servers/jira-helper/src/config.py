@@ -1,67 +1,37 @@
 """
 Configuration module for the Jira MCP server.
 
-This module handles loading and validating configuration from YAML files.
-Supports multiple Jira instances through clean YAML configuration.
+Loads a YAML config that lists Jira/Confluence instances under
+`instances.<name>.jira` / `instances.<name>.confluence`. Path discovery
+delegates to `mcp_commons.find_server_config` (mcp-manager-first, then
+XDG, then CWD).
 """
 
 import logging
 from pathlib import Path
 
 import yaml
+from mcp_commons import find_server_config
 
 logger = logging.getLogger(__name__)
 
-def find_config_file():
-    """
-    Find the config.yaml file in order of preference:
-    1. ~/.config/mcp-manager/servers/jira-helper/config.yaml (mcp-manager managed)
-    2. ~/.mcp_servers/servers/jira-helper/config.yaml (legacy location)
-    3. ~/.mcp_servers/jira-helper-config.yaml (legacy production)
-    4. ./config.yaml (local development)
-    5. ./config.yaml.example (fallback template)
 
-    Returns:
-        str: Path to the config file
-    """
-    # MCP-manager managed config (primary location)
-    mcp_manager_config = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper" / "config.yaml"
-    if mcp_manager_config.exists():
-        logger.info(f"Using mcp-manager config: {mcp_manager_config}")
-        return str(mcp_manager_config)
-
-    # Legacy server-specific config
-    server_config = Path.home() / ".mcp_servers" / "servers" / "jira-helper" / "config.yaml"
-    if server_config.exists():
-        logger.info(f"Using legacy server-specific config: {server_config}")
-        return str(server_config)
-
-    # Legacy production config (safe from git)
-    production_config = Path.home() / ".mcp_servers" / "jira-helper-config.yaml"
-    if production_config.exists():
-        logger.info(f"Using legacy production config: {production_config}")
-        return str(production_config)
-
-    # Local development config
-    local_config = Path.cwd() / "config.yaml"
-    if local_config.exists():
-        logger.info(f"Using local config: {local_config}")
-        return str(local_config)
-
-    # Fallback to example template
-    example_config = Path.cwd() / "config.yaml.example"
-    if example_config.exists():
-        logger.warning(f"Using example config: {example_config}")
-        return str(example_config)
-
-    logger.error("No config file found!")
-    raise FileNotFoundError("No config.yaml file found. Please create one from config.yaml.example")
+def _resolve_config_path() -> Path:
+    """Locate config.yaml. Fail fast if no real config exists."""
+    path = find_server_config("jira-helper", filename="config.yaml")
+    if path is None:
+        raise FileNotFoundError(
+            "No config.yaml found for jira-helper. Expected at "
+            "~/.config/mcp-manager/servers/jira-helper/config.yaml. "
+            "Copy config.yaml.example to that location and fill in your "
+            "Jira/Confluence instance details."
+        )
+    return path
 
 
 class JiraInstance:
-    """
-    Represents a single Jira instance configuration.
-    """
+    """A single Jira instance configuration."""
+
     def __init__(self, name: str, url: str, user: str, token: str, description: str = ""):
         self.name = name
         self.url = url
@@ -74,9 +44,8 @@ class JiraInstance:
 
 
 class ConfluenceInstance:
-    """
-    Represents a single Confluence instance configuration.
-    """
+    """A single Confluence instance configuration."""
+
     def __init__(self, name: str, url: str, user: str, token: str, description: str = ""):
         self.name = name
         self.url = url
@@ -89,194 +58,89 @@ class ConfluenceInstance:
 
 
 class Settings:
-    """
-    Server settings and configuration loaded from YAML files.
-
-    Supports multiple Jira instances through clean YAML configuration.
-    """
+    """Server settings loaded from the resolved YAML config file."""
 
     def __init__(self):
-        self.config_file = find_config_file()
+        self.config_file = _resolve_config_path()
         self.config_data = self._load_config()
 
-        # Load server configuration
-        server_config = self.config_data.get('server', {})
-        self.server_name: str = server_config.get('name', 'jira-helper-server')
-        self.host: str = server_config.get('host', '0.0.0.0')
-        self.port: int = server_config.get('port', 7501)
-        self.api_key: str = server_config.get('api_key', 'example_key')
-        self.debug_mode: bool = server_config.get('debug_mode', False)
-        self.log_level: str = server_config.get('log_level', 'INFO')
-        self.log_file: str = server_config.get('log_file', '/tmp/jira_helper_debug.log')
+        server_config = self.config_data.get("server", {})
+        self.server_name: str = server_config.get("name", "jira-helper-server")
+        self.host: str = server_config.get("host", "0.0.0.0")
+        self.port: int = server_config.get("port", 7501)
+        self.api_key: str = server_config.get("api_key", "example_key")
+        self.debug_mode: bool = server_config.get("debug_mode", False)
+        self.log_level: str = server_config.get("log_level", "INFO")
+        self.log_file: str = server_config.get("log_file", "/tmp/jira_helper_debug.log")
 
-        # Default instance configuration
-        self.default_jira_instance: str | None = self.config_data.get('default_jira_instance')
-
-        # Legacy configuration (for backward compatibility)
-        legacy_config = self.config_data.get('legacy', {})
-        self.JIRA_URL: str = legacy_config.get('jira_url', 'https://example.atlassian.net')
-        self.JIRA_USER: str = legacy_config.get('jira_user', 'user@example.com')
-        self.JIRA_TOKEN: str = legacy_config.get('jira_token', '')
+        self.default_jira_instance: str | None = self.config_data.get("default_jira_instance")
 
     def _load_config(self) -> dict:
-        """Load configuration from YAML file."""
         try:
-            with open(self.config_file, encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
-                logger.info(f"Successfully loaded config from {self.config_file}")
-                return config_data or {}
+            with open(self.config_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            logger.info(f"Loaded config from {self.config_file}")
+            return data
         except yaml.YAMLError as e:
             logger.error(f"Failed to parse YAML config file {self.config_file}: {e}")
             raise
-        except FileNotFoundError:
-            logger.error(f"Config file not found: {self.config_file}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error loading config: {e}")
-            raise
 
     def get_jira_instances(self) -> dict[str, JiraInstance]:
-        """
-        Get all configured Jira instances.
-
-        Supports both new nested format and old flat format for backward compatibility.
-
-        Returns:
-            Dict[str, JiraInstance]: Dictionary mapping instance names to JiraInstance objects
-        """
-        instances = {}
-
-        # Try new nested format first: instances.{name}.jira
-        nested_instances = self.config_data.get('instances', {})
-        for instance_name, instance_data in nested_instances.items():
-            jira_config = instance_data.get('jira', {})
-            if jira_config and jira_config.get('url'):
+        """All Jira instances under `instances.<name>.jira` in the config."""
+        instances: dict[str, JiraInstance] = {}
+        for instance_name, instance_data in self.config_data.get("instances", {}).items():
+            jira_config = instance_data.get("jira") or {}
+            if jira_config.get("url"):
                 instances[instance_name] = JiraInstance(
                     name=instance_name,
                     url=jira_config.get("url", ""),
                     user=jira_config.get("username", jira_config.get("user", "")),
                     token=jira_config.get("api_token", jira_config.get("token", "")),
-                    description=instance_data.get("description", "")
+                    description=instance_data.get("description", ""),
                 )
-
-        # Fallback to old flat format: jira_instances (for backward compatibility)
-        if not instances:
-            jira_instances = self.config_data.get('jira_instances', [])
-            for instance_config in jira_instances:
-                name = instance_config.get("name")
-                if name:
-                    instances[name] = JiraInstance(
-                        name=name,
-                        url=instance_config.get("url", ""),
-                        user=instance_config.get("user", ""),
-                        token=instance_config.get("token", ""),
-                        description=instance_config.get("description", "")
-                    )
-
-        # Add legacy single instance if configured and not already present
-        if (self.JIRA_URL and self.JIRA_URL != "https://example.atlassian.net" and
-            self.JIRA_USER and self.JIRA_USER != "user@example.com" and
-            self.JIRA_TOKEN):
-
-            # Use "primary" as the default name for legacy configuration
-            legacy_name = "primary"
-            if legacy_name not in instances:
-                instances[legacy_name] = JiraInstance(
-                    name=legacy_name,
-                    url=self.JIRA_URL,
-                    user=self.JIRA_USER,
-                    token=self.JIRA_TOKEN,
-                    description="Primary Jira instance (legacy configuration)"
-                )
-
         return instances
 
     def get_default_instance_name(self) -> str | None:
-        """
-        Get the name of the default Jira instance.
-
-        Returns:
-            Optional[str]: Name of the default instance, or None if no instances configured
-        """
         instances = self.get_jira_instances()
         if not instances:
             return None
-
-        # Use configured default if specified
         if self.default_jira_instance and self.default_jira_instance in instances:
             return self.default_jira_instance
-
-        # Prefer "primary" if it exists
         if "primary" in instances:
             return "primary"
-
-        # Otherwise return the first instance
         return next(iter(instances.keys()))
 
     def get_jira_instance(self, instance_name: str | None = None) -> JiraInstance | None:
-        """
-        Get a specific Jira instance by name, or the default instance.
-
-        Args:
-            instance_name: Name of the instance to get, or None for default
-
-        Returns:
-            Optional[JiraInstance]: The requested instance, or None if not found
-        """
         instances = self.get_jira_instances()
         if not instances:
             return None
-
         if instance_name is None:
             instance_name = self.get_default_instance_name()
-
         return instances.get(instance_name) if instance_name else None
 
     def get_confluence_instances(self) -> dict[str, ConfluenceInstance]:
-        """
-        Get all configured Confluence instances.
-
-        Supports nested format: instances.{name}.confluence
-
-        Returns:
-            Dict[str, ConfluenceInstance]: Dictionary mapping instance names to ConfluenceInstance objects
-        """
-        instances = {}
-
-        # Load from nested format: instances.{name}.confluence
-        nested_instances = self.config_data.get('instances', {})
-        for instance_name, instance_data in nested_instances.items():
-            confluence_config = instance_data.get('confluence', {})
-            if confluence_config and confluence_config.get('url'):
+        """All Confluence instances under `instances.<name>.confluence` in the config."""
+        instances: dict[str, ConfluenceInstance] = {}
+        for instance_name, instance_data in self.config_data.get("instances", {}).items():
+            confluence_config = instance_data.get("confluence") or {}
+            if confluence_config.get("url"):
                 instances[instance_name] = ConfluenceInstance(
                     name=instance_name,
                     url=confluence_config.get("url", ""),
                     user=confluence_config.get("username", confluence_config.get("user", "")),
                     token=confluence_config.get("api_token", confluence_config.get("token", "")),
-                    description=instance_data.get("description", "")
+                    description=instance_data.get("description", ""),
                 )
-
         return instances
 
     def get_confluence_instance(self, instance_name: str | None = None) -> ConfluenceInstance | None:
-        """
-        Get a specific Confluence instance by name, or the default instance.
-
-        Args:
-            instance_name: Name of the instance to get, or None for default
-
-        Returns:
-            Optional[ConfluenceInstance]: The requested instance, or None if not found
-        """
         instances = self.get_confluence_instances()
         if not instances:
             return None
-
         if instance_name is None:
             instance_name = self.get_default_instance_name()
-
         return instances.get(instance_name) if instance_name else None
 
 
-# Create a settings instance for importing in other modules
+# Module-level singleton imported by other modules.
 settings = Settings()
