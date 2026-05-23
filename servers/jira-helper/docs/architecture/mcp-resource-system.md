@@ -45,7 +45,7 @@ Instead of returning base64 data inline, save generated images as MCP resources 
 
 #### 1. Resource Directory Structure
 ```
-~/.mcp_servers/resources/jira-helper/
+~/.config/mcp-manager/servers/jira-helper/
 ├── workflow_graphs/
 │   ├── ATP_Task_20250926_142555.png
 │   ├── PROJ_Story_20250926_143210.png
@@ -89,7 +89,7 @@ from mcp_commons import run_mcp_server, create_mcp_app
 
 def create_resource_config():
     """Configure MCP resources for workflow graphs."""
-    resource_dir = Path.home() / ".mcp_servers" / "resources" / "jira-helper"
+    resource_dir = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper"
     resource_dir.mkdir(parents=True, exist_ok=True)
     
     return {
@@ -144,7 +144,7 @@ def _save_to_resource_file(self, workflow: WorkflowGraph, format: str) -> dict:
     """Save matplotlib figure to resource file and return metadata."""
     
     # Create resource directory
-    resource_dir = Path.home() / ".mcp_servers" / "resources" / "jira-helper" / "workflow_graphs"
+    resource_dir = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper" / "workflow_graphs"
     resource_dir.mkdir(parents=True, exist_ok=True)
     
     # Generate filename
@@ -217,7 +217,7 @@ class ResourceCleanupService:
     def __init__(self, max_age_hours: int = 1, max_files: int = 100):
         self.max_age_hours = max_age_hours
         self.max_files = max_files
-        self.resource_dir = Path.home() / ".mcp_servers" / "resources" / "jira-helper" / "workflow_graphs"
+        self.resource_dir = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper" / "workflow_graphs"
     
     async def cleanup_old_files(self):
         """Remove files older than max_age_hours."""
@@ -293,7 +293,7 @@ def main():
 # In main.py - Add resource configuration function
 def create_resource_config():
     """Create MCP resource configuration."""
-    resource_dir = Path.home() / ".mcp_servers" / "resources" / "jira-helper"
+    resource_dir = Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper"
     
     return {
         "workflow_graphs": {

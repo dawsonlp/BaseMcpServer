@@ -66,24 +66,32 @@ The `jira-helper` server is configured via a `config.yaml` file where you add co
     **Example `config.yaml`:**
     ```yaml
     # ~/.config/mcp-manager/servers/jira-helper/config.yaml
-    
-    # Set the default instance to use when one is not specified
-    default_instance: "personal"
-    
+
+    # Optional: which instance to use when a tool call doesn't specify one.
+    # If omitted, the first defined instance is used as the default.
+    default_jira_instance: personal
+
     instances:
-      - name: "personal"
-        url: "https://your-personal-space.atlassian.net"
-        user: "your-email@example.com"
-        token: "YOUR_JIRA_API_TOKEN"
-        description: "Personal Jira Instance"
-    
-      - name: "work"
-        url: "https://your-company.atlassian.net"
-        user: "your-work-email@example.com"
-        token: "YOUR_OTHER_JIRA_API_TOKEN"
-        description: "Work Jira Instance"
+      personal:
+        description: Personal Jira Instance
+        jira:
+          url: https://your-personal-space.atlassian.net
+          username: your-email@example.com
+          api_token: YOUR_JIRA_API_TOKEN
+        # Confluence is optional — include only if you want Confluence tools too.
+        confluence:
+          url: https://your-personal-space.atlassian.net
+          username: your-email@example.com
+          api_token: YOUR_JIRA_API_TOKEN
+
+      work:
+        description: Work Jira Instance
+        jira:
+          url: https://your-company.atlassian.net
+          username: your-work-email@example.com
+          api_token: YOUR_OTHER_JIRA_API_TOKEN
     ```
-    
+
     **Getting Jira API Tokens:**
     - Go to your Atlassian Account Settings
     - Navigate to Security → API Tokens
@@ -119,7 +127,7 @@ You should see `jira-helper` counted in the VS Code Cline servers, and both plat
 
 When using Jira tools in your editor, you can specify which instance to use:
 
-- **Default instance**: Commands use your configured `default_instance`
+- **Default instance**: Commands use your configured `default_jira_instance`
 - **Specific instance**: Use the `instance_name` parameter in tool calls
 
 **Example Usage:**

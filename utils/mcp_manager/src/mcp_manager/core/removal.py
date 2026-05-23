@@ -126,9 +126,10 @@ class RemovalManager:
                 )
                 return result
         
-        # Default to all platforms if not specified
+        # Default to all known platforms if not specified. These must match
+        # PlatformType enum values exactly (see core/models.py::PlatformType).
         if from_platforms is None:
-            from_platforms = ["cline", "claude"]
+            from_platforms = [pt.value for pt in PlatformType]
         
         # Remove from registry first (if requested)
         if from_registry and not dry_run:
