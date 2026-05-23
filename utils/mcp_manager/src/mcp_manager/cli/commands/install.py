@@ -107,8 +107,12 @@ def install_local(
                 raise MCPManagerError(f"Failed to create virtual environment: {result.stderr.strip()}")
 
             progress.update(task, description="Installing package with uv pip...", advance=50)
+            # Resolve to an absolute path. A bare relative name like "worldcontext"
+            # gets interpreted by `uv pip install` as a PyPI package name lookup,
+            # not a local directory, even when the dir exists in cwd.
+            source_abs = source.resolve()
             result = subprocess.run(
-                [uv_exe, "pip", "install", "--python", str(venv_dir / "bin" / "python"), str(source)],
+                [uv_exe, "pip", "install", "--python", str(venv_dir / "bin" / "python"), str(source_abs)],
                 capture_output=True,
                 text=True,
             )
