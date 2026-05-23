@@ -98,35 +98,25 @@ def _create_init_file(src_dir: Path, server_name: str) -> None:
 
 
 def _create_config_file(src_dir: Path, server_name: str) -> None:
-    """Create config.py file with configuration class."""
-    config_content = f'''"""
-Configuration for {server_name}.
+    """Create config.py file using mcp-commons config discovery."""
+    config_content = f'''"""Configuration for {server_name}.
+
+Looks under ~/.config/mcp-manager/servers/{server_name}/config.yaml first
+(populated by `mcp-manager install local`), then XDG, then CWD. Returns a
+sane default config if no file exists, so the server can run before the
+user fills in their own config.yaml.
 """
 
-from typing import Dict, Any, Optional
+from mcp_commons import create_config, load_dotenv_file
 
+load_dotenv_file()
 
-class SimpleConfig:
-    """Simple configuration class for {server_name}."""
-    
-    def __init__(self):
-        self._config = {{
-            "server": {{
-                "name": "{server_name}",
-                "host": "localhost", 
-                "port": 7501
-            }}
-        }}
-    
-    def get(self, section: str, key: str, default: Any = None) -> Any:
-        """Get configuration value."""
-        return self._config.get(section, {{}}).get(key, default)
-
-
-# Global config instance
-config = SimpleConfig()
+config = create_config(
+    server_name="{server_name}",
+    env_prefix="{server_name.replace('-', '_').upper()}",
+)
 '''
-    
+
     with open(src_dir / "config.py", "w") as f:
         f.write(config_content)
 
@@ -196,74 +186,24 @@ def _create_tool_config_file(src_dir: Path, server_name: str, tool_names: List[s
     tool_config_content = f'''"""
 Tool configuration for {server_name}.
 
-This module defines the configuration for all MCP tools that will be bulk registered
-with the mcp-commons system, eliminating the need for individual @srv.tool() decorators.
+Bulk-registered with mcp-commons; no per-tool @srv.tool() decorator needed.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 from server import {impl_class_name}
 
 
-# Create implementation instance for tool functions
 _implementation = {impl_class_name}()
 
 
-# Tool configuration - single source of truth for all {server_name} tools
+# Single source of truth for all {server_name} tools.
 {server_name.replace('-', '_').upper()}_TOOLS: Dict[str, Dict[str, Any]] = {{
 {',\n\n'.join(tool_entries) if tool_entries else '    \'placeholder_tool\': {\n        \'function\': _implementation.placeholder_tool,\n        \'description\': \'Placeholder tool\'\n    }'}
 }}
 
 
-def get_tool_count() -> int:
-    """Get the total number of configured tools."""
-    return len({server_name.replace('-', '_').upper()}_TOOLS)
-
-
-def get_tool_names() -> list[str]:
-    """Get list of all tool names."""
-    return list({server_name.replace('-', '_').upper()}_TOOLS.keys())
-
-
-def get_tool_config(tool_name: str) -> Dict[str, Any]:
-    """
-    Get configuration for a specific tool.
-
-    Args:
-        tool_name: Name of the tool
-
-    Returns:
-        Tool configuration dictionary
-
-    Raises:
-        KeyError: If tool name not found
-    """
-    if tool_name not in {server_name.replace('-', '_').upper()}_TOOLS:
-        raise KeyError(f"Tool '{{tool_name}}' not found in configuration")
-    
-    return {server_name.replace('-', '_').upper()}_TOOLS[tool_name].copy()
-
-
 def get_tools_config() -> Dict[str, Dict[str, Any]]:
-    """
-    Get the tools configuration for registration.
-    
-    Returns:
-        Dictionary mapping tool names to their configuration
-    """
     return {server_name.replace('-', '_').upper()}_TOOLS
-
-
-def get_config_stats() -> Dict[str, Any]:
-    """
-    Get statistics about the tool configuration.
-
-    Returns:
-        Configuration statistics
-    """
-    return {{
-        'total_tools': len({server_name.replace('-', '_').upper()}_TOOLS),
-        'description': 'Metadata-driven tool configuration for {server_name}'
-    }}
 '''
     
     with open(src_dir / "tool_config.py", "w") as f:
@@ -275,54 +215,30 @@ def _create_main_file(src_dir: Path, server_name: str, description: str) -> None
     main_content = f'''"""
 Main entry point for the {server_name} MCP Server.
 
-Consolidated to use mcp-commons utilities for standardized server startup.
+Uses mcp-commons run_cli for argv parsing + transport dispatch.
 """
 
-import sys
-from mcp_commons import run_mcp_server, create_mcp_app, print_mcp_help
+from mcp_commons import create_mcp_app, run_cli
 
 from config import config
 from tool_config import get_tools_config
 
 
 def main() -> None:
-    """Process command-line arguments and start the server appropriately."""
-    if len(sys.argv) <= 1 or sys.argv[1] in ["help", "--help", "-h"]:
-        print_mcp_help("{server_name}", "- {description}")
-        return
-    
-    # Get config values
-    server_name = config.get("server", "name", default="{server_name}")
-    host = config.get("server", "host", default="localhost")
-    port = config.get("server", "port", default=7501)
-    
-    if sys.argv[1] == "sse":
-        run_mcp_server(
-            server_name=server_name,
-            tools_config=get_tools_config(),
-            transport="sse",
-            host=host,
-            port=port
-        )
-    elif sys.argv[1] == "stdio":
-        run_mcp_server(
-            server_name=server_name,
-            tools_config=get_tools_config(),
-            transport="stdio"
-        )
-    else:
-        print(f"Unknown transport mode: {{sys.argv[1]}}")
-        print("Use 'sse', 'stdio', or 'help' for usage information.")
-        sys.exit(1)
+    run_cli(
+        server_name=config.get("server", "name", default="{server_name}"),
+        tools_config=get_tools_config(),
+        description="- {description}",
+        host=config.get("server", "host", default="localhost"),
+        port=config.get("server", "port", default=7501),
+    )
 
 
 def create_app():
-    """Create an ASGI application for use with an external ASGI server."""
-    server_name = config.get("server", "name", default="{server_name}")
-    
+    """ASGI factory for external ASGI servers."""
     return create_mcp_app(
-        server_name=server_name,
-        tools_config=get_tools_config()
+        server_name=config.get("server", "name", default="{server_name}"),
+        tools_config=get_tools_config(),
     )
 
 
@@ -354,12 +270,12 @@ authors = [
 ]
 dependencies = [
     # Core MCP dependencies
-    "mcp>=1.13.1",
-    "mcp-commons>=1.0.0",
-    
+    "mcp>=1.27.0",
+    "mcp-commons>=2.2.2",
+
     # Common utilities that may be needed
     "python-dateutil>=2.8.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.13.0",
 ]
 
 [project.optional-dependencies]
