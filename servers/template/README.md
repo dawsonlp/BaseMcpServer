@@ -1,150 +1,117 @@
 # MCP Server Template
 
-A clean, well-structured template for building Model Context Protocol (MCP) servers using FastMCP. This template provides the foundation for creating your own MCP server with custom tools and resources.
+Starter scaffold for a new MCP server. Mirrors the structure used by the other servers in this repo (`worldcontext`, `jira-helper`, `mcpservercreator`) so it gets the same shared infrastructure: bulk tool registration, config-file discovery, argv parsing, transport dispatch, and stdio-safe logging — all via [`mcp-commons`](https://pypi.org/project/mcp-commons/).
 
-## Features
-
-- **Ready-to-use template structure** for creating MCP servers
-- **Clear separation of concerns** (main entry point, server logic, configuration)
-- **Docker containerization** for easy deployment
-- **Comprehensive transport support** (stdio for development, HTTP+SSE for production)
-- **Example implementations** of tools and resources
-- **Flexible configuration** via environment variables
-
-## Project Structure
+## What you get out of the box
 
 ```
-template/
-├── src/                     # Application code
-│   ├── __init__.py          # Package initialization
-│   ├── config.py            # Configuration management with auto-discovery
-│   ├── main.py              # Server entry point with transport options
-│   └── server.py            # MCP server implementation with example tools
-├── docker/                  # Docker configuration
-│   ├── Dockerfile           # Container definition
-│   └── build.sh             # Docker build script
-├── run.sh                   # Convenience script to run the server
-├── setup.sh                 # Setup script for virtual environment
-├── requirements.txt         # Python dependencies
-└── .env.example             # Example environment variables
+servers/template/
+├── pyproject.toml          # Package metadata + mcp-commons dependency
+├── config.yaml.example     # Sample config (copied to ~/.config/mcp-manager/.../config.yaml on install)
+├── README.md
+└── src/
+    ├── __init__.py
+    ├── config.py           # 3-line config loader (mcp_commons.create_config)
+    ├── main.py             # 6-line entry point (mcp_commons.run_cli)
+    └── tool_config.py      # Where you actually add tools
 ```
 
-## Prerequisites
+One example tool (`echo`) is wired up to show the registration pattern. Replace it with yours.
 
-- Python 3.13+ (recommended)
-- Docker (for containerized deployment)
+## Forking the template for a new server
 
-## Getting Started
-
-### Option 1: Local Development
-
-1. Clone this template to your new project:
-   ```bash
-   cp -r template/ my-mcp-server/
-   cd my-mcp-server/
-   ```
-
-2. Create your environment and install dependencies:
-   ```bash
-   ./setup.sh
-   ```
-
-3. Create your configuration:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
-
-4. Run the server:
-   ```bash
-   ./run.sh       # Default SSE transport
-   # or
-   ./run.sh stdio # For STDIO transport (local development)
-   ```
-
-### Option 2: Docker Deployment
-
-1. Build the Docker image:
-   ```bash
-   ./docker/build.sh my-mcp-server latest 7501 <your-docker-username>
-   ```
-
-2. Run the container:
-   ```bash
-   docker run -p 7501:7501 my-mcp-server:latest
-   ```
-
-## Customizing Your Server
-
-### Adding Tools
-
-Edit `src/server.py` and add functions within the `register_tools_and_resources` function:
-
-```python
-@srv.tool()
-def my_custom_tool(param1: str, param2: int) -> Dict[str, Any]:
-    """
-    Tool description here
-    
-    Args:
-        param1: First parameter
-        param2: Second parameter
-        
-    Returns:
-        A dictionary containing the result
-    """
-    # Your tool implementation
-    return {"result": f"Processed {param1} with value {param2}"}
-```
-
-### Adding Resources
-
-Add resource functions in `src/server.py`:
-
-```python
-@srv.resource("resource://my-custom-resource/{param_id}")
-def my_custom_resource(param_id: str) -> Dict[str, Any]:
-    """Resource description"""
-    return {"id": param_id, "data": f"Resource data for {param_id}"}
-```
-
-## Connecting to Claude/Cline
-
-1. Start your MCP server with the `sse` transport:
-   ```bash
-   ./run.sh sse  # or just ./run.sh (default)
-   ```
-
-2. Configure Claude Desktop or Cline to use your server:
-   - For Claude Desktop: Settings → Advanced → MCP Servers → Add MCP Server
-   - For Cline: Edit the MCP settings file (see help in `python main.py help`)
-
-## Available Example Tools & Resources
-
-The template includes example tools and resources to demonstrate implementation patterns:
-
-### Tools
-- `example_tool`: A simple example showing parameter handling
-  - Parameters: `param1` (string), `param2` (integer), `optional_param` (boolean, optional)
-  - Returns: Echo of the parameters received
-
-### Resources
-- `resource://example`: Basic resource returning static data
-- `resource://example/{id}`: Parameterized resource demonstrating path parameters
-
-## Security Considerations
-
-- Set a strong API key in your `.env` file
-- Consider using HTTPS in production environments
-- Review Docker security settings for production deployment
-
-## For More Information
-
-For more details on using this template, run:
 ```bash
-cd src && python main.py help
+# 1. Copy the template under a new name
+cp -r servers/template servers/my-server
+cd servers/my-server
+
+# 2. Rename project identifiers in pyproject.toml
+#    - name = "template-mcp-server"  ->  "my-server"
+#    - [project.scripts] template = "main:main"  ->  my-server = "main:main"
+
+# 3. Update server_name in:
+#    - src/config.py  -> create_config(server_name="my-server", env_prefix="MY_SERVER")
+#    - src/main.py    -> default values in the run_cli call
+#    - src/tool_config.py  -> rename TEMPLATE_TOOLS to MY_SERVER_TOOLS (cosmetic)
+#    - config.yaml.example -> server.name: my-server
+
+# 4. Replace the echo example with your real tools (see "Adding tools" below)
+
+# 5. Install via mcp-manager
+mcp-manager install local my-server --source ./servers/my-server
+
+# 6. Edit your real config
+$EDITOR ~/.config/mcp-manager/servers/my-server/config.yaml
+
+# 7. Wire it into your editor
+mcp-manager config cline   # or: mcp-manager config claude
 ```
+
+## Adding tools
+
+A tool is just a function that takes JSON-serializable arguments and returns a JSON-serializable dict. Register it by adding an entry to the `TEMPLATE_TOOLS` dict in `src/tool_config.py`:
+
+```python
+def list_widgets(category: str | None = None) -> dict:
+    """List widgets, optionally filtered by category."""
+    # Your implementation...
+    return {"widgets": [...]}
+
+
+TEMPLATE_TOOLS = {
+    "echo": {
+        "function": echo,
+        "description": "Echo a message back with the server name attached.",
+    },
+    "list_widgets": {                    # <-- new entry
+        "function": list_widgets,
+        "description": "List widgets, optionally filtered by category.",
+    },
+}
+```
+
+That's it. `mcp-commons` reads `TEMPLATE_TOOLS` at startup and registers each entry with FastMCP. No per-tool decorators required.
+
+## Reading config inside a tool
+
+`config.py` exports a `config` object loaded from your `config.yaml`. Use it inside tools:
+
+```python
+from config import config
+
+def greet(name: str) -> dict:
+    greeting = config.get("example", "greeting", default="Hello")
+    return {"text": f"{greeting}, {name}!"}
+```
+
+## Transports
+
+The template supports `stdio` (default for editor integration) and `sse` (for HTTP-based deployments) via `mcp_commons.run_cli`. Once installed, the editor invokes your server with `--transport stdio`; you don't normally run it by hand.
+
+For local development without editor integration, you can run directly:
+```bash
+~/.config/mcp-manager/servers/my-server/.venv/bin/my-server stdio
+~/.config/mcp-manager/servers/my-server/.venv/bin/my-server sse
+~/.config/mcp-manager/servers/my-server/.venv/bin/my-server help
+```
+
+## Why your tools should log to stderr (not stdout)
+
+When the server runs over `stdio`, **stdout is the JSON-RPC channel** — writing anything there corrupts the protocol and the host (Cline, Claude Desktop) silently truncates responses. `mcp-commons` >= 2.2.0 configures Python's `logging` module to route to `stderr` by default; using `logger.info(...)` / `logger.error(...)` is safe. Avoid bare `print()` in tool implementations unless you've redirected it.
+
+## Connecting to a client
+
+After `mcp-manager install local`, run:
+
+```bash
+mcp-manager config sync              # write to both Cline + Claude Desktop
+# or selectively:
+mcp-manager config cline
+mcp-manager config claude
+```
+
+Then restart your editor.
 
 ## License
 
-[MIT License](LICENSE)
+MIT.

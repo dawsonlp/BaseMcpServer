@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "template-mcp-server"
+version = "0.1.0"
+description = "Starter template for new MCP servers in the BaseMcpServer monorepo"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Your Name", email = "you@example.com"},
+]
+dependencies = [
+    "mcp>=1.27.0",
+    "mcp-commons>=2.2.2",
+]
+
+[project.scripts]
+template = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "config", "tool_config"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

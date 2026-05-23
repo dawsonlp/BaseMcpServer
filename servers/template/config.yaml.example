@@ -1,0 +1,17 @@
+# Template MCP Server configuration.
+#
+# When this server is installed via `mcp-manager install local`, this file
+# is copied to ~/.config/mcp-manager/servers/<name>/config.yaml. Edit that
+# copy (NOT the .example) with your real settings.
+
+server:
+  name: template
+  host: localhost
+  port: 7501
+
+# Add your server-specific configuration sections below. They become
+# accessible via `config.get("section", "key", default=...)` in tool_config.py.
+#
+# example:
+#   greeting: "Hello"
+#   max_items: 10

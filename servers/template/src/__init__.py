@@ -1,5 +1,1 @@
-"""
-MCP Server Template
-
-A clean, well-structured foundation for building custom MCP servers
-"""
+"""Template MCP server — starting point for new servers."""
