@@ -4,11 +4,11 @@ A comprehensive command-line tool for managing Model Context Protocol (MCP) serv
 
 ## Features
 
-- **Config Status Dashboard** - View comprehensive MCP configuration status across VS Code/Cline and Claude Desktop
+- **Config Status Dashboard** - View comprehensive MCP configuration status across every supported agent
 - Install and manage local MCP servers with isolated environments
 - Configure connections to remote MCP servers
 - Generate wrapper scripts for stdio-based MCP servers
-- Automatically configure VS Code Cline integration
+- **One-command install into multiple AI agents** - Cline, Claude Desktop, Claude Code, VS Code (native MCP), and Codex
 - Support for both stdio and HTTP+SSE transport modes
 - **XDG Compliant** - Centralized management under `~/.config/mcp-manager`
 - **Automatic Migration** - Seamlessly migrates existing configurations
@@ -137,15 +137,19 @@ Per-server `config.yaml` files under `~/.config/mcp-manager/servers/<name>/` (AP
 
 The `--no-pipx` source-copy install flow was removed. Local servers are always installed as isolated packages using `uv`.
 
-## VS Code Cline Integration
+## Supported Agents
 
-MCP Manager automatically configures VS Code Cline integration by updating the settings file at:
+`mcp-manager config sync` pushes the registry into every installed agent it recognizes. Each server is written in the format that agent expects:
 
-```
-~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
-```
+| Agent | Mechanism | Location |
+|-------|-----------|----------|
+| Cline (VS Code) | JSON file (`mcpServers`) | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` |
+| Claude Desktop | JSON file (`mcpServers`) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Code | `claude mcp add` CLI (user scope) | `~/.claude.json` |
+| VS Code (native MCP) | JSON file (`servers` + `type`) | `~/Library/Application Support/Code/User/mcp.json` |
+| Codex | `codex mcp add` CLI | `~/.codex/config.toml` |
 
-This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp-manager info system` to verify your configuration status.
+For file-based agents, entries you added by hand are preserved — only servers with a matching name are overwritten, and the file is backed up first. Claude Code and Codex keep MCP servers inside large, live-mutated config files, so mcp-manager delegates to their own `mcp add` / `mcp remove` CLIs rather than rewriting those files directly. Use `mcp-manager info system` to verify configuration status.
 
 ## Commands Reference
 
@@ -160,7 +164,10 @@ This allows Cline to connect to your MCP servers directly from VS Code. Use `mcp
 | `mcp-manager server restart <name>` | Restart a server |
 | `mcp-manager config cline` | Write the registry to VS Code/Cline settings |
 | `mcp-manager config claude` | Write the registry to Claude Desktop settings |
-| `mcp-manager config sync` | Push the registry to all installed AI platforms |
+| `mcp-manager config claude-code` | Register the registry with Claude Code (`claude mcp add`, user scope) |
+| `mcp-manager config vscode` | Write the registry to VS Code native MCP settings (`mcp.json`) |
+| `mcp-manager config codex` | Register the registry with Codex (`codex mcp add`) |
+| `mcp-manager config sync` | Push the registry to all installed AI agents |
 | `mcp-manager config validate` | Validate every server's installation |
 | `mcp-manager remove server <name>` | Remove a server completely from all locations |
 | `mcp-manager remove from-cline <name>` | Remove a server from VS Code/Cline only |
