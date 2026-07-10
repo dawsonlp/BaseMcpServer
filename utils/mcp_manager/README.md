@@ -148,7 +148,7 @@ The `--no-pipx` source-copy install flow was removed. Local servers are always i
 | Claude Code | `claude mcp add` CLI (user scope) | `~/.claude.json` |
 | VS Code (native MCP) | JSON file (`servers` + `type`) | `~/Library/Application Support/Code/User/mcp.json` |
 | Codex | `codex mcp add` CLI | `~/.codex/config.toml` |
-| Antigravity | JSON file (`mcpServers`) | `~/.antigravity/mcp_config.json` |
+| Antigravity | JSON file (`mcpServers`) | `~/.gemini/config/mcp_config.json` |
 
 For file-based agents, entries you added by hand are preserved — only servers with a matching name are overwritten, and the file is backed up first. Claude Code and Codex keep MCP servers inside large, live-mutated config files, so mcp-manager delegates to their own `mcp add` / `mcp remove` CLIs rather than rewriting those files directly. Use `mcp-manager info system` to verify configuration status.
 

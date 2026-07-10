@@ -314,7 +314,7 @@ def configure_vscode_wrapper(
 def configure_antigravity_wrapper(
     backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
 ):
-    """⚙️  Configure Antigravity integration (~/.antigravity/mcp_config.json)."""
+    """⚙️  Configure Antigravity integration (~/.gemini/config/mcp_config.json)."""
     configure_antigravity(backup=backup)
 
 
