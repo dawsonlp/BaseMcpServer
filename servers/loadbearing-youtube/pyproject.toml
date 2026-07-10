@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loadbearing-youtube-mcp-server"
+version = "0.1.0"
+description = "loadbearing_youtube MCP Server - extract a YouTube transcript and expose its load-bearing components"
+authors = [
+    {name = "Larry Dawson"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    "mcp>=1.27.0",
+    "mcp-commons>=2.2.2",
+    "PyYAML>=6.0.3",
+    "loadbearing-youtube @ git+https://github.com/dawsonlp/loadbearing_youtube@v0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+# NB: script name is *-mcp to avoid colliding with the loadbearing_youtube
+# package's own `loadbearing-youtube` CLI when both are installed together.
+[project.scripts]
+loadbearing-youtube-mcp = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "config", "tool_config"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -44,12 +45,51 @@ def discover_installed_platforms() -> List[PlatformType]:
     return [p for p in PlatformType if is_platform_installed(p)]
 
 
+def _resolve_console_script(server: Server) -> Optional[str]:
+    """Name of the console script that launches this server's MCP entry point.
+
+    mcp-manager's convention is that the script equals the server name, but a
+    server may rename its script (e.g. to avoid colliding with a dependency
+    that ships an identically-named CLI). The authoritative declaration is the
+    `[project.scripts]` table in the server's own pyproject.toml — dependency
+    scripts never appear there. Returns None when it can't be determined, so
+    callers fall back to `server.name` (correct for convention-following
+    servers, and for installs whose source dir is no longer present).
+    """
+    if not server.source_dir:
+        return None
+    pyproject = server.source_dir / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+    scripts = data.get("project", {}).get("scripts", {})
+    names = list(scripts)
+    if not names:
+        return None
+    # Convention holds: a script matching the server name is the entry point.
+    if server.name in names:
+        return server.name
+    # Single declared script is unambiguous.
+    if len(names) == 1:
+        return names[0]
+    # Multiple scripts, none matching the name: prefer the MCP-suffixed one.
+    mcp_scripts = [n for n in names if n.endswith("-mcp")]
+    if len(mcp_scripts) == 1:
+        return mcp_scripts[0]
+    return None
+
+
 def _server_executable_path(server: Server) -> Optional[Path]:
     if not server.venv_dir:
         return None
     bin_dir = "Scripts" if sys.platform == "win32" else "bin"
     suffix = ".exe" if sys.platform == "win32" else ""
-    return server.venv_dir / bin_dir / f"{server.name}{suffix}"
+    script_name = _resolve_console_script(server) or server.name
+    return server.venv_dir / bin_dir / f"{script_name}{suffix}"
 
 
 def build_mcp_server_entry(server: Server, platform: PlatformType) -> Optional[Dict[str, Any]]:
