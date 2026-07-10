@@ -16,7 +16,7 @@ dependencies = [
     "mcp>=1.27.0",
     "mcp-commons>=2.2.2",
     "PyYAML>=6.0.3",
-    "loadbearing-youtube>=0.1.0",
+    "loadbearing-youtube @ git+https://github.com/dawsonlp/loadbearing_youtube@v0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -37,13 +37,6 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
-
-# The loadbearing_youtube package is currently a local, unpublished sibling repo.
-# uv resolves it from this path (editable) for local dev / verification.
-# CLEANUP: once dawsonlp/loadbearing_youtube is published (PyPI or a git tag),
-# drop this and let the `loadbearing-youtube>=0.1.0` dependency resolve normally.
-[tool.uv.sources]
-loadbearing-youtube = { path = "../../../loadbearing_youtube", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
