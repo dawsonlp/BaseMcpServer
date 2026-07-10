@@ -11,6 +11,7 @@ BaseMcpServer/
 │   ├── jira-helper/           # Jira + Confluence integration server (multi-instance)
 │   ├── worldcontext/          # Current-context tools (date/time, market, news, dev-tool versions)
 │   ├── mcpservercreator/      # Generator that scaffolds new MCP servers from a code snippet
+│   ├── loadbearing-youtube/   # Extract a YouTube transcript + expose its load-bearing components
 │   └── template/              # Starter scaffold to fork when building a new server
 ├── docs/
 │   ├── adr/                   # Architecture Decision Records
@@ -30,9 +31,10 @@ uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=
 uv tool update-shell
 
 # 2. Install whichever servers you want
-mcp-manager install local jira-helper      --source ./servers/jira-helper
-mcp-manager install local worldcontext     --source ./servers/worldcontext
-mcp-manager install local mcpservercreator --source ./servers/mcpservercreator
+mcp-manager install local jira-helper        --source ./servers/jira-helper
+mcp-manager install local worldcontext       --source ./servers/worldcontext
+mcp-manager install local mcpservercreator   --source ./servers/mcpservercreator
+mcp-manager install local loadbearing-youtube --source ./servers/loadbearing-youtube
 
 # 3. Edit the per-server config files (where credentials go) — see each server's README
 $EDITOR ~/.config/mcp-manager/servers/jira-helper/config.yaml

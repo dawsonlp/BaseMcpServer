@@ -1,0 +1,14 @@
+# loadbearing_youtube MCP Server Configuration
+
+server:
+  name: "loadbearing-youtube"
+  host: "localhost"
+  port: 7502
+
+# Defaults for the analysis. Any tool argument overrides these; if left blank
+# here, the loadbearing_youtube package falls back to its own LOADBEARING_* env
+# defaults. Ollama is local and needs no API key.
+analysis:
+  provider: "ollama"   # ollama | openai | anthropic
+  model: ""            # blank = provider default (e.g. llama3.2 for ollama)
+  languages: "en"
