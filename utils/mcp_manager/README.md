@@ -148,6 +148,7 @@ The `--no-pipx` source-copy install flow was removed. Local servers are always i
 | Claude Code | `claude mcp add` CLI (user scope) | `~/.claude.json` |
 | VS Code (native MCP) | JSON file (`servers` + `type`) | `~/Library/Application Support/Code/User/mcp.json` |
 | Codex | `codex mcp add` CLI | `~/.codex/config.toml` |
+| Antigravity | JSON file (`mcpServers`) | `~/.antigravity/mcp_config.json` |
 
 For file-based agents, entries you added by hand are preserved — only servers with a matching name are overwritten, and the file is backed up first. Claude Code and Codex keep MCP servers inside large, live-mutated config files, so mcp-manager delegates to their own `mcp add` / `mcp remove` CLIs rather than rewriting those files directly. Use `mcp-manager info system` to verify configuration status.
 
@@ -167,6 +168,7 @@ For file-based agents, entries you added by hand are preserved — only servers 
 | `mcp-manager config claude-code` | Register the registry with Claude Code (`claude mcp add`, user scope) |
 | `mcp-manager config vscode` | Write the registry to VS Code native MCP settings (`mcp.json`) |
 | `mcp-manager config codex` | Register the registry with Codex (`codex mcp add`) |
+| `mcp-manager config antigravity` | Write the registry to Antigravity (`~/.antigravity/mcp_config.json`) |
 | `mcp-manager config sync` | Push the registry to all installed AI agents |
 | `mcp-manager config validate` | Validate every server's installation |
 | `mcp-manager remove server <name>` | Remove a server completely from all locations |

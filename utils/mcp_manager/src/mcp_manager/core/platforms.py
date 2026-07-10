@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from mcp_manager.core.logging import MCPManagerLogger
 from mcp_manager.core.models import PlatformType, Server, ServerType, TransportType
 from mcp_manager.core.state import (
+    get_antigravity_mcp_settings_path,
     get_claude_desktop_settings_path,
     get_vscode_cline_settings_path,
     get_vscode_mcp_settings_path,
@@ -70,12 +71,14 @@ _FILE_PROFILES: Dict[PlatformType, _FileProfile] = {
     PlatformType.CLINE: _FileProfile(cline_extras=True),
     PlatformType.CLAUDE_DESKTOP: _FileProfile(),
     PlatformType.VSCODE: _FileProfile(container_key="servers", include_type=True),
+    PlatformType.ANTIGRAVITY: _FileProfile(),
 }
 
 _PLATFORM_SETTINGS_PATH_FACTORY = {
     PlatformType.CLINE: get_vscode_cline_settings_path,
     PlatformType.CLAUDE_DESKTOP: get_claude_desktop_settings_path,
     PlatformType.VSCODE: get_vscode_mcp_settings_path,
+    PlatformType.ANTIGRAVITY: get_antigravity_mcp_settings_path,
 }
 
 

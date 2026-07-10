@@ -47,6 +47,7 @@ from mcp_manager.cli.commands.config import (
     configure_claude_code,
     configure_codex,
     configure_vscode,
+    configure_antigravity,
 )
 from mcp_manager.cli.commands.diagnostics import (
     health_check,
@@ -309,11 +310,19 @@ def configure_vscode_wrapper(
     configure_vscode(backup=backup)
 
 
+@config_app.command("antigravity")
+def configure_antigravity_wrapper(
+    backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
+):
+    """⚙️  Configure Antigravity integration (~/.antigravity/mcp_config.json)."""
+    configure_antigravity(backup=backup)
+
+
 @config_app.command("sync")
 def sync_wrapper(
     platform: Optional[str] = typer.Option(
         None, "--platform", "-p",
-        help="Specific platform to sync (cline|claude|claude-code|vscode|codex). Default: all installed.",
+        help="Specific platform to sync (cline|claude|claude-code|vscode|codex|antigravity). Default: all installed.",
     ),
 ):
     """🔄 Push the current server registry into each AI platform's settings."""

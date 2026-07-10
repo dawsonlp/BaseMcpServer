@@ -78,6 +78,7 @@ class PlatformType(str, Enum):
     CLAUDE_CODE = "claude_code"
     VSCODE = "vscode"
     CODEX = "codex"
+    ANTIGRAVITY = "antigravity"
 
 
 class Server(BaseModel):
