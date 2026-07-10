@@ -16,7 +16,7 @@ dependencies = [
     "mcp>=1.27.0",
     "mcp-commons>=2.2.2",
     "PyYAML>=6.0.3",
-    "loadbearing-youtube[all] @ git+https://github.com/dawsonlp/loadbearing_youtube@v0.1.0",
+    "loadbearing-youtube[all] @ git+https://github.com/dawsonlp/loadbearing_youtube@v0.1.2",
 ]
 
 [project.optional-dependencies]
