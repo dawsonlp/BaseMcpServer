@@ -96,13 +96,13 @@ def get_vscode_mcp_settings_path() -> Path:
 def get_antigravity_mcp_settings_path() -> Path:
     """Get the path to Antigravity's MCP config file (`mcp_config.json`).
 
-    Antigravity (Google) is a VS Code fork of Codeium/Windsurf lineage. It keeps
-    its data under `~/.antigravity/` (distinct from Windsurf's `~/.codeium/`) and
-    reads MCP servers from `mcp_config.json` there, using the Codeium
-    `mcpServers` format (command/args/env). The path is consistent across
-    platforms because it is home-relative, not an OS app-data dir.
+    Antigravity (Google) reads local stdio MCP servers from its Gemini config
+    home, using the standard `mcpServers` format (command/args/env). The path is
+    home-relative (not an OS app-data dir), so it is the same on every platform.
+    (Note: `~/.antigravity/` holds Antigravity's VS Code extension data, not the
+    MCP config — the config lives under `~/.gemini/config/`.)
     """
-    return Path.home() / ".antigravity" / "mcp_config.json"
+    return Path.home() / ".gemini" / "config" / "mcp_config.json"
 
 
 def create_directory_structure() -> None:
