@@ -20,6 +20,7 @@ from mcp_manager.core.state import get_state_manager
 from mcp_manager.core.platforms import (
     discover_installed_platforms,
     get_platform_settings_path,
+    is_cli_platform,
     sync_to_platform,
 )
 from mcp_manager.core.validation import validate_server_config
@@ -173,9 +174,13 @@ def validate_config(
 
 _PLATFORM_ALIASES = {
     "cline": PlatformType.CLINE,
-    "vscode": PlatformType.CLINE,
     "claude": PlatformType.CLAUDE_DESKTOP,
     "claude-desktop": PlatformType.CLAUDE_DESKTOP,
+    "claude-code": PlatformType.CLAUDE_CODE,
+    "claudecode": PlatformType.CLAUDE_CODE,
+    "code": PlatformType.VSCODE,
+    "vscode": PlatformType.VSCODE,
+    "codex": PlatformType.CODEX,
 }
 
 
@@ -183,7 +188,7 @@ _PLATFORM_ALIASES = {
 def sync_platforms(
     platform: Optional[str] = typer.Option(
         None, "--platform", "-p",
-        help="Specific platform to sync (cline|claude). Default: all installed.",
+        help="Specific platform to sync (cline|claude|claude-code|vscode|codex). Default: all installed.",
     ),
 ):
     """Push the current server registry into each AI platform's settings.
@@ -460,23 +465,26 @@ def _configure_platform(
     display_name: str,
     restart_hint: str,
 ) -> None:
-    """Shared implementation for `config cline` and `config claude`.
+    """Shared implementation for the per-platform `config <platform>` commands.
 
-    Delegates entry-building + settings-write to `core.platforms.sync_to_platform`
-    (which knows the editor formats for each platform). This function adds the
-    user-facing flow: backup, per-server status output, restart hint.
+    Delegates entry-building + write to `core.platforms.sync_to_platform` (which
+    knows each agent's format and mechanism). This function adds the user-facing
+    flow: backup (file-based agents only), per-server status output, restart hint.
     """
     all_servers = state.get_servers()
     if not all_servers:
         output.warning("No servers found to configure")
         return
 
-    settings_path = get_platform_settings_path(platform)
+    cli_managed = is_cli_platform(platform)
+    settings_path = None
 
-    if backup:
-        backup_path = _backup_settings_file(settings_path)
-        if backup_path is not None:
-            output.info(f"Backed up existing settings to: {backup_path}")
+    if not cli_managed:
+        settings_path = get_platform_settings_path(platform)
+        if backup:
+            backup_path = _backup_settings_file(settings_path)
+            if backup_path is not None:
+                output.info(f"Backed up existing settings to: {backup_path}")
 
     result = sync_to_platform(platform, list(all_servers.values()))
     for name in result["configured"]:
@@ -484,7 +492,10 @@ def _configure_platform(
     for skip in result["skipped"]:
         output.warning(f"Skipped server '{skip['name']}': {skip['reason']}")
 
-    output.success(f"Updated {display_name} settings at: {settings_path}")
+    if settings_path is not None:
+        output.success(f"Updated {display_name} settings at: {settings_path}")
+    else:
+        output.success(f"Registered {len(result['configured'])} server(s) with {display_name}")
     output.info(f"Configured {len(result['configured'])} server(s)")
     output.info(restart_hint)
 
@@ -519,6 +530,50 @@ def configure_claude_desktop(
         )
     except Exception as e:
         handle_error(e, "Failed to configure Claude Desktop")
+
+
+@app.command("claude-code")
+def configure_claude_code():
+    """Configure Claude Code integration (via `claude mcp add`, user scope)."""
+    try:
+        _configure_platform(
+            PlatformType.CLAUDE_CODE,
+            backup=False,
+            display_name="Claude Code",
+            restart_hint="Start a new Claude Code session to pick up the servers.",
+        )
+    except Exception as e:
+        handle_error(e, "Failed to configure Claude Code")
+
+
+@app.command("codex")
+def configure_codex():
+    """Configure Codex integration (via `codex mcp add`)."""
+    try:
+        _configure_platform(
+            PlatformType.CODEX,
+            backup=False,
+            display_name="Codex",
+            restart_hint="Start a new Codex session to pick up the servers.",
+        )
+    except Exception as e:
+        handle_error(e, "Failed to configure Codex")
+
+
+@app.command("vscode")
+def configure_vscode(
+    backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
+):
+    """Configure VS Code native MCP integration (mcp.json)."""
+    try:
+        _configure_platform(
+            PlatformType.VSCODE,
+            backup=backup,
+            display_name="VS Code",
+            restart_hint="Reload the VS Code window for the changes to take effect.",
+        )
+    except Exception as e:
+        handle_error(e, "Failed to configure VS Code")
 
 
 if __name__ == "__main__":

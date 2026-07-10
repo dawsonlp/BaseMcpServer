@@ -75,6 +75,9 @@ class PlatformType(str, Enum):
     """AI platform types."""
     CLINE = "cline"
     CLAUDE_DESKTOP = "claude_desktop"
+    CLAUDE_CODE = "claude_code"
+    VSCODE = "vscode"
+    CODEX = "codex"
 
 
 class Server(BaseModel):

@@ -21,6 +21,12 @@ from mcp_manager.core.state import (
     get_vscode_cline_settings_path,
     get_claude_desktop_settings_path
 )
+from mcp_manager.core.platforms import (
+    get_platform_settings_path,
+    is_cli_platform,
+    platform_container_key,
+    remove_from_cli_platform,
+)
 from mcp_manager.core.backup import get_backup_manager
 from mcp_manager.core.cleanup import get_cleanup_manager
 
@@ -206,32 +212,43 @@ class RemovalManager:
             RemovalResult with details
         """
         result = RemovalResult(success=True, server_name=name)
-        
-        # Get platform config path
-        if platform == PlatformType.CLINE:
-            config_path = get_vscode_cline_settings_path()
-            platform_name = "cline"
-        elif platform == PlatformType.CLAUDE_DESKTOP:
-            config_path = get_claude_desktop_settings_path()
-            platform_name = "claude"
-        else:
+        platform_name = platform.value
+
+        # CLI-managed agents (Claude Code, Codex): delegate to their own
+        # `mcp remove`; they own their config file, so no backup here.
+        if is_cli_platform(platform):
+            if dry_run:
+                result.add_removal(f"{platform_name} (dry-run)")
+                return result
+            ok, message = remove_from_cli_platform(platform, name)
+            if ok:
+                result.add_removal(platform_name)
+            else:
+                result.add_warning(f"{platform_name}: {message}")
+            return result
+
+        # File-based editors (Cline, Claude Desktop, VS Code native).
+        try:
+            config_path = get_platform_settings_path(platform)
+            container_key = platform_container_key(platform)
+        except (ValueError, KeyError):
             result.add_error(f"Unknown platform: {platform}")
             return result
-        
+
         # Check if config file exists
         if not config_path.exists():
             result.add_warning(f"{platform_name} config file not found")
             return result
-        
+
         try:
             # Read current config
             config = json.loads(config_path.read_text())
-            
+
             # Check if server exists in config
-            if "mcpServers" not in config or name not in config["mcpServers"]:
+            if container_key not in config or name not in config[container_key]:
                 result.add_warning(f"Server '{name}' not found in {platform_name} config")
                 return result
-            
+
             if not dry_run:
                 # Create backup
                 backup_path = self.backup_manager.create_backup(
@@ -239,21 +256,21 @@ class RemovalManager:
                     prefix="before-removal"
                 )
                 result.add_backup(backup_path)
-                
+
                 # Remove server from config
-                del config["mcpServers"][name]
-                
+                del config[container_key][name]
+
                 # Write updated config
                 config_path.write_text(json.dumps(config, indent=2))
                 result.add_removal(platform_name)
             else:
                 result.add_removal(f"{platform_name} (dry-run)")
-        
+
         except json.JSONDecodeError as e:
             result.add_error(f"Invalid JSON in {platform_name} config: {e}")
         except Exception as e:
             result.add_error(f"Failed to remove from {platform_name}: {e}")
-        
+
         return result
     
     def remove_from_registry(

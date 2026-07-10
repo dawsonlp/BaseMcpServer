@@ -44,6 +44,9 @@ from mcp_manager.cli.commands.config import (
     backup_config,
     configure_cline,
     configure_claude_desktop,
+    configure_claude_code,
+    configure_codex,
+    configure_vscode,
 )
 from mcp_manager.cli.commands.diagnostics import (
     health_check,
@@ -286,11 +289,31 @@ def configure_claude_wrapper(
     configure_claude_desktop(backup=backup)
 
 
+@config_app.command("claude-code")
+def configure_claude_code_wrapper():
+    """⚙️  Configure Claude Code integration (via `claude mcp add`, user scope)."""
+    configure_claude_code()
+
+
+@config_app.command("codex")
+def configure_codex_wrapper():
+    """⚙️  Configure Codex integration (via `codex mcp add`)."""
+    configure_codex()
+
+
+@config_app.command("vscode")
+def configure_vscode_wrapper(
+    backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
+):
+    """⚙️  Configure VS Code native MCP integration (mcp.json)."""
+    configure_vscode(backup=backup)
+
+
 @config_app.command("sync")
 def sync_wrapper(
     platform: Optional[str] = typer.Option(
         None, "--platform", "-p",
-        help="Specific platform to sync (cline|claude). Default: all installed.",
+        help="Specific platform to sync (cline|claude|claude-code|vscode|codex). Default: all installed.",
     ),
 ):
     """🔄 Push the current server registry into each AI platform's settings."""
