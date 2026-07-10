@@ -181,6 +181,8 @@ _PLATFORM_ALIASES = {
     "code": PlatformType.VSCODE,
     "vscode": PlatformType.VSCODE,
     "codex": PlatformType.CODEX,
+    "antigravity": PlatformType.ANTIGRAVITY,
+    "agy": PlatformType.ANTIGRAVITY,
 }
 
 
@@ -188,7 +190,7 @@ _PLATFORM_ALIASES = {
 def sync_platforms(
     platform: Optional[str] = typer.Option(
         None, "--platform", "-p",
-        help="Specific platform to sync (cline|claude|claude-code|vscode|codex). Default: all installed.",
+        help="Specific platform to sync (cline|claude|claude-code|vscode|codex|antigravity). Default: all installed.",
     ),
 ):
     """Push the current server registry into each AI platform's settings.
@@ -574,6 +576,22 @@ def configure_vscode(
         )
     except Exception as e:
         handle_error(e, "Failed to configure VS Code")
+
+
+@app.command("antigravity")
+def configure_antigravity(
+    backup: bool = typer.Option(True, "--backup/--no-backup", help="Create backup before updating"),
+):
+    """Configure Antigravity integration (~/.antigravity/mcp_config.json)."""
+    try:
+        _configure_platform(
+            PlatformType.ANTIGRAVITY,
+            backup=backup,
+            display_name="Antigravity",
+            restart_hint="Restart Antigravity, then check its MCP/plugins panel to confirm the servers appear.",
+        )
+    except Exception as e:
+        handle_error(e, "Failed to configure Antigravity")
 
 
 if __name__ == "__main__":
