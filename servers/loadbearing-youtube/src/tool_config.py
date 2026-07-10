@@ -7,6 +7,7 @@ JSON-serialisable dict; mcp-commons handles the MCP protocol details.
 """
 
 import logging
+import os
 from typing import Any, Dict
 
 from loadbearing_youtube import analyze, get_transcript
@@ -16,6 +17,24 @@ from loadbearing_youtube.render import render_markdown, render_transcript
 from config import config
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_secrets() -> None:
+    """Bridge cloud API keys from the server config.yaml into the environment
+    that loadbearing_youtube's providers read. Keeping keys in config.yaml
+    matches the repo convention (see worldcontext). An already-set env var
+    always wins, so this never clobbers a real environment key."""
+    mapping = {
+        "anthropic_api_key": "ANTHROPIC_API_KEY",
+        "openai_api_key": "OPENAI_API_KEY",
+    }
+    for cfg_key, env_key in mapping.items():
+        value = config.get("secrets", cfg_key, default="") or ""
+        if value and not os.environ.get(env_key):
+            os.environ[env_key] = value
+
+
+_apply_secrets()
 
 
 def _resolve(provider: str, model: str, languages: str) -> tuple:

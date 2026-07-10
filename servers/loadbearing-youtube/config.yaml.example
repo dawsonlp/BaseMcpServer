@@ -12,3 +12,10 @@ analysis:
   provider: "ollama"   # ollama | openai | anthropic
   model: ""            # blank = provider default (e.g. llama3.2 for ollama)
   languages: "en"
+
+# Cloud provider API keys. Only needed if analysis.provider is openai/anthropic.
+# These are bridged into the environment at startup. A real environment variable
+# (ANTHROPIC_API_KEY / OPENAI_API_KEY) always takes precedence over these.
+secrets:
+  anthropic_api_key: ""   # sk-ant-...
+  openai_api_key: ""      # sk-...
