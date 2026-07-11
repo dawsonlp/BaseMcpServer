@@ -15,7 +15,6 @@ from mcp_manager.cli.common.output import get_output_manager
 from mcp_manager.cli.common.errors import handle_error, MCPManagerError
 
 
-app = typer.Typer(help="Remove MCP servers")
 output = get_output_manager()
 removal_manager = get_removal_manager()
 
@@ -151,13 +150,11 @@ def show_dry_run_result(result: object, server_name: str):
     output.info(f"Run without --dry-run to proceed")
 
 
-@app.command("server")
 def remove_server(
     name: str = typer.Argument(..., help="Server name to remove"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
     keep_files: bool = typer.Option(False, "--keep-files", help="Keep files (only remove configs)"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force removal even if running"),
 ):
     """
     Remove a server completely from all locations.
@@ -179,7 +176,6 @@ def remove_server(
             result = removal_manager.remove_server(
                 name,
                 cleanup_files=not keep_files,
-                force=force,
                 dry_run=True
             )
             show_dry_run_result(result, name)
@@ -195,7 +191,6 @@ def remove_server(
         result = removal_manager.remove_server(
             name,
             cleanup_files=not keep_files,
-            force=force,
             dry_run=False
         )
         
@@ -207,169 +202,3 @@ def remove_server(
     
     except Exception as e:
         handle_error(e, f"Failed to remove server '{name}'")
-
-
-@app.command("from-cline")
-def remove_from_cline(
-    name: str = typer.Argument(..., help="Server name to remove"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
-):
-    """
-    Remove a server from VS Code Cline configuration only.
-    
-    This leaves the server in the mcp-manager registry and other platforms.
-    Useful for temporarily disabling a server in Cline.
-    """
-    try:
-        # Get confirmation unless --yes or dry-run
-        if not yes and not dry_run:
-            if not typer.confirm(
-                f"Remove '{name}' from Cline configuration?",
-                default=False
-            ):
-                output.info("Removal cancelled")
-                return
-        
-        # Perform removal
-        result = removal_manager.remove_from_platform(
-            name,
-            PlatformType.CLINE,
-            dry_run=dry_run
-        )
-        
-        # Show result
-        if dry_run:
-            output.info("🔍 Dry run mode - no changes made")
-            if result.removed_from:
-                output.info(f"Would remove '{name}' from Cline configuration")
-            output.info("Run without --dry-run to proceed")
-        else:
-            show_removal_result(result)
-            
-            if result.success:
-                output.info("\nServer remains in:")
-                output.info("  • mcp-manager registry")
-                output.info("  • Claude Desktop (if configured)")
-        
-        if not result.success and not dry_run:
-            raise typer.Exit(1)
-    
-    except Exception as e:
-        handle_error(e, f"Failed to remove from Cline")
-
-
-@app.command("from-claude")
-def remove_from_claude(
-    name: str = typer.Argument(..., help="Server name to remove"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
-):
-    """
-    Remove a server from Claude Desktop configuration only.
-    
-    This leaves the server in the mcp-manager registry and other platforms.
-    Useful for temporarily disabling a server in Claude Desktop.
-    """
-    try:
-        # Get confirmation unless --yes or dry-run
-        if not yes and not dry_run:
-            if not typer.confirm(
-                f"Remove '{name}' from Claude Desktop configuration?",
-                default=False
-            ):
-                output.info("Removal cancelled")
-                return
-        
-        # Perform removal
-        result = removal_manager.remove_from_platform(
-            name,
-            PlatformType.CLAUDE_DESKTOP,
-            dry_run=dry_run
-        )
-        
-        # Show result
-        if dry_run:
-            output.info("🔍 Dry run mode - no changes made")
-            if result.removed_from:
-                output.info(f"Would remove '{name}' from Claude Desktop configuration")
-            output.info("Run without --dry-run to proceed")
-        else:
-            show_removal_result(result)
-            
-            if result.success:
-                output.info("\nServer remains in:")
-                output.info("  • mcp-manager registry")
-                output.info("  • VS Code Cline (if configured)")
-        
-        if not result.success and not dry_run:
-            raise typer.Exit(1)
-    
-    except Exception as e:
-        handle_error(e, f"Failed to remove from Claude Desktop")
-
-
-@app.command("from-registry")
-def remove_from_registry(
-    name: str = typer.Argument(..., help="Server name to remove"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
-    cleanup_files: bool = typer.Option(False, "--cleanup-files", help="Also remove associated files"),
-):
-    """
-    Remove a server from mcp-manager registry only.
-    
-    WARNING: This leaves the server configured in platforms (Cline, Claude).
-    Those platforms may show errors if files are also removed.
-    
-    Use this for migration or when managing configs manually.
-    """
-    try:
-        # Calculate impact to show warnings
-        impact = removal_manager.calculate_removal_impact(name)
-        if not impact:
-            raise MCPManagerError(f"Server '{name}' not found")
-        
-        # Show warning about orphaned platform configs
-        orphaned_platforms = [
-            p for p, exists in impact.platform_configs.items() if exists
-        ]
-        
-        if orphaned_platforms and not dry_run:
-            output.warning("⚠️  Registry-Only Removal Warning")
-            output.warning(f"Server will remain configured in: {', '.join(orphaned_platforms)}")
-            output.warning("These platforms may show errors after removal.")
-            output.info("Use 'mcp-manager remove' for complete removal.")
-            output.console.print()
-        
-        # Get confirmation
-        if not yes and not dry_run:
-            if not typer.confirm(
-                f"Remove '{name}' from registry only?",
-                default=False
-            ):
-                output.info("Removal cancelled")
-                return
-        
-        # Perform removal
-        result = removal_manager.remove_from_registry(
-            name,
-            cleanup_files=cleanup_files,
-            dry_run=dry_run
-        )
-        
-        # Show result
-        if dry_run:
-            show_dry_run_result(result, name)
-        else:
-            show_removal_result(result)
-        
-        if not result.success and not dry_run:
-            raise typer.Exit(1)
-    
-    except Exception as e:
-        handle_error(e, f"Failed to remove from registry")
-
-
-if __name__ == "__main__":
-    app()

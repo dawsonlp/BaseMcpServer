@@ -101,10 +101,9 @@ def remove(
     name: str = typer.Argument(..., help="Server name to remove"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force removal even if running"),
 ):
     """Uninstall a server: remove it from the registry, every platform, and disk."""
-    removal.remove_server(name=name, yes=yes, dry_run=dry_run, force=force)
+    removal.remove_server(name=name, yes=yes, dry_run=dry_run)
 
 
 @app.command("validate")
