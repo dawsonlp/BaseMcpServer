@@ -64,17 +64,8 @@ def install(
     force: bool = typer.Option(False, "--force", "-f", help="Reinstall if it already exists"),
 ):
     """Install a local MCP server from a directory into an isolated environment."""
-    from mcp_manager.core.models import TransportType
-
     src = source or Path("servers") / name
-    install_local(
-        name=name,
-        source=src,
-        transport=TransportType.STDIO,
-        port=None,
-        force=force,
-        auto_approve=[],
-    )
+    install_local(name=name, source=src, force=force, auto_approve=[])
 
 
 @app.command("sync")

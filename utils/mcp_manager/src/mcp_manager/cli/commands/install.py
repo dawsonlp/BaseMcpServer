@@ -1,7 +1,5 @@
 """
-Installation commands for MCP Manager.
-
-Handles installation of local and remote MCP servers with various options.
+Installation of a local MCP server into an isolated uv environment.
 """
 
 import shutil
@@ -14,7 +12,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 
 from mcp_manager.cli.common.errors import MCPManagerError, handle_error
 from mcp_manager.cli.common.output import get_output_manager
-from mcp_manager.cli.common.validation import CLIValidator, is_valid_server_name
+from mcp_manager.cli.common.validation import is_valid_server_name
 from mcp_manager.core.models import (
     InstallationType,
     Server,
@@ -28,7 +26,6 @@ from mcp_manager.core.validation import validate_server_config
 
 app = typer.Typer(help="Install MCP servers")
 output = get_output_manager()
-validator = CLIValidator()
 state = get_state_manager()
 
 
@@ -48,8 +45,6 @@ def _require_uv() -> str:
 def install_local(
     name: str = typer.Argument(..., help="Server name"),
     source: Path = typer.Option(..., "--source", "-s", help="Path to server source directory"),
-    transport: TransportType = typer.Option(TransportType.STDIO, "--transport", "-t", help="Transport protocol"),
-    port: Optional[int] = typer.Option(None, "--port", "-p", help="Port for SSE transport"),
     force: bool = typer.Option(False, "--force", "-f", help="Force reinstall if exists"),
     auto_approve: List[str] = typer.Option([], "--auto-approve", help="Auto-approve tools (can be used multiple times)"),
 ):
@@ -138,12 +133,11 @@ def install_local(
             server = Server(
                 name=name,
                 server_type=ServerType.LOCAL,
-                transport=transport,
+                transport=TransportType.STDIO,
                 source_dir=source.resolve(),
                 source_type=SourceType.LOCAL,
                 installation_type=InstallationType.UV,
                 venv_dir=venv_dir,
-                port=port if transport == TransportType.SSE else None,
                 auto_approve=auto_approve,
             )
 
@@ -163,9 +157,6 @@ def install_local(
 
         output.success(f"Successfully installed local server '{name}'")
         output.info(f"Source: {source}")
-        output.info(f"Transport: {transport.value}")
-        if port:
-            output.info(f"Port: {port}")
 
     except Exception as e:
         handle_error(e, "Failed to install local server")
