@@ -252,11 +252,11 @@ agent = client.agents.create(
 
 ```bash
 # Current supported
-mcp-manager config cline
-mcp-manager config claude
+mcp-manager sync --platform cline
+mcp-manager sync --platform claude
 
 # Proposed additions
-mcp-manager config claude-code      # Phase 1
+mcp-manager sync --platform claude-code      # Phase 1
 mcp-manager config chatgpt          # Phase 2 (documentation mode)
 ```
 
@@ -370,7 +370,7 @@ mcp-manager config chatgpt --docs
 4. 📅 **Monitor OpenAI desktop app** - May enable better ChatGPT integration in future
 
 ### Success Metrics
-- Claude Code users can configure MCP servers via `mcp-manager config claude-code`
+- Claude Code users can configure MCP servers via `mcp-manager sync --platform claude-code`
 - ChatGPT users have clear documentation for manual MCP setup
 - All existing functionality (Cline, Claude Desktop) continues to work
 - Configuration files are safely backed up before modifications

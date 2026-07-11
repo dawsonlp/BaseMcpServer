@@ -36,10 +36,9 @@ bash scripts/install_mcp_server.sh loadbearing-youtube
 Useful flags:
 - `--no-sync` — register the server but don't touch editor settings yet.
 - `--force` — reinstall an already-installed server.
-- `--transport sse` — install as an HTTP/SSE server instead of stdio.
 - `--source DIR` — install from a specific local checkout.
 
-> **Ask before syncing to editors.** `mcp-manager config sync` edits the user's
+> **Ask before syncing to editors.** `mcp-manager sync` edits the user's
 > Claude Desktop / Cline settings files (persistent app configuration). If the
 > user only asked to "install" the server, run with `--no-sync` first, then
 > confirm before syncing.
@@ -57,11 +56,11 @@ git clone --depth 1 https://github.com/dawsonlp/BaseMcpServer.git
 cd BaseMcpServer
 
 # 3. Install the server (isolated uv env under ~/.config/mcp-manager/servers/<name>/)
-mcp-manager install local loadbearing-youtube --source ./servers/loadbearing-youtube
+mcp-manager install loadbearing-youtube --source ./servers/loadbearing-youtube
 
 # 4. (If the server needs credentials) edit its config, then sync into editors
 $EDITOR ~/.config/mcp-manager/servers/loadbearing-youtube/config.yaml   # not needed for loadbearing-youtube
-mcp-manager config sync
+mcp-manager sync
 ```
 
 ## Configuration notes
@@ -76,18 +75,18 @@ mcp-manager config sync
 ## Verify
 
 ```bash
-mcp-manager info list                    # server should appear as installed
-mcp-manager info show loadbearing-youtube # details + config path
+mcp-manager list                    # server should appear as installed
+mcp-manager show loadbearing-youtube # details + config path
 ```
 
-After a `config sync`, restart Claude Desktop / reload the VS Code window so the
+After a `sync`, restart Claude Desktop / reload the VS Code window so the
 client picks up the new server. The agent should then see tools like
 `analyze_video`.
 
 ## Uninstall / redo
 
 ```bash
-mcp-manager remove loadbearing-youtube   # reversible; then config sync again
+mcp-manager remove loadbearing-youtube   # reversible; then sync again
 ```
 
 ## Troubleshooting

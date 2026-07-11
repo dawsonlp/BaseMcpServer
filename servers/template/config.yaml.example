@@ -1,6 +1,6 @@
 # Template MCP Server configuration.
 #
-# When this server is installed via `mcp-manager install local`, this file
+# When this server is installed via `mcp-manager install`, this file
 # is copied to ~/.config/mcp-manager/servers/<name>/config.yaml. Edit that
 # copy (NOT the .example) with your real settings.
 

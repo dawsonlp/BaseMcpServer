@@ -38,7 +38,7 @@ For detailed security information, use the `help` tool after installation.
 The server can be installed using the mcp-manager:
 
 ```bash
-mcp-manager install local mcpservercreator --source ./mcpservercreator
+mcp-manager install mcpservercreator --source ./servers/mcpservercreator
 ```
 
 After installation, make sure to restart VS Code completely for the new server to be recognized by Cline.

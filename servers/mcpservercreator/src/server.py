@@ -102,7 +102,7 @@ def _create_config_file(src_dir: Path, server_name: str) -> None:
     config_content = f'''"""Configuration for {server_name}.
 
 Looks under ~/.config/mcp-manager/servers/{server_name}/config.yaml first
-(populated by `mcp-manager install local`), then XDG, then CWD. Returns a
+(populated by `mcp-manager install`), then XDG, then CWD. Returns a
 sane default config if no file exists, so the server can run before the
 user fills in their own config.yaml.
 """
