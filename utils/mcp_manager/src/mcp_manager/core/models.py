@@ -6,7 +6,7 @@ Defines all data structures used throughout the application.
 
 from enum import Enum
 from pathlib import Path
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, timedelta
 import json
@@ -15,13 +15,11 @@ import json
 class ServerType(str, Enum):
     """Types of MCP servers."""
     LOCAL = "local"
-    REMOTE = "remote"
 
 
 class TransportType(str, Enum):
     """Transport protocols for MCP servers."""
     STDIO = "stdio"
-    SSE = "sse"
 
 
 class InstallationType(str, Enum):
@@ -64,11 +62,7 @@ class Server(BaseModel):
     venv_dir: Optional[Path] = None
     requirements_file: Optional[Path] = None
     port: Optional[int] = None
-    
-    # Remote server specific fields
-    url: Optional[HttpUrl] = None
-    api_key: Optional[str] = None
-    
+
     # Configuration
     config_file: Optional[Path] = None
     environment: Dict[str, str] = Field(default_factory=dict)
@@ -81,10 +75,7 @@ class Server(BaseModel):
     
     def is_local(self) -> bool:
         return self.server_type == ServerType.LOCAL
-    
-    def is_remote(self) -> bool:
-        return self.server_type == ServerType.REMOTE
-    
+
     def get_main_script_path(self) -> Optional[Path]:
         """Get the path to the main.py script."""
         if not self.is_local() or not self.source_dir:
