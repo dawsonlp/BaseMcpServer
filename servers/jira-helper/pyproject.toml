@@ -14,7 +14,7 @@ authors = [
 dependencies = [
     # Core MCP
     "mcp>=1.27.0",
-    "mcp-commons>=2.2.2",
+    "mcp-commons>=3.0.0,<4",
     
     # Jira/Confluence integration 
     "atlassian-python-api>=4.0.7",
