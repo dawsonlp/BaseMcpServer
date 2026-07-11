@@ -15,7 +15,7 @@ The Jira Helper MCP Server provides seamless integration with Jira through the M
 ### 1. Install the Server
 
 ```bash
-mcp-manager install local jira-helper --source servers/jira-helper --force
+mcp-manager install jira-helper --source servers/jira-helper --force
 ```
 
 ### 2. Configure Jira Connection

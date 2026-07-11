@@ -10,7 +10,6 @@ from typing import List, Dict, Optional
 
 from mcp_manager.core.models import (
     Server,
-    ServerState,
     RemovalResult,
     RemovalImpact,
     FileInfo,
@@ -54,16 +53,12 @@ class RemovalManager:
         if not server:
             return None
         
-        # Check if server is running
-        state = self.state_manager.get_server_state(name)
-        is_running = state.is_running() if state else False
-        
         # Check platform configurations
         platform_configs = self._get_platform_configurations(name)
-        
+
         # Get files that would be removed
         files_to_remove = self._get_files_to_remove(server)
-        
+
         # Create impact analysis
         impact = RemovalImpact(
             server_name=name,
@@ -71,17 +66,13 @@ class RemovalManager:
             platform_configs=platform_configs,
             files_to_remove=files_to_remove,
             total_size_mb=0.0,
-            is_running=is_running,
+            is_running=False,
             warnings=[]
         )
-        
+
         # Calculate total size
         impact.calculate_total_size()
-        
-        # Add warnings
-        if is_running:
-            impact.warnings.append("Server is currently running")
-        
+
         orphaned_platforms = [
             name for name, exists in platform_configs.items() if exists
         ]
@@ -98,39 +89,28 @@ class RemovalManager:
         from_registry: bool = True,
         from_platforms: Optional[List[str]] = None,
         cleanup_files: bool = True,
-        force: bool = False,
         dry_run: bool = False
     ) -> RemovalResult:
         """
         Remove a server from all specified locations.
-        
+
         Args:
             name: Server name to remove
             from_registry: Remove from mcp-manager registry
             from_platforms: List of platforms to remove from (None = all)
             cleanup_files: Whether to clean up associated files
-            force: Force removal even if server is running
             dry_run: Don't actually perform removal
-        
+
         Returns:
             RemovalResult with details of what was removed
         """
         result = RemovalResult(success=True, server_name=name)
-        
+
         # Get server from registry
         server = self.state_manager.get_server(name)
         if not server:
             result.add_error(f"Server '{name}' not found in registry")
             return result
-        
-        # Check if server is running
-        if not dry_run and not force:
-            if self._check_if_running(name):
-                result.add_error(
-                    f"Server '{name}' is currently running. "
-                    "Stop it first or use --force"
-                )
-                return result
         
         # Default to all known platforms if not specified. These must match
         # PlatformType enum values exactly (see core/models.py::PlatformType).
@@ -272,138 +252,6 @@ class RemovalManager:
             result.add_error(f"Failed to remove from {platform_name}: {e}")
 
         return result
-    
-    def remove_from_registry(
-        self,
-        name: str,
-        cleanup_files: bool = False,
-        dry_run: bool = False
-    ) -> RemovalResult:
-        """
-        Remove a server from registry only, leaving platforms untouched.
-        
-        Args:
-            name: Server name
-            cleanup_files: Whether to also clean up files
-            dry_run: Don't actually perform removal
-        
-        Returns:
-            RemovalResult with details
-        """
-        result = RemovalResult(success=True, server_name=name)
-        
-        # Get server
-        server = self.state_manager.get_server(name)
-        if not server:
-            result.add_error(f"Server '{name}' not found in registry")
-            return result
-        
-        # Check for orphaned platform configs
-        platform_configs = self._get_platform_configurations(name)
-        orphaned = [name for name, exists in platform_configs.items() if exists]
-        
-        if orphaned:
-            result.add_warning(
-                f"Server will remain configured in: {', '.join(orphaned)}. "
-                "These platforms may show errors after registry removal."
-            )
-        
-        if not dry_run:
-            # Create backup
-            from mcp_manager.core.state import get_registry_file
-            registry_file = get_registry_file()
-            if registry_file.exists():
-                try:
-                    backup_path = self.backup_manager.create_backup(
-                        registry_file,
-                        prefix="before-removal"
-                    )
-                    result.add_backup(backup_path)
-                except Exception as e:
-                    result.add_error(f"Failed to create backup: {e}")
-                    return result
-            
-            # Remove from registry
-            try:
-                self.state_manager.remove_server(name)
-                result.add_removal("registry")
-            except Exception as e:
-                result.add_error(f"Failed to remove from registry: {e}")
-                return result
-            
-            # Clean up files if requested
-            if cleanup_files:
-                cleanup_result = self.cleanup_manager.cleanup_server_files(
-                    server,
-                    dry_run=False
-                )
-                result.merge_cleanup_result(cleanup_result)
-        else:
-            result.add_removal("registry (dry-run)")
-            if cleanup_files:
-                cleanup_result = self.cleanup_manager.cleanup_server_files(
-                    server,
-                    dry_run=True
-                )
-                result.merge_cleanup_result(cleanup_result)
-        
-        return result
-    
-    def find_orphaned_servers(
-        self,
-        platform: Optional[PlatformType] = None
-    ) -> Dict[str, List[str]]:
-        """
-        Find servers in platform configs that aren't in the registry.
-        
-        Args:
-            platform: Specific platform to check (None = all)
-        
-        Returns:
-            Dict mapping platform name to list of orphaned server names
-        """
-        orphaned = {}
-        
-        # Get all registered servers
-        registered_servers = set(self.state_manager.get_servers().keys())
-        
-        # Check platforms
-        platforms_to_check = []
-        if platform:
-            platforms_to_check = [platform]
-        else:
-            platforms_to_check = [PlatformType.CLINE, PlatformType.CLAUDE_DESKTOP]
-        
-        for plat in platforms_to_check:
-            if plat == PlatformType.CLINE:
-                config_path = get_vscode_cline_settings_path()
-                platform_name = "cline"
-            else:
-                config_path = get_claude_desktop_settings_path()
-                platform_name = "claude"
-            
-            if not config_path.exists():
-                continue
-            
-            try:
-                config = json.loads(config_path.read_text())
-                platform_servers = set(config.get("mcpServers", {}).keys())
-                
-                # Find servers in platform but not in registry
-                orphans = platform_servers - registered_servers
-                if orphans:
-                    orphaned[platform_name] = list(orphans)
-            
-            except (json.JSONDecodeError, OSError):
-                # Skip if can't read config
-                pass
-        
-        return orphaned
-    
-    def _check_if_running(self, name: str) -> bool:
-        """Check if a server is currently running."""
-        state = self.state_manager.get_server_state(name)
-        return state.is_running() if state else False
     
     def _get_platform_configurations(self, name: str) -> Dict[str, bool]:
         """Get which platforms have this server configured."""

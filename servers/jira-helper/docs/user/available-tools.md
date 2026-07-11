@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Jira Helper MCP Server provides 16 comprehensive tools for Jira integration. All tools support multiple Jira instances and include built-in error handling and validation.
+The Jira Helper MCP Server provides 32 tools for Jira integration. All tools support multiple Jira instances and include built-in error handling and validation.
 
 ## Search and Discovery Tools
 

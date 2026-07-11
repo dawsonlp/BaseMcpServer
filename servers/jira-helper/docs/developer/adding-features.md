@@ -85,7 +85,7 @@ use_cases = {
 
 ```bash
 # Deploy updated server
-mcp-manager install local jira-helper --source servers/jira-helper --force
+mcp-manager install jira-helper --source servers/jira-helper --force
 
 # Test the new tool
 new_feature_tool param1="test" param2=42

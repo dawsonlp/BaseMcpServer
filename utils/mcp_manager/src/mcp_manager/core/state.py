@@ -12,10 +12,7 @@ from datetime import datetime
 import os
 
 from mcp_manager import __version__
-from mcp_manager.core.models import (
-    Server, ServerState, ProcessInfo, SystemInfo, PlatformInfo,
-    ProcessStatus, HealthStatus, ConfigStatus, SyncStatus
-)
+from mcp_manager.core.models import Server
 
 
 def get_mcp_home() -> Path:
@@ -46,11 +43,6 @@ def get_logs_dir() -> Path:
 def get_registry_file() -> Path:
     """Get the path to the server registry file."""
     return get_config_dir() / "servers.json"
-
-
-def get_processes_file() -> Path:
-    """Get the path to the processes tracking file."""
-    return get_config_dir() / "processes.json"
 
 
 def get_vscode_cline_settings_path() -> Path:
@@ -130,11 +122,6 @@ def create_directory_structure() -> None:
             "version": __version__,
             "created_at": datetime.now().isoformat(),
         }, indent=2))
-    
-    processes_file = get_processes_file()
-    if not processes_file.exists():
-        processes_file.write_text('{"processes": {}, "last_updated": "' + 
-                                datetime.now().isoformat() + '"}')
 
 
 class StateManager:
@@ -143,9 +130,7 @@ class StateManager:
     def __init__(self):
         self.config_dir = get_mcp_home()
         self.registry_file = get_registry_file()
-        self.processes_file = get_processes_file()
         self._servers_cache: Optional[Dict[str, Server]] = None
-        self._processes_cache: Optional[Dict[str, ProcessInfo]] = None
         self._cache_timestamp: Optional[datetime] = None
         self._cache_ttl_seconds = 30  # Cache for 30 seconds
     
@@ -214,49 +199,6 @@ class StateManager:
         except Exception as e:
             raise RuntimeError(f"Failed to save servers registry: {e}")
     
-    def _load_processes(self) -> Dict[str, ProcessInfo]:
-        """Load process information from file."""
-        if not self.processes_file.exists():
-            return {}
-        
-        try:
-            data = json.loads(self.processes_file.read_text())
-            processes = {}
-            
-            for name, process_data in data.get("processes", {}).items():
-                try:
-                    processes[name] = ProcessInfo.model_validate(process_data)
-                except Exception as e:
-                    print(f"Warning: Failed to load process info for {name}: {e}")
-            
-            return processes
-        except Exception as e:
-            print(f"Error loading process information: {e}")
-            return {}
-    
-    def _save_processes(self, processes: Dict[str, ProcessInfo]):
-        """Save process information to file."""
-        try:
-            # Convert processes to dict format
-            processes_data = {}
-            for name, process in processes.items():
-                processes_data[name] = process.model_dump(mode='json')
-            
-            # Create processes structure
-            data = {
-                "processes": processes_data,
-                "last_updated": datetime.now().isoformat()
-            }
-            
-            # Write to file
-            self.processes_file.write_text(json.dumps(data, indent=2))
-            
-            # Clear cache to force reload
-            self._processes_cache = None
-            
-        except Exception as e:
-            raise RuntimeError(f"Failed to save process information: {e}")
-    
     def get_servers(self) -> Dict[str, Server]:
         """Get all servers, using cache if available."""
         if self._servers_cache is None or self._should_refresh_cache():
@@ -301,192 +243,6 @@ class StateManager:
         del servers[name]
         self._save_servers(servers)
     
-    def get_processes(self) -> Dict[str, ProcessInfo]:
-        """Get all running processes."""
-        if self._processes_cache is None or self._should_refresh_cache():
-            self._processes_cache = self._load_processes()
-        
-        return self._processes_cache.copy()
-    
-    def get_process(self, name: str) -> Optional[ProcessInfo]:
-        """Get process information for a specific server."""
-        processes = self.get_processes()
-        return processes.get(name)
-    
-    def add_process(self, process: ProcessInfo) -> None:
-        """Add process information for a running server."""
-        processes = self.get_processes()
-        processes[process.server_name] = process
-        self._save_processes(processes)
-    
-    def remove_process(self, name: str) -> None:
-        """Remove process information for a server."""
-        processes = self.get_processes()
-        
-        if name in processes:
-            del processes[name]
-            self._save_processes(processes)
-    
-    def get_server_state(self, name: str) -> Optional[ServerState]:
-        """Get complete state information for a server."""
-        server = self.get_server(name)
-        if not server:
-            return None
-        
-        process = self.get_process(name)
-        
-        # Create server state
-        state = ServerState(
-            name=name,
-            server=server,
-            process_info=process
-        )
-        
-        # Update state from process information
-        state.update_from_process()
-        
-        # Determine configuration status
-        if server.is_local() and server.config_file:
-            if server.config_file.exists():
-                state.config_status = ConfigStatus.VALID
-            else:
-                state.config_status = ConfigStatus.MISSING
-        else:
-            state.config_status = ConfigStatus.VALID
-        
-        # Check platform sync status
-        state.platform_sync = self._get_platform_sync_status(name)
-        
-        return state
-    
-    def get_all_server_states(self) -> Dict[str, ServerState]:
-        """Get state information for all servers."""
-        servers = self.get_servers()
-        states = {}
-        
-        for name in servers.keys():
-            state = self.get_server_state(name)
-            if state:
-                states[name] = state
-        
-        return states
-    
-    def _get_platform_sync_status(self, name: str) -> Dict[str, SyncStatus]:
-        """Check sync status across platforms for a server."""
-        sync_status = {}
-        
-        # Check VS Code/Cline
-        cline_path = get_vscode_cline_settings_path()
-        if cline_path.exists():
-            try:
-                cline_config = json.loads(cline_path.read_text())
-                if name in cline_config.get("mcpServers", {}):
-                    sync_status["cline"] = SyncStatus.SYNCED
-                else:
-                    sync_status["cline"] = SyncStatus.OUT_OF_SYNC
-            except Exception:
-                sync_status["cline"] = SyncStatus.ERROR
-        else:
-            sync_status["cline"] = SyncStatus.NOT_CONFIGURED
-        
-        # Check Claude Desktop
-        claude_path = get_claude_desktop_settings_path()
-        if claude_path.exists():
-            try:
-                claude_config = json.loads(claude_path.read_text())
-                if name in claude_config.get("mcpServers", {}):
-                    sync_status["claude"] = SyncStatus.SYNCED
-                else:
-                    sync_status["claude"] = SyncStatus.OUT_OF_SYNC
-            except Exception:
-                sync_status["claude"] = SyncStatus.ERROR
-        else:
-            sync_status["claude"] = SyncStatus.NOT_CONFIGURED
-        
-        return sync_status
-    
-    def get_system_info(self) -> SystemInfo:
-        """Get comprehensive system information."""
-        import sys
-        import platform
-        
-        servers = self.get_servers()
-        states = self.get_all_server_states()
-        
-        running_count = sum(1 for state in states.values() if state.is_running())
-        
-        # Get platform information
-        platforms = []
-        
-        # Check VS Code/Cline
-        cline_path = get_vscode_cline_settings_path()
-        cline_info = PlatformInfo(
-            name="cline",
-            display_name="VS Code Cline",
-            installed=cline_path.parent.exists(),
-            config_path=cline_path if cline_path.exists() else None,
-        )
-        if cline_path.exists():
-            try:
-                config = json.loads(cline_path.read_text())
-                cline_info.server_count = len(config.get("mcpServers", {}))
-                cline_info.sync_status = SyncStatus.SYNCED
-            except Exception:
-                cline_info.sync_status = SyncStatus.ERROR
-        platforms.append(cline_info)
-        
-        # Check Claude Desktop
-        claude_path = get_claude_desktop_settings_path()
-        claude_info = PlatformInfo(
-            name="claude",
-            display_name="Claude Desktop",
-            installed=claude_path.parent.exists(),
-            config_path=claude_path if claude_path.exists() else None,
-        )
-        if claude_path.exists():
-            try:
-                config = json.loads(claude_path.read_text())
-                claude_info.server_count = len(config.get("mcpServers", {}))
-                claude_info.sync_status = SyncStatus.SYNCED
-            except Exception:
-                claude_info.sync_status = SyncStatus.ERROR
-        platforms.append(claude_info)
-        
-        # Calculate disk usage
-        try:
-            mcp_home = get_mcp_home()
-            total_size = 0
-            for file_path in mcp_home.rglob('*'):
-                if file_path.is_file():
-                    total_size += file_path.stat().st_size
-            disk_usage_mb = total_size // (1024 * 1024)
-        except Exception:
-            disk_usage_mb = 0
-        
-        return SystemInfo(
-            python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-            platform=platform.system(),
-            mcp_home=get_mcp_home(),
-            total_servers=len(servers),
-            running_servers=running_count,
-            platforms=platforms,
-            disk_usage_mb=disk_usage_mb
-        )
-    
-    def cleanup_stale_processes(self) -> List[str]:
-        """Remove stale process entries and return list of cleaned up servers."""
-        processes = self.get_processes()
-        cleaned = []
-        
-        for name, process in list(processes.items()):
-            if not process.is_running():
-                del processes[name]
-                cleaned.append(name)
-        
-        if cleaned:
-            self._save_processes(processes)
-        
-        return cleaned
 
 
 # Global state manager instance

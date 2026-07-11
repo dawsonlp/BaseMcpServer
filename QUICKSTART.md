@@ -38,7 +38,7 @@ mcp-manager --help
 Use `mcp-manager` to install the `jira-helper` server in an isolated environment:
 
 ```bash
-mcp-manager install local jira-helper --source servers/jira-helper --force
+mcp-manager install jira-helper --source servers/jira-helper --force
 ```
 *   `--source`: Points to the directory containing the server's source code.
 *   `--force`: Overwrites any existing server with the same name.
@@ -103,7 +103,7 @@ The `jira-helper` server is configured via a `config.yaml` file where you add co
 Configure VS Code Cline to use the `jira-helper` server:
 
 ```bash
-mcp-manager config cline
+mcp-manager sync --platform cline
 ```
 
 This automatically updates your VS Code settings to include the `jira-helper` server.
@@ -140,8 +140,10 @@ When using Jira tools in your editor, you can specify which instance to use:
 If you encounter issues:
 
 1. **List installed servers**: `mcp-manager list`
-2. **Test server directly**: `mcp-manager server start jira-helper`
-3. **Verify Jira credentials**: Check your API tokens and URLs
-4. **Restart VS Code** after configuration changes
+2. **Check config paths**: `mcp-manager show jira-helper`
+3. **Validate the install**: `mcp-manager validate jira-helper`
+4. **Run the server directly** (stdio): `~/.config/mcp-manager/servers/jira-helper/.venv/bin/jira-helper stdio`
+5. **Verify Jira credentials**: check your API tokens and URLs
+6. **Restart VS Code** after configuration changes
 
 You are now ready to use the `jira-helper` with all your configured Jira instances directly from your editor!

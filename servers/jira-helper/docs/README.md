@@ -1,53 +1,33 @@
 # Jira Helper MCP Server Documentation
 
-## Overview
+The Jira Helper MCP server provides Jira + Confluence integration over the Model
+Context Protocol: issue management, JQL/filter search, transitions, time
+tracking, and more. It follows the flat `mcp-commons` pattern used across this
+monorepo (tools declared in `src/tools/`, registered via `tool_config.py`).
 
-The Jira Helper MCP Server provides comprehensive Jira integration capabilities through the Model Context Protocol (MCP). It offers a clean, hexagonal architecture with robust search functionality, issue management, and workflow operations.
+## Documentation
 
-## Documentation Structure
+### For users
+- [Getting Started](user/getting-started.md) — setup and basic usage
+- [Available Tools](user/available-tools.md) — tool reference
 
-### For Users
-- **[Getting Started](user/getting-started.md)** - Quick setup and basic usage
-- **[Available Tools](user/available-tools.md)** - Complete tool reference
-- **[Configuration](user/configuration.md)** - Setup and configuration guide
-- **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
+### For developers
+- [Adding Features](developer/adding-features.md) — how to add a tool
+- [Cline-safe output](architecture/cline-safe-output.md) — output sanitization for Cline
+- [Search system](architecture/search-system.md) — search/JQL design
+- [MCP resource system](architecture/mcp-resource-system.md) — proposed design for serving
+  workflow-graph images as MCP resources (status: design-only, not yet implemented)
 
-### For Developers
-- **[Adding Features](developer/adding-features.md)** - Quick guide to extending functionality
-- **[Architecture Overview](developer/architecture.md)** - System design and patterns
-- **[Development Setup](developer/development-setup.md)** - Local development environment
-- **[Testing Guide](developer/testing.md)** - Testing strategies and tools
+## Quick start
 
-### Architecture Documentation
-- **[Hexagonal Architecture](architecture/hexagonal-design.md)** - Core architectural patterns
-- **[Search System](architecture/search-system.md)** - Search functionality design
-- **[MCP Integration](architecture/mcp-integration.md)** - MCP protocol implementation
-- **[MCP Resource System (design)](architecture/mcp-resource-system.md)** - Proposed design for serving workflow-graph images via MCP resources instead of base64 strings (status: design-complete, not yet implemented)
+1. **Install**: `mcp-manager install jira-helper --source servers/jira-helper --force`
+2. **Configure**: copy `config.yaml.example` to `config.yaml` and fill in your Atlassian details
+   (see [QUICKSTART.md](../../../QUICKSTART.md) for the full walkthrough)
+3. **Sync**: `mcp-manager sync`, then restart your editor
 
-## Quick Start
+## Key features
 
-1. **Install**: `mcp-manager install local jira-helper --source servers/jira-helper --force`
-2. **Configure**: Copy `config.yaml.example` to `config.yaml` and add your Jira details
-3. **Test**: Use any MCP-compatible client to access the tools
-
-## Key Features
-
-- **Comprehensive Search**: Advanced JQL and filter-based search capabilities
-- **Issue Management**: Create, update, transition, and manage Jira issues
-- **Time Tracking**: Log work, manage estimates, and track time
-- **Workflow Operations**: Handle issue transitions and workflow management
-- **Security**: Built-in JQL injection prevention and input validation
-- **Performance**: Optimized for large result sets and complex queries
-
-## Architecture Highlights
-
-- **Hexagonal Architecture**: Clean separation of concerns
-- **DRY Principle**: Eliminated duplicate code through refactoring
-- **Security First**: Input validation and sanitization throughout
-- **Production Ready**: Thoroughly tested with real Jira instances
-
----
-
-**Last Updated**: January 2025  
-**Version**: 2.0.0  
-**Maintainer**: Development Team
+- JQL and filter-based search with injection prevention
+- Issue create/update/transition and workflow operations
+- Time tracking (log work, manage estimates)
+- Confluence page operations

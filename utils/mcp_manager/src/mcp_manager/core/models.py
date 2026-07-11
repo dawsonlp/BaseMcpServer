@@ -29,40 +29,6 @@ class InstallationType(str, Enum):
     UV = "uv"
 
 
-class ProcessStatus(str, Enum):
-    """Process status states."""
-    RUNNING = "running"
-    STOPPED = "stopped"
-    CRASHED = "crashed"
-    STARTING = "starting"
-    STOPPING = "stopping"
-    UNKNOWN = "unknown"
-
-
-class HealthStatus(str, Enum):
-    """Health status indicators."""
-    HEALTHY = "healthy"
-    UNHEALTHY = "unhealthy"
-    DEGRADED = "degraded"
-    UNKNOWN = "unknown"
-
-
-class ConfigStatus(str, Enum):
-    """Configuration status."""
-    VALID = "valid"
-    INVALID = "invalid"
-    MISSING = "missing"
-    UNKNOWN = "unknown"
-
-
-class SyncStatus(str, Enum):
-    """Platform sync status."""
-    SYNCED = "synced"
-    OUT_OF_SYNC = "out_of_sync"
-    NOT_CONFIGURED = "not_configured"
-    ERROR = "error"
-
-
 class SourceType(str, Enum):
     """Server installation source types."""
     LOCAL = "local"
@@ -147,127 +113,6 @@ class Server(BaseModel):
             return self.venv_dir / "bin" / "python"
 
 
-class ProcessInfo(BaseModel):
-    """Information about a running process."""
-    pid: int
-    server_name: str
-    transport: TransportType
-    port: Optional[int] = None
-    started_at: datetime
-    command: List[str]
-    working_dir: Path
-    environment: Dict[str, str] = Field(default_factory=dict)
-    
-    def is_running(self) -> bool:
-        """Check if the process is still running."""
-        try:
-            import psutil
-            return psutil.pid_exists(self.pid)
-        except ImportError:
-            # Fallback without psutil
-            import os
-            try:
-                os.kill(self.pid, 0)
-                return True
-            except OSError:
-                return False
-    
-    def get_uptime(self) -> timedelta:
-        """Get process uptime."""
-        return datetime.now() - self.started_at
-    
-    def get_memory_usage(self) -> Optional[int]:
-        """Get process memory usage in MB."""
-        try:
-            import psutil
-            process = psutil.Process(self.pid)
-            return process.memory_info().rss // 1024 // 1024
-        except (ImportError, psutil.NoSuchProcess):
-            return None
-
-
-class ServerState(BaseModel):
-    """Complete state information for a server."""
-    name: str
-    server: Server
-    process_status: ProcessStatus = ProcessStatus.STOPPED
-    health_status: HealthStatus = HealthStatus.UNKNOWN
-    config_status: ConfigStatus = ConfigStatus.UNKNOWN
-    platform_sync: Dict[str, SyncStatus] = Field(default_factory=dict)
-    
-    # Runtime information
-    process_info: Optional[ProcessInfo] = None
-    last_error: Optional[str] = None
-    last_health_check: Optional[datetime] = None
-    health_score: float = 0.0
-    
-    # Performance metrics
-    uptime: Optional[timedelta] = None
-    memory_usage_mb: Optional[int] = None
-    cpu_usage_percent: Optional[float] = None
-    
-    def is_running(self) -> bool:
-        """Check if server is running."""
-        return (
-            self.process_status == ProcessStatus.RUNNING and
-            self.process_info is not None and
-            self.process_info.is_running()
-        )
-    
-    def is_healthy(self) -> bool:
-        """Check if server is healthy."""
-        return self.health_status == HealthStatus.HEALTHY
-    
-    def update_from_process(self):
-        """Update state from process information."""
-        if self.process_info:
-            if self.process_info.is_running():
-                self.process_status = ProcessStatus.RUNNING
-                self.uptime = self.process_info.get_uptime()
-                self.memory_usage_mb = self.process_info.get_memory_usage()
-            else:
-                self.process_status = ProcessStatus.STOPPED
-                self.process_info = None
-                self.uptime = None
-                self.memory_usage_mb = None
-
-
-class HealthCheck(BaseModel):
-    """Health check result."""
-    name: str
-    status: HealthStatus
-    message: str
-    details: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.now)
-    response_time_ms: Optional[float] = None
-
-
-class HealthReport(BaseModel):
-    """Complete health report for a server."""
-    server_name: str
-    overall_status: HealthStatus
-    checks: List[HealthCheck]
-    timestamp: datetime = Field(default_factory=datetime.now)
-    health_score: float = 0.0
-    
-    def calculate_health_score(self):
-        """Calculate overall health score (0.0 to 1.0)."""
-        if not self.checks:
-            self.health_score = 0.0
-            return
-        
-        healthy_count = sum(1 for check in self.checks if check.status == HealthStatus.HEALTHY)
-        self.health_score = healthy_count / len(self.checks)
-        
-        # Update overall status based on score
-        if self.health_score >= 0.8:
-            self.overall_status = HealthStatus.HEALTHY
-        elif self.health_score >= 0.5:
-            self.overall_status = HealthStatus.DEGRADED
-        else:
-            self.overall_status = HealthStatus.UNHEALTHY
-
-
 class ValidationError(BaseModel):
     """Configuration validation error."""
     field: str
@@ -301,35 +146,6 @@ class ValidationResult(BaseModel):
             severity="warning"
         ))
 
-
-class PlatformInfo(BaseModel):
-    """Information about an AI platform integration."""
-    name: str
-    display_name: str
-    installed: bool = False
-    config_path: Optional[Path] = None
-    sync_status: SyncStatus = SyncStatus.NOT_CONFIGURED
-    server_count: int = 0
-    last_sync: Optional[datetime] = None
-    
-    def is_available(self) -> bool:
-        """Check if platform is available for use."""
-        return self.installed and self.config_path and self.config_path.exists()
-
-
-class SystemInfo(BaseModel):
-    """System information for diagnostics."""
-    python_version: str
-    platform: str
-    mcp_home: Path
-    total_servers: int
-    running_servers: int
-    platforms: List[PlatformInfo]
-    disk_usage_mb: int
-    last_updated: datetime = Field(default_factory=datetime.now)
-
-
-# Removal-related models
 
 class FileInfo(BaseModel):
     """Information about a file to be removed."""

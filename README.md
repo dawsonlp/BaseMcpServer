@@ -20,7 +20,7 @@ BaseMcpServer/
 └── QUICKSTART.md              # End-to-end jira-helper onboarding
 ```
 
-Every server in this repo is a Python package installable via `mcp-manager install local`, gets its own isolated [`uv`](https://docs.astral.sh/uv/)-managed environment under `~/.config/mcp-manager/servers/<name>/.venv`, and is wired into VS Code/Cline + Claude Desktop with a single `mcp-manager config sync` call.
+Every server in this repo is a Python package installable via `mcp-manager install`, gets its own isolated [`uv`](https://docs.astral.sh/uv/)-managed environment under `~/.config/mcp-manager/servers/<name>/.venv`, and is wired into VS Code/Cline + Claude Desktop with a single `mcp-manager sync` call.
 
 ## Quick install
 
@@ -31,16 +31,16 @@ uv tool install "git+https://github.com/dawsonlp/BaseMcpServer.git#subdirectory=
 uv tool update-shell
 
 # 2. Install whichever servers you want
-mcp-manager install local jira-helper        --source ./servers/jira-helper
-mcp-manager install local worldcontext       --source ./servers/worldcontext
-mcp-manager install local mcpservercreator   --source ./servers/mcpservercreator
-mcp-manager install local loadbearing-youtube --source ./servers/loadbearing-youtube
+mcp-manager install jira-helper        --source ./servers/jira-helper
+mcp-manager install worldcontext       --source ./servers/worldcontext
+mcp-manager install mcpservercreator   --source ./servers/mcpservercreator
+mcp-manager install loadbearing-youtube --source ./servers/loadbearing-youtube
 
 # 3. Edit the per-server config files (where credentials go) — see each server's README
 $EDITOR ~/.config/mcp-manager/servers/jira-helper/config.yaml
 
 # 4. Wire the servers into Cline + Claude Desktop
-mcp-manager config sync
+mcp-manager sync
 ```
 
 For an end-to-end walkthrough with jira-helper (including Atlassian API token setup), see [QUICKSTART.md](QUICKSTART.md).
@@ -56,10 +56,10 @@ For dynamically generating a server from a code snippet, see the [`mcpservercrea
 ## Connecting clients
 
 ```bash
-mcp-manager config sync      # write to both Cline + Claude Desktop
+mcp-manager sync      # write to both Cline + Claude Desktop
 # or selectively:
-mcp-manager config cline
-mcp-manager config claude
+mcp-manager sync --platform cline
+mcp-manager sync --platform claude
 ```
 
 `mcp-manager` writes `mcpServers` entries that point at `~/.config/mcp-manager/servers/<name>/.venv/bin/<name>` over stdio. Restart your editor for the new entries to take effect.
@@ -78,7 +78,7 @@ Example entry (written automatically; shown for reference):
 }
 ```
 
-Hand-added entries in your editor's settings file are preserved across `config sync` — only entries that match a server name in the mcp-manager registry are overwritten.
+Hand-added entries in your editor's settings file are preserved across `sync` — only entries that match a server name in the mcp-manager registry are overwritten.
 
 ## Architecture decisions
 

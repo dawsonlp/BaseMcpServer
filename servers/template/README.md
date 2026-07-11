@@ -38,13 +38,13 @@ cd servers/my-server
 # 4. Replace the echo example with your real tools (see "Adding tools" below)
 
 # 5. Install via mcp-manager
-mcp-manager install local my-server --source ./servers/my-server
+mcp-manager install my-server --source ./servers/my-server
 
 # 6. Edit your real config
 $EDITOR ~/.config/mcp-manager/servers/my-server/config.yaml
 
 # 7. Wire it into your editor
-mcp-manager config cline   # or: mcp-manager config claude
+mcp-manager sync --platform cline   # or: mcp-manager sync --platform claude
 ```
 
 ## Adding tools
@@ -101,13 +101,13 @@ When the server runs over `stdio`, **stdout is the JSON-RPC channel** — writin
 
 ## Connecting to a client
 
-After `mcp-manager install local`, run:
+After `mcp-manager install`, run:
 
 ```bash
-mcp-manager config sync              # write to both Cline + Claude Desktop
+mcp-manager sync              # write to both Cline + Claude Desktop
 # or selectively:
-mcp-manager config cline
-mcp-manager config claude
+mcp-manager sync --platform cline
+mcp-manager sync --platform claude
 ```
 
 Then restart your editor.

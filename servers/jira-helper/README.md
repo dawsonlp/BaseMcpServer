@@ -64,7 +64,7 @@ instances:
 ### Installation
 
 ```bash
-mcp-manager install local jira-helper --source servers/jira-helper --force
+mcp-manager install jira-helper --source servers/jira-helper --force
 ```
 
 ## Available Tools (32)
