@@ -14,7 +14,11 @@ authors = [
 dependencies = [
     "mcp>=1.27.0",
     "mcp-commons>=2.2.2",
+    "PyYAML>=6.0.3",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
 
 [project.scripts]
 template = "main:main"
@@ -27,3 +31,6 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
