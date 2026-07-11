@@ -183,7 +183,7 @@ class StateManager:
                 f"\n{len(legacy_skipped)} server registry entr{'y' if len(legacy_skipped) == 1 else 'ies'} "
                 "could not be loaded (likely from a pre-1.2.0 mcp-manager).\n"
                 "Reinstall each with:\n"
-                "  mcp-manager install local <name> --source <path> --force\n"
+                "  mcp-manager install <name> --source <path> --force\n"
                 "Per-server config.yaml files in ~/.config/mcp-manager/servers/<name>/ "
                 "(API keys, credentials) are preserved automatically on reinstall.\n"
             )

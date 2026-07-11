@@ -3,16 +3,15 @@
 # Install a BaseMcpServer MCP server via mcp-manager, from anywhere.
 #
 # Usage:
-#   install_mcp_server.sh <server-name> [--source DIR] [--transport stdio|sse]
-#                         [--force] [--no-sync]
+#   install_mcp_server.sh <server-name> [--source DIR] [--force] [--no-sync]
 #
 # Behaviour:
 #   1. Ensures `uv` and `mcp-manager` are available (installs mcp-manager if not).
 #   2. Locates the server source: --source, else ./servers/<name> if run inside
 #      the repo, else a shallow clone of the public BaseMcpServer repo in a cache.
-#   3. Runs `mcp-manager install local <name> --source <dir>`.
-#   4. Unless --no-sync, runs `mcp-manager config sync` to wire it into Cline /
-#      Claude Desktop.
+#   3. Runs `mcp-manager install <name> --source <dir>`.
+#   4. Unless --no-sync, runs `mcp-manager sync` to wire it into every detected
+#      AI platform.
 #
 # Idempotent: pass --force to reinstall an already-installed server.
 set -euo pipefail
@@ -22,7 +21,6 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/basemcpserver"
 
 SERVER=""
 SOURCE=""
-TRANSPORT="stdio"
 FORCE=""
 SYNC="yes"
 
@@ -33,7 +31,6 @@ info() { echo ">> $*" >&2; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --source) SOURCE="${2:-}"; shift 2 ;;
-    --transport) TRANSPORT="${2:-}"; shift 2 ;;
     --force) FORCE="--force"; shift ;;
     --no-sync) SYNC="no"; shift ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -73,18 +70,18 @@ fi
 [ -f "$SOURCE/pyproject.toml" ] || die "no server source at: $SOURCE"
 
 # --- install ---------------------------------------------------------------
-info "Installing '$SERVER' from $SOURCE (transport: $TRANSPORT)"
-mcp-manager install local "$SERVER" --source "$SOURCE" --transport "$TRANSPORT" $FORCE
+info "Installing '$SERVER' from $SOURCE"
+mcp-manager install "$SERVER" --source "$SOURCE" $FORCE
 
 # --- wire into editors -----------------------------------------------------
 if [ "$SYNC" = "yes" ]; then
-  info "Syncing into detected AI platforms (Cline / Claude Desktop)..."
-  mcp-manager config sync
+  info "Syncing into every detected AI platform..."
+  mcp-manager sync
 else
-  info "Skipping editor sync (--no-sync). Run 'mcp-manager config sync' when ready."
+  info "Skipping editor sync (--no-sync). Run 'mcp-manager sync' when ready."
 fi
 
 CONFIG="$HOME/.config/mcp-manager/servers/$SERVER/config.yaml"
 info "Done. Server '$SERVER' registered."
 [ -f "$CONFIG" ] && info "Config (edit for credentials if the server needs them): $CONFIG"
-info "Inspect with: mcp-manager info show $SERVER"
+info "Inspect with: mcp-manager show $SERVER"

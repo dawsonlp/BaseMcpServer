@@ -339,7 +339,7 @@ def remove_from_registry(
             output.warning("⚠️  Registry-Only Removal Warning")
             output.warning(f"Server will remain configured in: {', '.join(orphaned_platforms)}")
             output.warning("These platforms may show errors after removal.")
-            output.info("Use 'mcp-manager remove server' for complete removal.")
+            output.info("Use 'mcp-manager remove' for complete removal.")
             output.console.print()
         
         # Get confirmation

@@ -15,10 +15,7 @@ dependencies = [
     "typer>=0.24.1",           # CLI framework
     "pydantic>=2.12.5",       # Data validation
     "rich>=14.3.3",           # Rich text and formatting
-    "jinja2>=3.1.6",          # Template rendering
-    "httpx>=0.28.1",          # HTTP client for testing connections
     "pyyaml>=6.0.3",          # YAML parsing
-    "psutil>=7.2.2",          # Process monitoring
 ]
 
 [project.scripts]
