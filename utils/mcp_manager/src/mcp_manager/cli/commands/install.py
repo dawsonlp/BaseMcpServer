@@ -171,51 +171,5 @@ def install_local(
         handle_error(e, "Failed to install local server")
 
 
-@app.command("remote")
-def install_remote(
-    name: str = typer.Argument(..., help="Server name"),
-    url: str = typer.Option(..., "--url", "-u", help="Server URL"),
-    api_key: Optional[str] = typer.Option(None, "--api-key", help="API key for authentication"),
-    transport: TransportType = typer.Option(TransportType.SSE, "--transport", "-t", help="Transport protocol"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force reinstall if exists"),
-    auto_approve: List[str] = typer.Option([], "--auto-approve", help="Auto-approve tools (can be used multiple times)"),
-):
-    """Install a remote MCP server."""
-    try:
-        if not is_valid_server_name(name):
-            raise MCPManagerError(f"Invalid server name: {name}")
-
-        if state.get_server(name) and not force:
-            raise MCPManagerError(f"Server '{name}' already exists. Use --force to reinstall.")
-
-        server = Server(
-            name=name,
-            server_type=ServerType.REMOTE,
-            transport=transport,
-            url=url,
-            api_key=api_key,
-            auto_approve=auto_approve,
-        )
-
-        validation_result = validate_server_config(server)
-        if not validation_result.is_valid:
-            output.error("Server configuration validation failed:")
-            for error in validation_result.errors:
-                output.error(f"  • {error.message}")
-            raise typer.Exit(1)
-
-        if force and state.get_server(name):
-            state.remove_server(name)
-
-        state.add_server(server)
-
-        output.success(f"Successfully installed remote server '{name}'")
-        output.info(f"URL: {url}")
-        output.info(f"Transport: {transport.value}")
-
-    except Exception as e:
-        handle_error(e, "Failed to install remote server")
-
-
 if __name__ == "__main__":
     app()

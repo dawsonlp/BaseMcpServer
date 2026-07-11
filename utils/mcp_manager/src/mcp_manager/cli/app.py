@@ -34,12 +34,12 @@ app = typer.Typer(
     help="🚀 MCP Manager: install local MCP servers and sync them into your AI tools.",
     add_completion=False,
     rich_markup_mode="rich",
-    no_args_is_help=True,
 )
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def callback(
+    ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-V", help="Show version and exit"),
 ) -> None:
     """Install and sync Model Context Protocol servers from one registry."""
@@ -47,6 +47,9 @@ def callback(
         get_output_manager().console.print(
             f"[bold blue]MCP Manager[/bold blue] version [bold green]{__version__}[/bold green]"
         )
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        get_output_manager().console.print(ctx.get_help())
         raise typer.Exit()
     create_directory_structure()
 
