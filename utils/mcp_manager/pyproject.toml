@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-manager"
-version = "1.5.1"
+version = "1.5.3"
 description = "Comprehensive manager for MCP servers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,6 +17,9 @@ dependencies = [
     "rich>=14.3.3",           # Rich text and formatting
     "pyyaml>=6.0.3",          # YAML parsing
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0"]
 
 [project.scripts]
 mcp-manager = "mcp_manager.cli:app"
@@ -32,3 +35,7 @@ packages = [
 ]
 package-dir = {"" = "src"}
 include-package-data = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
