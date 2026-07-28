@@ -63,7 +63,7 @@ To get detailed help including security warnings and usage information:
 
 To create a new MCP server, use the `create_mcp_server` tool with the following arguments:
 
-- `code_snippet`: Python code that defines one or more MCP tools using `@srv.tool()` decorators
+- `code_snippet`: Python code defining one or more plain public tool functions; decorators are rejected
 - `server_name`: Name for the new MCP server (alphanumeric with optional hyphens)
 - `description`: Optional description for the server
 - `author`: Optional author name for the server
@@ -76,7 +76,7 @@ Example:
 <tool_name>create_mcp_server</tool_name>
 <arguments>
 {
-  "code_snippet": "@srv.tool()\ndef add_numbers(a: int, b: int) -> dict:\n    \"\"\"Add two numbers together.\"\"\"\n    return {\"result\": a + b}",
+  "code_snippet": "def add_numbers(a: int, b: int) -> dict:\n    \"\"\"Add two numbers together.\"\"\"\n    return {\"result\": a + b}",
   "server_name": "simple-calculator",
   "description": "A simple calculator MCP server",
   "author": "Your Name"
@@ -128,7 +128,7 @@ Here's a more complex example to create a weather API server:
 <tool_name>create_mcp_server</tool_name>
 <arguments>
 {
-  "code_snippet": "import requests\n\n@srv.tool()\ndef get_weather(city: str) -> dict:\n    \"\"\"Get the current weather for a city.\"\"\"\n    api_key = \"your_api_key_here\"\n    url = f\"https://api.example.com/weather?city={city}&appid={api_key}\"\n    \n    response = requests.get(url)\n    if response.status_code == 200:\n        return response.json()\n    else:\n        return {\"error\": f\"Failed to get weather: {response.status_code}\"}\n",
+  "code_snippet": "import requests\n\ndef get_weather(city: str) -> dict:\n    \"\"\"Get the current weather for a city.\"\"\"\n    api_key = \"your_api_key_here\"\n    url = f\"https://api.example.com/weather?city={city}&appid={api_key}\"\n    response = requests.get(url)\n    if response.status_code == 200:\n        return response.json()\n    return {\"error\": f\"Failed to get weather: {response.status_code}\"}\n",
   "server_name": "weather-api",
   "description": "MCP server for querying weather data",
   "author": "Weather Expert"

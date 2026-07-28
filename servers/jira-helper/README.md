@@ -6,13 +6,13 @@ A Jira and Confluence integration MCP server providing 32 tools for issue manage
 
 ## Architecture
 
-Flat module structure following the mcp-commons pattern:
+Flat module structure with direct MCP SDK v2 factory registration:
 
 ```
 src/
 ├── main.py              # Entry point (stdio/sse/streamable-http)
 ├── config.py            # YAML configuration loading
-├── tool_config.py       # Tool registration (32 tools → mcp-commons)
+├── tool_config.py       # 32 plain tools consumed by create_server()
 ├── jira_client.py       # Client factory with connection caching
 ├── exceptions.py        # Simplified exception hierarchy (7 classes)
 └── tools/               # Tool implementations

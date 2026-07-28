@@ -1,5 +1,9 @@
 # MCP Resource System Design for Jira Helper Workflow Graphs
 
+> Historical design note: this document predates the MCP Python SDK v2 migration.
+> Any `mcp-commons` or decorator-based examples below describe the former
+> implementation and are not current implementation guidance.
+
 ## Executive Summary
 
 This document outlines the design for implementing MCP (Model Context Protocol) resources to serve workflow graph images, replacing the current base64 string approach that returns unwieldy 50,000+ character responses.

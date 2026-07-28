@@ -1,8 +1,8 @@
 """
 MCP Server Creator - Dynamically creates and installs MCP servers from Python code.
 
-This module provides the implementation for all MCP tools using the mcp-commons
-bulk registration system, eliminating the need for manual @srv.tool() decorators.
+Generated servers use the MCP Python SDK directly. Tool implementations are
+plain functions and server factories register them with ``MCPServer.add_tool``.
 """
 
 import os
@@ -49,7 +49,7 @@ def create_server_files(
     tool_names: List[str]
 ) -> None:
     """
-    Create all necessary files for a new MCP server using modern mcp-commons pattern.
+    Create all necessary files for a factory-based MCP SDK v2 server.
     
     Args:
         server_dir: Directory to create the files in
@@ -61,7 +61,9 @@ def create_server_files(
     """
     logger.info(f"Creating server files for '{server_name}' with {len(tool_names)} tools")
     
-    # Create src directory
+    # Own creation of the complete destination tree so callers do not have to
+    # reproduce filesystem setup that belongs to this factory.
+    server_dir.mkdir(parents=True, exist_ok=True)
     src_dir = server_dir / "src"
     src_dir.mkdir(exist_ok=True)
     
@@ -87,6 +89,9 @@ def create_server_files(
     
     # Create pyproject.toml with modern dependencies
     _create_pyproject_file(server_dir, server_name, description, author)
+
+    # Create the package README referenced by pyproject.toml
+    _create_readme_file(server_dir, server_name, description)
     
     logger.info(f"Successfully created all files for server '{server_name}'")
 
@@ -98,7 +103,7 @@ def _create_init_file(src_dir: Path, server_name: str) -> None:
 
 
 def _create_config_file(src_dir: Path, server_name: str) -> None:
-    """Create config.py file using mcp-commons config discovery."""
+    """Create a package-local YAML and environment configuration reader."""
     config_content = f'''"""Configuration for {server_name}.
 
 Looks under ~/.config/mcp-manager/servers/{server_name}/config.yaml first
@@ -107,11 +112,35 @@ sane default config if no file exists, so the server can run before the
 user fills in their own config.yaml.
 """
 
-from mcp_commons import create_config, load_dotenv_file
+import os
+from pathlib import Path
+from typing import Any
 
-load_dotenv_file()
+import yaml
 
-config = create_config(
+
+class ServerConfig:
+    def __init__(self, server_name: str, env_prefix: str):
+        self.env_prefix = env_prefix
+        candidates = (
+            Path.home() / ".config" / "mcp-manager" / "servers" / server_name / "config.yaml",
+            Path.home() / ".config" / server_name / "config.yaml",
+            Path.cwd() / "config.yaml",
+        )
+        config_path = next((path for path in candidates if path.exists()), None)
+        self.config_data: dict[str, Any] = {{}}
+        if config_path is not None:
+            self.config_data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {{}}
+
+    def get(self, section: str, key: str, default: Any = None) -> Any:
+        env_name = f"{{self.env_prefix}}_{{section.upper()}}_{{key.upper()}}"
+        if env_name in os.environ:
+            return os.environ[env_name]
+        section_data = self.config_data.get(section, {{}})
+        return section_data.get(key, default) if isinstance(section_data, dict) else default
+
+
+config = ServerConfig(
     server_name="{server_name}",
     env_prefix="{server_name.replace('-', '_').upper()}",
 )
@@ -161,8 +190,7 @@ class {server_name.replace('-', '_').title()}Implementation:
     """
     Implementation class containing all MCP tool methods.
     
-    This class provides the actual implementation for all tools that will be
-    bulk registered with the mcp-commons system.
+    The server factory registers these methods with MCPServer.add_tool().
     """
     
 {chr(10).join(impl_methods) if impl_methods else '    def placeholder_tool(self) -> Dict[str, Any]:\n        """Placeholder tool."""\n        return {"message": "No tools implemented"}'}
@@ -186,7 +214,7 @@ def _create_tool_config_file(src_dir: Path, server_name: str, tool_names: List[s
     tool_config_content = f'''"""
 Tool configuration for {server_name}.
 
-Bulk-registered with mcp-commons; no per-tool @srv.tool() decorator needed.
+Registered by the server factory through MCPServer.add_tool().
 """
 
 from typing import Any, Dict
@@ -215,31 +243,57 @@ def _create_main_file(src_dir: Path, server_name: str, description: str) -> None
     main_content = f'''"""
 Main entry point for the {server_name} MCP Server.
 
-Uses mcp-commons run_cli for argv parsing + transport dispatch.
+Uses MCP SDK v2 directly with factory-based tool registration.
 """
 
-from mcp_commons import create_mcp_app, run_cli
+import sys
+
+from mcp.server import MCPServer
 
 from config import config
 from tool_config import get_tools_config
 
 
-def main() -> None:
-    run_cli(
-        server_name=config.get("server", "name", default="{server_name}"),
-        tools_config=get_tools_config(),
-        description="- {description}",
-        host=config.get("server", "host", default="localhost"),
-        port=config.get("server", "port", default=7501),
+def create_server() -> MCPServer:
+    server = MCPServer(
+        name=str(config.get("server", "name", default="{server_name}")),
+        description={description!r},
     )
+    for tool_name, spec in get_tools_config().items():
+        function = spec["function"]
+        if not callable(function):
+            raise TypeError(f"Tool {{tool_name!r}} does not define a callable function")
+        server.add_tool(
+            function,
+            name=tool_name,
+            description=spec.get("description") or f"Tool: {{tool_name}}",
+        )
+    return server
 
 
 def create_app():
-    """ASGI factory for external ASGI servers."""
-    return create_mcp_app(
-        server_name=config.get("server", "name", default="{server_name}"),
-        tools_config=get_tools_config(),
-    )
+    host = str(config.get("server", "host", default="localhost"))
+    return create_server().streamable_http_app(host=host)
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in {{"help", "--help", "-h"}}:
+        print("Usage: {server_name} [stdio|streamable-http|sse]")
+        return
+    transport = args[1] if args[0] == "--transport" and len(args) == 2 else args[0]
+    if transport not in {{"stdio", "sse", "streamable-http"}}:
+        raise SystemExit(f"Unknown transport: {{transport}}")
+    options = {{}}
+    if transport != "stdio":
+        options = {{
+            "host": str(config.get("server", "host", default="localhost")),
+            "port": int(config.get("server", "port", default=7501)),
+        }}
+    try:
+        create_server().run(transport, **options)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
@@ -270,8 +324,8 @@ authors = [
 ]
 dependencies = [
     # Core MCP dependencies
-    "mcp>=1.27.0",
-    "mcp-commons>=2.2.2",
+    "mcp==2.0.0rc1",
+    "PyYAML>=6.0.3",
 
     # Common utilities that may be needed
     "python-dateutil>=2.8.0",
@@ -288,6 +342,9 @@ dev = [
 
 [project.scripts]
 {server_name} = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "config", "server", "tool_config"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -307,12 +364,28 @@ line_length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.uv]
+prerelease = "allow"
 '''
     
     with open(server_dir / "pyproject.toml", "w") as f:
         f.write(pyproject_content)
     
     logger.info(f"Successfully created pyproject.toml for server '{server_name}'")
+
+
+def _create_readme_file(server_dir: Path, server_name: str, description: str) -> None:
+    """Create the README referenced by the generated package metadata."""
+    content = f"""# {server_name}
+
+{description or f'Generated MCP server: {server_name}'}
+
+Tools are plain Python methods registered by ``create_server()`` through
+``MCPServer.add_tool()``. No decorators are used.
+"""
+    with open(server_dir / "README.md", "w") as f:
+        f.write(content)
 
 
 def _extract_imports(parsed_code: ast.Module) -> List[str]:
@@ -329,46 +402,31 @@ def _extract_imports(parsed_code: ast.Module) -> List[str]:
 
 
 def _extract_tool_functions(parsed_code: ast.Module, code_snippet: str) -> Tuple[List[str], List[str]]:
-    """Extract tool function names and their definitions from parsed AST."""
+    """Extract public top-level functions as tool implementations."""
     tool_names = []
     function_defs = []
     
-    for node in ast.walk(parsed_code):
-        if isinstance(node, ast.FunctionDef):
-            # Check for @srv.tool() or @mcp.tool() decorators
-            has_tool_decorator = False
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                    if (decorator.func.attr == "tool" and 
-                        isinstance(decorator.func.value, ast.Name) and
-                        decorator.func.value.id in ["mcp", "srv"]):
-                        has_tool_decorator = True
-                        tool_names.append(node.name)
-                        break
-            
-            if has_tool_decorator:
-                # Extract function source without decorator
-                func_source = ast.get_source_segment(code_snippet, node)
-                if func_source:
-                    # Process function lines to remove decorator and add self parameter
-                    processed_func = _process_function_definition(func_source)
-                    if processed_func:
-                        function_defs.append(processed_func)
+    for node in parsed_code.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+            tool_names.append(node.name)
+            func_source = ast.get_source_segment(code_snippet, node)
+            if func_source:
+                processed_func = _process_function_definition(func_source)
+                if processed_func:
+                    function_defs.append(processed_func)
     
     return tool_names, function_defs
 
 
 def _process_function_definition(func_source: str) -> Optional[str]:
-    """Process function definition to remove decorators and add self parameter."""
+    """Turn a plain top-level function into an implementation class method."""
     lines = func_source.split('\n')
     filtered_lines = []
     
     for line in lines:
-        if not line.strip().startswith('@srv.tool') and not line.strip().startswith('@mcp.tool'):
-            # Add self parameter to function signature
-            if line.strip().startswith('def '):
-                line = _add_self_parameter(line)
-            filtered_lines.append(line)
+        if line.strip().startswith(("def ", "async def ")):
+            line = _add_self_parameter(line)
+        filtered_lines.append(line)
     
     return '\n'.join(filtered_lines) if filtered_lines else None
 
@@ -425,14 +483,24 @@ def validate_code_snippet(code_snippet: str) -> List[str]:
     
     # Security validation
     _validate_security_restrictions(parsed)
+
+    decorated = [
+        node.name
+        for node in parsed.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.decorator_list
+    ]
+    if decorated:
+        raise ValueError(
+            "Decorators are not accepted. Define plain public functions; "
+            "the generated create_server() factory registers them with add_tool()."
+        )
     
     # Extract tool names and functions
     tool_names, _ = _extract_tool_functions(parsed, code_snippet)
     
     if not tool_names:
         raise ValueError(
-            "No tools defined with @mcp.tool() or @srv.tool() decorator. "
-            "Remember to include parentheses: use @srv.tool() instead of @srv.tool"
+            "No tools found. Define at least one plain public top-level function."
         )
     
     logger.info(f"Validated code snippet with {len(tool_names)} tools: {', '.join(tool_names)}")
@@ -527,7 +595,7 @@ class MCPServerCreatorImplementation:
     Implementation class containing all MCP tool methods.
     
     This class provides the actual implementation for all tools that will be
-    bulk registered with the mcp-commons system.
+    registered by the MCPServer factory.
     """
     
     def help(self) -> Dict[str, str]:
@@ -569,7 +637,7 @@ SAFETY RECOMMENDATIONS:
             
             "usage": """
 To create a new MCP server, use the create_mcp_server tool with:
-- code_snippet: Python code that defines MCP tools using @srv.tool() decorators
+- code_snippet: Python code containing plain public tool functions (no decorators)
 - server_name: Name for the new server (alphanumeric with optional hyphens)
 - description: Optional description for the server
 - author: Optional author name
@@ -607,8 +675,8 @@ Currently, the MCP Server Creator has limitations:
         and includes proper documentation, type hints, and configuration.
         
         Args:
-            code_snippet: Python code that defines one or more MCP tools using @srv.tool() decorators.
-                         Each tool should be a function decorated with @srv.tool() that returns a dictionary.
+            code_snippet: Python code defining one or more plain public functions.
+                         The generated factory registers each function with add_tool().
             server_name: Name for the new MCP server (alphanumeric with optional hyphens).
                         This will be used as the directory name and in configuration.
             description: Optional description for the server. This will appear in docstrings and help text.

@@ -12,8 +12,7 @@ authors = [
     {name = "Your Name", email = "you@example.com"},
 ]
 dependencies = [
-    "mcp>=1.27.0",
-    "mcp-commons>=3.0.0,<4",
+    "mcp==2.0.0rc1",
     "PyYAML>=6.0.3",
 ]
 
@@ -34,3 +33,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv]
+prerelease = "allow"

@@ -1,7 +1,7 @@
 """
 Tool configuration for Jira Helper MCP Server.
 
-Maps tool names to their implementation functions using mcp-commons pattern.
+Maps tool names to implementation functions for factory-based SDK registration.
 """
 
 from tools.issues import (
@@ -192,5 +192,5 @@ JIRA_TOOLS = {
 
 
 def get_tools_config() -> dict:
-    """Get the tools configuration for mcp-commons registration."""
+    """Get the tools configuration consumed by ``create_server()``."""
     return JIRA_TOOLS

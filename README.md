@@ -47,7 +47,7 @@ For an end-to-end walkthrough with jira-helper (including Atlassian API token se
 
 ## Building a new MCP server
 
-Fork [`servers/template/`](servers/template/) and follow the README inside it. The template gives you the same shared infrastructure as the other servers — bulk tool registration, config-file discovery, argv-driven transport dispatch, stdio-safe logging — all via [`mcp-commons`](https://pypi.org/project/mcp-commons/).
+Fork [`servers/template/`](servers/template/) and follow the README inside it. Every server uses MCP Python SDK v2 directly: a `create_server()` factory constructs `MCPServer`, then registers plain tool functions through `add_tool()`. Decorator-based registration and MCP Commons are not used.
 
 Detailed reference: [`docs/developer/BUILD_A_NEW_MCP.md`](docs/developer/BUILD_A_NEW_MCP.md).
 
