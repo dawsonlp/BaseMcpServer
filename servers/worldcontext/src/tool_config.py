@@ -11,6 +11,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from typing import Any, Dict
+from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -126,6 +128,46 @@ def _fetch_json(url: str, *, source_label: str, name: str) -> Any:
 
 def _is_error(result: Any) -> bool:
     return isinstance(result, dict) and "error" in result
+
+
+def _fetch_alpha_vantage_quote(symbol: str) -> Dict[str, Any]:
+    """Fetch and normalize an Alpha Vantage GLOBAL_QUOTE response."""
+    api_key = config.get("api_keys", "alphavantage", default="demo")
+    query = urlencode({"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": api_key})
+    data = _fetch_json(
+        f"https://www.alphavantage.co/query?{query}",
+        source_label="Alpha Vantage",
+        name=symbol,
+    )
+    if _is_error(data):
+        return data
+
+    quote = data.get("Global Quote")
+    if isinstance(quote, dict) and quote:
+        return {"quote": quote}
+
+    for key, label in _ALPHAVANTAGE_ERROR_KEYS.items():
+        if key in data:
+            return {"error": label, "note": data[key], "response_keys": list(data)}
+    return {"error": "Unexpected response format", "response_keys": list(data)}
+
+
+def _get_us_market_status(now: datetime.datetime | None = None) -> Dict[str, str]:
+    """Return weekday US regular-session status in America/New_York time."""
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+
+    eastern_now = now.astimezone(ZoneInfo("America/New_York"))
+    current_minutes = eastern_now.hour * 60 + eastern_now.minute
+    is_open = eastern_now.weekday() < 5 and 570 <= current_minutes < 960
+
+    return {
+        "status": "Open" if is_open else "Closed",
+        "checked_at": eastern_now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "timezone": "America/New_York",
+    }
 
 
 def fetch_pypi_version(package: str) -> Dict[str, Any]:
@@ -378,57 +420,68 @@ def get_latest_tool_versions() -> Dict[str, Any]:
         return {"error": str(e), "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 
+def get_stock_quote(symbol: str) -> Dict[str, Any]:
+    """Get the latest Alpha Vantage quote for one stock or ETF symbol.
+
+    Args:
+        symbol: Stock or ETF ticker symbol.
+    """
+    if not isinstance(symbol, str) or not symbol.strip():
+        return {"error": "Symbol must be a non-empty string", "symbol": str(symbol)}
+
+    normalized_symbol = symbol.strip().upper()
+    api_key = config.get("api_keys", "alphavantage", default="demo")
+    result = _fetch_alpha_vantage_quote(normalized_symbol)
+    if "error" in result:
+        return {"symbol": normalized_symbol, **result}
+
+    quote = result["quote"]
+    return {
+        "symbol": normalized_symbol,
+        "open": quote.get("02. open", "N/A"),
+        "high": quote.get("03. high", "N/A"),
+        "low": quote.get("04. low", "N/A"),
+        "price": quote.get("05. price", "N/A"),
+        "volume": quote.get("06. volume", "N/A"),
+        "latest_trading_day": quote.get("07. latest trading day", "N/A"),
+        "previous_close": quote.get("08. previous close", "N/A"),
+        "change": quote.get("09. change", "N/A"),
+        "change_percent": quote.get("10. change percent", "N/A"),
+        "api_key_status": "demo" if api_key == "demo" else "configured",
+        "note": "Using demo API key — limited functionality" if api_key == "demo" else "Live market data",
+    }
+
+
 def get_stock_market_overview() -> Dict[str, Any]:
     """Get current stock market overview and major indices.
 
     Note: Uses Alpha Vantage API — configure your API key in config.yaml.
     """
     api_key = config.get("api_keys", "alphavantage", default="demo")
-    base_url = "https://www.alphavantage.co/query"
-
     indices = {"SPY": "S&P 500 ETF", "DIA": "Dow Jones ETF", "QQQ": "NASDAQ ETF"}
     market_data: Dict[str, Any] = {}
 
     for symbol, name in indices.items():
-        try:
-            url = f"{base_url}?function=GLOBAL_QUOTE&symbol={symbol}&apikey={api_key}"
-            with httpx.Client(timeout=10) as client:
-                response = client.get(url)
+        result = _fetch_alpha_vantage_quote(symbol)
+        if "error" in result:
+            market_data[symbol] = {"name": name, **result}
+            continue
 
-            if response.status_code != 200:
-                market_data[symbol] = {"name": name, "error": f"HTTP {response.status_code}"}
-                continue
+        quote = result["quote"]
+        market_data[symbol] = {
+            "name": name,
+            "price": quote.get("05. price", "N/A"),
+            "change": quote.get("09. change", "N/A"),
+            "change_percent": quote.get("10. change percent", "N/A"),
+            "last_updated": quote.get("07. latest trading day", "N/A"),
+        }
 
-            data = response.json()
-            quote = data.get("Global Quote")
-            if isinstance(quote, dict) and quote:
-                market_data[symbol] = {
-                    "name": name,
-                    "price": quote.get("05. price", "N/A"),
-                    "change": quote.get("09. change", "N/A"),
-                    "change_percent": quote.get("10. change percent", "N/A"),
-                    "last_updated": quote.get("07. latest trading day", "N/A"),
-                }
-                continue
-
-            # Alpha Vantage signals problems via one of three top-level keys.
-            # "Information" is the current quota-exceeded format; "Note" is the
-            # legacy rate-limit format; "Error Message" is for malformed requests.
-            for key, label in _ALPHAVANTAGE_ERROR_KEYS.items():
-                if key in data:
-                    market_data[symbol] = {"name": name, "error": label, "note": data[key]}
-                    break
-            else:
-                market_data[symbol] = {"name": name, "error": "Unexpected response format", "raw_keys": list(data.keys())}
-        except Exception as e:
-            market_data[symbol] = {"name": name, "error": str(e)}
-
-    now = datetime.datetime.now()
-    is_open = now.weekday() < 5 and 9 <= now.hour < 16
+    market_status = _get_us_market_status()
 
     return {
-        "market_status": "Open" if is_open else "Closed",
-        "last_updated": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "market_status": market_status["status"],
+        "market_timezone": market_status["timezone"],
+        "last_updated": market_status["checked_at"],
         "indices": market_data,
         "api_key_status": "demo" if api_key == "demo" else "configured",
         "note": "Using demo API key — limited functionality" if api_key == "demo" else "Live market data",
@@ -571,6 +624,10 @@ WORLDCONTEXT_TOOLS: Dict[str, Dict[str, Any]] = {
         "description": (
             "Check if markets are open and how major indices are performing."
         ),
+    },
+    "get_stock_quote": {
+        "function": get_stock_quote,
+        "description": "Get the latest quote for one stock or ETF symbol.",
     },
     "get_news_headlines": {
         "function": get_news_headlines,
