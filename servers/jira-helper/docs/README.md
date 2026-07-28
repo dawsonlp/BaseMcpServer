@@ -2,8 +2,9 @@
 
 The Jira Helper MCP server provides Jira + Confluence integration over the Model
 Context Protocol: issue management, JQL/filter search, transitions, time
-tracking, and more. It follows the flat `mcp-commons` pattern used across this
-monorepo (tools declared in `src/tools/`, registered via `tool_config.py`).
+tracking, and more. It follows the repository's factory-based MCP SDK v2 pattern:
+tools are declared in `src/tools/`, mapped in `tool_config.py`, and registered
+by `create_server()` through `MCPServer.add_tool()`.
 
 ## Documentation
 

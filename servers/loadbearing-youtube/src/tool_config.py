@@ -3,7 +3,7 @@ Tool Configuration for the loadbearing_youtube MCP Server.
 
 Thin adapter: the real work lives in the `loadbearing_youtube` package
 (pipeline, providers, analysis). Each function here returns a plain,
-JSON-serialisable dict; mcp-commons handles the MCP protocol details.
+JSON-serialisable dict; the server factory handles MCP SDK registration.
 """
 
 import logging

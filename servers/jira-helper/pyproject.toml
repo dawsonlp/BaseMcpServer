@@ -13,18 +13,12 @@ authors = [
 ]
 dependencies = [
     # Core MCP
-    "mcp>=1.27.0",
-    "mcp-commons>=3.0.0,<4",
+    "mcp==2.0.0rc1",
     
     # Jira/Confluence integration 
     "atlassian-python-api>=4.0.7",
     
-    # HTTP transport
-    "fastapi>=0.135.3",
-    "uvicorn>=0.44.0",
-    
     # Configuration
-    "python-dotenv>=1.2.2",
     "PyYAML>=6.0.3",
     "requests>=2.32.5",
     
@@ -67,3 +61,6 @@ pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.uv]
+prerelease = "allow"

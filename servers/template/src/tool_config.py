@@ -1,9 +1,8 @@
 """Tool implementations and the registration dict for the template MCP server.
 
 Replace the `echo` example with your real tools. Add entries to the
-`TEMPLATE_TOOLS` dict at the bottom of this file -- mcp-commons will
-bulk-register all of them at startup. There is no need for per-tool
-`@srv.tool()` decorators; the dict is the single source of truth.
+`TEMPLATE_TOOLS` dict at the bottom of this file; ``create_server()`` registers
+them through ``MCPServer.add_tool()``. The dict is the single source of truth.
 """
 
 from typing import Any, Dict

@@ -1,118 +1,61 @@
 # Building a New MCP Server
 
-Every server in this repo uses **one** pattern: a thin package built on
-[`mcp-commons`](https://pypi.org/project/mcp-commons/) that declares its tools in
-a single `tool_config.py` and is installed + synced by `mcp-manager`. To make a
-new server, fork [`servers/template/`](../../servers/template/) and fill in your
-tools. That's it — there is no second architecture to choose.
+Every server in this repository uses one direct MCP Python SDK v2 pattern:
 
-## Anatomy
+1. Tool implementations are plain Python functions.
+2. `tool_config.py` maps public tool names to those functions.
+3. `create_server()` constructs `MCPServer` and calls `add_tool()`.
+4. No MCP decorators and no MCP Commons dependency are used.
 
-```
+Fork [`servers/template/`](../../servers/template/) rather than creating a
+second architecture.
+
+## Package layout
+
+```text
 servers/<name>/
-├── pyproject.toml          # package + [project.scripts] entry point
-├── config.yaml.example     # copied to the managed config on install
+├── pyproject.toml
+├── uv.lock
+├── config.yaml.example
 ├── src/
-│   ├── config.py           # create_config(server_name=..., env_prefix=...)
-│   ├── main.py             # run_cli(...) / create_mcp_app(...)  (boilerplate)
-│   └── tool_config.py      # your tools + get_tools_config()
+│   ├── config.py
+│   ├── main.py
+│   └── tool_config.py
 └── tests/
-    └── test_tools.py       # call your tool functions directly
+    ├── test_tools.py
+    └── test_server_factory.py
 ```
 
-`config.py` and `main.py` are boilerplate — copy them from the template
-unchanged except the server name/port. All your work is in `tool_config.py`.
+## Dependency boundary
 
-## 1. Fork the template
-
-```bash
-cp -r servers/template servers/my-server
-```
-
-Edit `pyproject.toml`: set `name`, the `[project.scripts]` entry, and
-`[tool.setuptools] py-modules`/`package-dir`. Add any runtime dependencies.
+Until SDK v2 is stable, pin the release candidate exactly and allow prerelease
+resolution because `mcp` depends on the matching `mcp-types` release candidate.
 
 ```toml
 [project]
-name = "my-server-mcp-server"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = ["mcp>=1.27.0", "mcp-commons>=2.2.2", "PyYAML>=6.0.3"]
+dependencies = ["mcp==2.0.0rc1", "PyYAML>=6.0.3"]
 
-[project.scripts]
-my-server = "main:main"
-
-[tool.setuptools]
-py-modules = ["main", "config", "tool_config"]
-[tool.setuptools.packages.find]
-where = ["src"]
-[tool.setuptools.package-dir]
-"" = "src"
+[tool.uv]
+prerelease = "allow"
 ```
 
-> If your server name collides with a Python package it depends on, give the
-> console script a distinct suffix (e.g. `my-server-mcp`) so the two don't
-> shadow each other on `PATH`.
+Run `uv lock` after changing dependencies and commit the lockfile for these
+deployable server applications.
 
-## 2. config.py (unchanged from the template)
+## Tool implementations
 
-```python
-from mcp_commons import create_config, load_dotenv_file
-
-load_dotenv_file()
-
-# mcp-commons resolves ~/.config/mcp-manager/servers/<name>/config.yaml first,
-# then ~/.config/<name>/config.yaml, then ./config.yaml.
-config = create_config(server_name="my-server", env_prefix="MY_SERVER")
-```
-
-## 3. main.py (unchanged from the template)
+Keep business behavior independent of the MCP runtime:
 
 ```python
-from mcp_commons import create_mcp_app, run_cli
-from config import config
-from tool_config import get_tools_config
-
-
-def main() -> None:
-    run_cli(
-        server_name=config.get("server", "name", default="my-server"),
-        tools_config=get_tools_config(),
-        description="- What this server does",
-        host=config.get("server", "host", default="localhost"),
-        port=config.get("server", "port", default=7500),
-    )
-
-
-def create_app():
-    return create_mcp_app(
-        server_name=config.get("server", "name", default="my-server"),
-        tools_config=get_tools_config(),
-    )
-
-
-if __name__ == "__main__":
-    main()
-```
-
-## 4. tool_config.py (your actual work)
-
-Each tool is a plain function that returns a JSON-serialisable dict. Register
-them in one map; `mcp-commons` handles the MCP protocol.
-
-```python
-from typing import Any, Dict
-
-
-def say_hello(name: str, style: str = "casual") -> Dict[str, Any]:
-    """Greet someone. Args: name; style (formal|casual)."""
+def say_hello(name: str, style: str = "casual") -> dict:
+    """Generate a greeting for one person."""
     if not name:
         return {"success": False, "error": "name is required"}
     text = f"Hello, {name}." if style == "formal" else f"Hey {name}!"
     return {"success": True, "greeting": text}
 
 
-MY_SERVER_TOOLS: Dict[str, Dict[str, Any]] = {
+MY_SERVER_TOOLS = {
     "say_hello": {
         "function": say_hello,
         "description": "Generate a greeting for someone.",
@@ -120,51 +63,90 @@ MY_SERVER_TOOLS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_tools_config() -> Dict[str, Dict[str, Any]]:
+def get_tools_config() -> dict:
     return MY_SERVER_TOOLS
 ```
 
-Conventions that keep tools predictable:
-- Return dicts, not raw strings; include a `success` boolean and an `error`
-  string on failure rather than raising.
-- Validate inputs and fail with a clear message.
-- Write a one-line docstring describing each argument — it becomes the tool's
-  schema description.
-- For long-running work, return a job id and add a `get_*_result` tool to poll,
-  so a single call stays under the client's request timeout (see
-  `servers/loadbearing-youtube`).
+Do not decorate the function. Its signature and type annotations remain the
+source for the SDK-generated input schema.
 
-## 5. Configuration and secrets
+## Server factory
 
-`config.yaml.example` is copied to
-`~/.config/mcp-manager/servers/<name>/config.yaml` on install. Put defaults and
-API keys there (read at runtime by the server); keys are **not** pushed into
-editor configs. Read values with `config.get("section", "key", default=...)`;
-`MY_SERVER_SECTION_KEY` environment variables override the file.
-
-## 6. Tests
+`main.py` owns construction and transport wiring:
 
 ```python
-from tool_config import say_hello
+from mcp.server import MCPServer
 
-def test_say_hello():
-    assert say_hello("Ada")["success"] is True
-    assert say_hello("")["success"] is False
+from config import config
+from tool_config import get_tools_config
+
+
+def create_server() -> MCPServer:
+    server = MCPServer(
+        name=str(config.get("server", "name", default="my-server")),
+        description="What this server does",
+    )
+    for name, spec in get_tools_config().items():
+        function = spec["function"]
+        if not callable(function):
+            raise TypeError(f"Tool {name!r} is not callable")
+        server.add_tool(
+            function,
+            name=name,
+            description=spec.get("description") or f"Tool: {name}",
+        )
+    return server
+
+
+def create_app():
+    return create_server().streamable_http_app(host="127.0.0.1")
 ```
 
-Run with `uv run pytest`.
+The template also provides CLI parsing and calls `MCPServer.run()` directly.
+Supported transports are:
 
-## 7. Install and connect
+- `stdio` for local MCP clients;
+- `streamable-http` for new network deployments;
+- `sse` only for legacy clients.
+
+## Configuration
+
+The template's package-local reader checks, in order:
+
+1. `~/.config/mcp-manager/servers/<name>/config.yaml`
+2. `~/.config/<name>/config.yaml`
+3. `./config.yaml`
+
+`<PREFIX>_<SECTION>_<KEY>` environment variables override YAML values.
+
+## Tests
+
+Test business functions directly, then test registration through the official
+in-memory client:
+
+```python
+import anyio
+from mcp.client import Client
+
+from main import create_server
+
+
+def test_server_exposes_tools():
+    async def check():
+        async with Client(create_server()) as client:
+            result = await client.list_tools()
+        assert {tool.name for tool in result.tools} == {"say_hello"}
+
+    anyio.run(check)
+```
+
+Run `uv run --locked --extra dev pytest`.
+
+## Install and connect
 
 ```bash
 mcp-manager install my-server --source ./servers/my-server
-mcp-manager sync          # write into every detected AI client
+mcp-manager sync
 ```
 
-Restart your editor to pick up the new server. See the top-level
-[README](../../README.md) for the full install flow.
-
-## Generating a server from a snippet
-
-`servers/mcpservercreator` scaffolds a new server from a code snippet once
-installed — useful for one-off tools.
+Restart the client after synchronization.

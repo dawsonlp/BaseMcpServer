@@ -2,23 +2,25 @@
 Configuration module for the Jira MCP server.
 
 Loads a YAML config that lists Jira/Confluence instances under
-`instances.<name>.jira` / `instances.<name>.confluence`. Path discovery
-delegates to `mcp_commons.find_server_config` (mcp-manager-first, then
-XDG, then CWD).
+`instances.<name>.jira` / `instances.<name>.confluence`.
 """
 
 import logging
 from pathlib import Path
 
 import yaml
-from mcp_commons import find_server_config
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_config_path() -> Path:
     """Locate config.yaml. Fail fast if no real config exists."""
-    path = find_server_config("jira-helper", filename="config.yaml")
+    candidates = (
+        Path.home() / ".config" / "mcp-manager" / "servers" / "jira-helper" / "config.yaml",
+        Path.home() / ".config" / "jira-helper" / "config.yaml",
+        Path.cwd() / "config.yaml",
+    )
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
     if path is None:
         raise FileNotFoundError(
             "No config.yaml found for jira-helper. Expected at "

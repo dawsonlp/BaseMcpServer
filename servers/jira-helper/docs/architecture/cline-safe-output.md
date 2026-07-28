@@ -1,5 +1,9 @@
 # Design: Cline-Safe Output Layer
 
+> Historical design note: this document predates the MCP Python SDK v2 migration.
+> Any `mcp-commons` or decorator-based examples below describe the former
+> implementation and are not current implementation guidance.
+
 **Author:** Chief Architect
 **Date:** 2026-04-13
 **Status:** Approved

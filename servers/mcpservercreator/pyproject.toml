@@ -12,14 +12,12 @@ authors = [
     {name = "MCP Server Team", email = "example@example.com"},
 ]
 dependencies = [
-    "mcp>=1.27.0",
-    "mcp-commons>=3.0.0,<4",
-    "rich>=14.3.3",
+    "mcp==2.0.0rc1",
     "pydantic-settings>=2.13.1",
-    "python-decouple>=3.8",
-    "uvicorn>=0.44.0",
-    "typer>=0.24.1"
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0"]
 
 [project.scripts]
 mcpservercreator = "main:main"
@@ -32,3 +30,10 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.uv]
+prerelease = "allow"

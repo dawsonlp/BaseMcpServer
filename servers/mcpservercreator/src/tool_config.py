@@ -1,6 +1,6 @@
 """Tool configuration for the MCP Server Creator.
 
-Bulk-registered with mcp-commons; no per-tool @srv.tool() decorator needed.
+Registered by ``create_server()`` through ``MCPServer.add_tool()``.
 """
 
 from typing import Any, Dict
