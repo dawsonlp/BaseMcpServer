@@ -58,7 +58,7 @@ def test_failed_force_install_preserves_live_environment(monkeypatch, tmp_path):
     assert fake_state.added is None
 
 
-def test_successful_force_install_allows_prereleases_and_swaps_atomically(
+def test_successful_force_install_uses_stable_resolution_and_swaps_atomically(
     monkeypatch, tmp_path
 ):
     managed_dir, source_dir, fake_state = _arrange_install(monkeypatch, tmp_path)
@@ -79,7 +79,7 @@ def test_successful_force_install_allows_prereleases_and_swaps_atomically(
     install_module.install_local("example", source_dir, force=True, auto_approve=[])
 
     pip_call = next(args for args in calls if args[1:3] == ["pip", "install"])
-    assert "--prerelease=allow" in pip_call
+    assert "--prerelease=allow" not in pip_call
     assert (managed_dir / "config.yaml").read_text() == "token: preserved\n"
     assert not (managed_dir / "old-environment").exists()
     assert fake_state.added is not None

@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 dependencies = [
-    "mcp==2.0.0rc1",
+    "mcp>=2.0.0,<3.0.0",
     "httpx>=0.28.1",
     "PyYAML>=6.0.3",
 ]
@@ -65,6 +65,3 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
-
-[tool.uv]
-prerelease = "allow"

@@ -28,15 +28,12 @@ servers/<name>/
 
 ## Dependency boundary
 
-Until SDK v2 is stable, pin the release candidate exactly and allow prerelease
-resolution because `mcp` depends on the matching `mcp-types` release candidate.
+Allow upgrades within the stable SDK v2 line, with an explicit upper bound so
+a future breaking major release is not selected automatically.
 
 ```toml
 [project]
-dependencies = ["mcp==2.0.0rc1", "PyYAML>=6.0.3"]
-
-[tool.uv]
-prerelease = "allow"
+dependencies = ["mcp>=2.0.0,<3.0.0", "PyYAML>=6.0.3"]
 ```
 
 Run `uv lock` after changing dependencies and commit the lockfile for these

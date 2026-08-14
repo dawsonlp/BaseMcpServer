@@ -120,7 +120,6 @@ def install_local(
                         uv_exe,
                         "pip",
                         "install",
-                        "--prerelease=allow",
                         "--python",
                         str(venv_dir / "bin" / "python"),
                         str(source_abs),

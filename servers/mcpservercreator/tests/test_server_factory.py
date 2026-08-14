@@ -45,7 +45,8 @@ def add_numbers(a: int, b: int) -> dict:
     assert "def create_server() -> MCPServer:" in main_source
     assert ".add_tool(" in main_source
     assert "@" not in main_source
-    assert '"mcp==2.0.0rc1"' in pyproject
+    assert '"mcp>=2.0.0,<3.0.0"' in pyproject
+    assert "prerelease" not in pyproject
     assert "mcp-commons" not in pyproject
     assert 'py-modules = ["main", "config", "server", "tool_config"]' in pyproject
     assert (server_dir / "README.md").exists()
