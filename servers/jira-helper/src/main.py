@@ -3,17 +3,37 @@
 import encodings.idna  # noqa: F401 -- required by headless macOS stdio subprocesses
 import logging
 import sys
+from importlib.metadata import version
 from logging import FileHandler
 from typing import Literal, cast
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 
 from config import settings
-from tool_config import get_tools_config
+from tool_config import get_resources, get_tools_config
 
 Transport = Literal["stdio", "sse", "streamable-http"]
 TRANSPORTS: tuple[Transport, ...] = ("stdio", "sse", "streamable-http")
 DESCRIPTION = "Jira and Confluence integration"
+PACKAGE_VERSION = version("jira-helper")
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _transport_security(host: str) -> TransportSecuritySettings | None:
+    if host in _LOOPBACK_HOSTS:
+        return None
+    if not settings.allowed_hosts or not settings.allowed_origins:
+        raise ValueError(
+            "Non-loopback Streamable HTTP requires non-empty server.allowed_hosts "
+            "and server.allowed_origins."
+        )
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=settings.allowed_hosts,
+        allowed_origins=settings.allowed_origins,
+    )
 
 
 def create_server() -> MCPServer:
@@ -21,6 +41,7 @@ def create_server() -> MCPServer:
     server = MCPServer(
         name=settings.server_name,
         description=DESCRIPTION,
+        version=PACKAGE_VERSION,
         log_level=settings.log_level.upper(),
     )
     for tool_name, spec in get_tools_config().items():
@@ -30,14 +51,21 @@ def create_server() -> MCPServer:
         server.add_tool(
             function,
             name=tool_name,
+            title=spec["title"],
             description=spec.get("description") or f"Tool: {tool_name}",
+            annotations=cast(ToolAnnotations, spec["annotations"]),
+            structured_output=True,
         )
+    for resource in get_resources():
+        server.add_resource(resource)
     return server
 
 
 def create_app():
     """Build a Streamable HTTP ASGI app for an external ASGI server."""
-    return create_server().streamable_http_app(host=settings.host)
+    return create_server().streamable_http_app(
+        host=settings.host, transport_security=_transport_security(settings.host),
+    )
 
 
 def _print_help() -> None:
@@ -80,6 +108,8 @@ def main() -> None:
     run_options = {}
     if transport != "stdio":
         run_options = {"host": settings.host, "port": settings.port}
+        if transport == "streamable-http":
+            run_options["transport_security"] = _transport_security(settings.host)
     try:
         create_server().run(transport, **run_options)
     except KeyboardInterrupt:

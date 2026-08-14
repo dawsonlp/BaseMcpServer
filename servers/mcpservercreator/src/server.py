@@ -16,7 +16,7 @@ import uuid
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Set, Tuple
+from typing import Dict, List, Any, Optional, Set, Tuple, TypedDict
 
 from config import settings
 
@@ -26,6 +26,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+class HelpResult(TypedDict):
+    description: str
+    security_warning: str
+    usage: str
+    security_features: str
+    limitations: str
+
+
+class CreatedServerResult(TypedDict):
+    success: bool
+    server_name: str
+    tool_names: list[str]
+    message: str
+
+
+class InstalledServersResult(TypedDict):
+    success: bool
+    servers: dict[str, list[dict[str, Any]]]
 
 # Add the utils directory to the path so we can import mcp_manager
 utils_path = Path(__file__).parent.parent.parent.parent / "utils"
@@ -72,6 +92,7 @@ def create_server_files(
     
     # Create config.py using modern approach
     _create_config_file(src_dir, server_name)
+    _create_config_example(server_dir, server_name)
     
     # Parse code snippet and extract components
     parsed_code = ast.parse(code_snippet)
@@ -92,6 +113,7 @@ def create_server_files(
 
     # Create the package README referenced by pyproject.toml
     _create_readme_file(server_dir, server_name, description)
+    _create_test_files(server_dir, server_name, tool_names)
     
     logger.info(f"Successfully created all files for server '{server_name}'")
 
@@ -148,6 +170,20 @@ config = ServerConfig(
 
     with open(src_dir / "config.py", "w") as f:
         f.write(config_content)
+
+
+def _create_config_example(server_dir: Path, server_name: str) -> None:
+    """Create a safe loopback-first configuration example."""
+    content = f'''server:
+  name: "{server_name}"
+  host: "127.0.0.1"
+  port: 7501
+  # Required when host is not loopback:
+  # allowed_hosts: ["mcp.example.com"]
+  # allowed_origins: ["https://client.example.com"]
+'''
+    with open(server_dir / "config.yaml.example", "w") as f:
+        f.write(content)
 
 
 def _create_server_file(src_dir: Path, server_name: str, description: str, imports: List[str], function_defs: List[str]) -> None:
@@ -218,6 +254,8 @@ Registered by the server factory through MCPServer.add_tool().
 """
 
 from typing import Any, Dict
+
+from mcp.types import ToolAnnotations
 from server import {impl_class_name}
 
 
@@ -228,6 +266,17 @@ _implementation = {impl_class_name}()
 {server_name.replace('-', '_').upper()}_TOOLS: Dict[str, Dict[str, Any]] = {{
 {',\n\n'.join(tool_entries) if tool_entries else '    \'placeholder_tool\': {\n        \'function\': _implementation.placeholder_tool,\n        \'description\': \'Placeholder tool\'\n    }'}
 }}
+
+for _name, _spec in {server_name.replace('-', '_').upper()}_TOOLS.items():
+    _spec["title"] = _name.replace("_", " ").title()
+    # The generator cannot infer effects from source syntax. Keep every hint
+    # explicitly unknown until the author classifies the tool from behavior.
+    _spec["annotations"] = ToolAnnotations(
+        readOnlyHint=None,
+        destructiveHint=None,
+        idempotentHint=None,
+        openWorldHint=None,
+    )
 
 
 def get_tools_config() -> Dict[str, Dict[str, Any]]:
@@ -247,17 +296,49 @@ Uses MCP SDK v2 directly with factory-based tool registration.
 """
 
 import sys
+from importlib.metadata import version
+from typing import cast
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 
 from config import config
 from tool_config import get_tools_config
+
+
+PACKAGE_VERSION = version("{server_name}")
+_LOOPBACK_HOSTS = {{"127.0.0.1", "localhost", "::1"}}
+
+
+def _string_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def _transport_security(host: str) -> TransportSecuritySettings | None:
+    if host in _LOOPBACK_HOSTS:
+        return None
+    allowed_hosts = _string_list(config.get("server", "allowed_hosts", default=[]))
+    allowed_origins = _string_list(config.get("server", "allowed_origins", default=[]))
+    if not allowed_hosts or not allowed_origins:
+        raise ValueError(
+            "Non-loopback Streamable HTTP requires non-empty server.allowed_hosts "
+            "and server.allowed_origins."
+        )
+    return TransportSecuritySettings(
+        allowed_hosts=allowed_hosts, allowed_origins=allowed_origins,
+    )
 
 
 def create_server() -> MCPServer:
     server = MCPServer(
         name=str(config.get("server", "name", default="{server_name}")),
         description={description!r},
+        version=PACKAGE_VERSION,
     )
     for tool_name, spec in get_tools_config().items():
         function = spec["function"]
@@ -266,14 +347,19 @@ def create_server() -> MCPServer:
         server.add_tool(
             function,
             name=tool_name,
+            title=spec["title"],
             description=spec.get("description") or f"Tool: {{tool_name}}",
+            annotations=cast(ToolAnnotations, spec["annotations"]),
+            structured_output=True,
         )
     return server
 
 
 def create_app():
     host = str(config.get("server", "host", default="localhost"))
-    return create_server().streamable_http_app(host=host)
+    return create_server().streamable_http_app(
+        host=host, transport_security=_transport_security(host),
+    )
 
 
 def main() -> None:
@@ -286,10 +372,13 @@ def main() -> None:
         raise SystemExit(f"Unknown transport: {{transport}}")
     options = {{}}
     if transport != "stdio":
+        host = str(config.get("server", "host", default="localhost"))
         options = {{
-            "host": str(config.get("server", "host", default="localhost")),
+            "host": host,
             "port": int(config.get("server", "port", default=7501)),
         }}
+        if transport == "streamable-http":
+            options["transport_security"] = _transport_security(host)
     try:
         create_server().run(transport, **options)
     except KeyboardInterrupt:
@@ -380,9 +469,41 @@ def _create_readme_file(server_dir: Path, server_name: str, description: str) ->
 {description or f'Generated MCP server: {server_name}'}
 
 Tools are plain Python methods registered by ``create_server()`` through
-``MCPServer.add_tool()``. No decorators are used.
+``MCPServer.add_tool()``. No registration decorators are used. Every tool must
+have fully typed parameters and a concrete return annotation. Review each
+generated ``ToolAnnotations`` entry and replace the explicit unknown hints with
+behavior-based values before deployment.
+
+Streamable HTTP defaults to loopback. A non-loopback host requires explicit
+``server.allowed_hosts`` and ``server.allowed_origins`` configuration.
 """
     with open(server_dir / "README.md", "w") as f:
+        f.write(content)
+
+
+def _create_test_files(server_dir: Path, server_name: str, tool_names: List[str]) -> None:
+    """Create a protocol-level smoke test for generated metadata and discovery."""
+    tests_dir = server_dir / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    content = f'''from importlib.metadata import version
+
+import anyio
+from mcp.client import Client
+
+from main import create_server
+
+
+def test_generated_server_contract():
+    async def check():
+        async with Client(create_server(), raise_exceptions=True) as client:
+            result = await client.list_tools()
+            assert client.server_info.version == version("{server_name}")
+        assert {{tool.name for tool in result.tools}} == set({tool_names!r})
+        assert all(tool.title and tool.description and tool.annotations for tool in result.tools)
+
+    anyio.run(check)
+'''
+    with open(tests_dir / "test_server.py", "w") as f:
         f.write(content)
 
 
@@ -492,6 +613,35 @@ def validate_code_snippet(code_snippet: str) -> List[str]:
             "Decorators are not accepted. Define plain public functions; "
             "the generated create_server() factory registers them with add_tool()."
         )
+
+    public_functions = [
+        node for node in parsed.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and not node.name.startswith("_")
+    ]
+    for function in public_functions:
+        if function.args.kwarg is not None:
+            raise ValueError(
+                f"Tool {function.name!r} uses **{function.args.kwarg.arg}; expose an explicit "
+                "typed mapping parameter instead."
+            )
+        parameters = [
+            *function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs,
+        ]
+        untyped = [parameter.arg for parameter in parameters if parameter.annotation is None]
+        if untyped:
+            raise ValueError(
+                f"Tool {function.name!r} has untyped parameters: {', '.join(untyped)}."
+            )
+        if function.returns is None:
+            raise ValueError(f"Tool {function.name!r} must declare a return type.")
+        if isinstance(function.returns, ast.Name) and function.returns.id in {
+            "dict", "list", "set", "tuple",
+        }:
+            raise ValueError(
+                f"Tool {function.name!r} uses bare {function.returns.id}; provide item/value "
+                "types or a TypedDict/Pydantic result model."
+            )
     
     # Extract tool names and functions
     tool_names, _ = _extract_tool_functions(parsed, code_snippet)
@@ -596,7 +746,7 @@ class MCPServerCreatorImplementation:
     registered by the MCPServer factory.
     """
     
-    def help(self) -> Dict[str, str]:
+    def help(self) -> HelpResult:
         """
         Get detailed help and security information about the MCP Server Creator.
         
@@ -664,7 +814,7 @@ Currently, the MCP Server Creator has limitations:
         
         return help_text
     
-    def create_mcp_server(self, code_snippet: str, server_name: str, description: str = "", author: str = "MCP Server Creator") -> Dict[str, Any]:
+    def create_mcp_server(self, code_snippet: str, server_name: str, description: str = "", author: str = "MCP Server Creator") -> CreatedServerResult:
         """
         Create and install a new MCP server from a Python code snippet.
         
@@ -692,10 +842,7 @@ Currently, the MCP Server Creator has limitations:
         
         # Validate server name (alphanumeric with optional hyphens)
         if not re.match(r'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$', server_name):
-            return {
-                "success": False,
-                "error": "Server name must be alphanumeric with optional hyphens"
-            }
+            raise ValueError("server_name must be alphanumeric with optional hyphens")
         
         # Create a temporary directory for the server
         temp_dir = Path(settings.output_dir)
@@ -734,24 +881,17 @@ Currently, the MCP Server Creator has limitations:
                     "message": f"Server '{server_name}' created, installed{sync_message}. Restart VS Code to use it."
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "Failed to install the server. Check the logs for details."
-                }
+                raise RuntimeError("Failed to install the server. Check the logs for details.")
         except ValueError as e:
             logger.error(f"Failed to create server: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            raise
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Unexpected error: {str(e)}"
-            }
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"Unexpected error: {e}") from e
 
-    def list_installed_servers(self) -> Dict[str, Any]:
+    def list_installed_servers(self) -> InstalledServersResult:
         """
         List all installed MCP servers.
         
@@ -774,14 +914,10 @@ Currently, the MCP Server Creator has limitations:
             import shutil
             mcpmanager_cmd = shutil.which("mcp-manager")
             if not mcpmanager_cmd:
-                return {
-                    "success": False,
-                    "error": (
-                        "mcp-manager not found on PATH. Install it with "
-                        "`uv tool install ./utils/mcp_manager` and run "
-                        "`uv tool update-shell`."
-                    ),
-                }
+                raise RuntimeError(
+                    "mcp-manager not found on PATH. Install it with "
+                    "`uv tool install ./utils/mcp_manager` and run `uv tool update-shell`."
+                )
 
             logger.info(f"Using mcp-manager at: {mcpmanager_cmd}")
 
@@ -848,7 +984,6 @@ Currently, the MCP Server Creator has limitations:
             }
         except Exception as e:
             logger.error(f"Failed to list servers: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"Failed to list servers: {e}") from e

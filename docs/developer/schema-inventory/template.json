@@ -1,0 +1,59 @@
+{
+  "resources": [],
+  "server_info": {
+    "description": "Template MCP Server (replace this description)",
+    "icons": null,
+    "name": "template",
+    "title": null,
+    "version": "0.1.0",
+    "websiteUrl": null
+  },
+  "tools": [
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Echo a message back with the server name attached. Replace with your real tools.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "echoArguments",
+        "type": "object"
+      },
+      "name": "echo",
+      "outputSchema": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "server": {
+            "title": "Server",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "message"
+        ],
+        "title": "EchoResult",
+        "type": "object"
+      },
+      "title": "Echo"
+    }
+  ]
+}

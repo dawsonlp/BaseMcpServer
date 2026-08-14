@@ -1,6 +1,7 @@
 """Comment and transition query operations for Jira issues."""
 
 import logging
+from typing import Any, TypedDict
 
 from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
@@ -8,9 +9,22 @@ from exceptions import JiraError, JiraValidationError, JiraApiError
 logger = logging.getLogger(__name__)
 
 
+class CommentResult(TypedDict):
+    key: str
+    instance: str
+    message: str
+
+
+class TransitionsResult(TypedDict):
+    key: str
+    instance: str
+    transitions: list[dict[str, Any]]
+    count: int
+
+
 def add_comment_to_jira_ticket(
-    issue_key: str, comment: str, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, comment: str, instance_name: str | None = None,
+) -> CommentResult:
     """Add a comment to an existing Jira ticket."""
     if not comment or not comment.strip():
         raise JiraValidationError("comment is required.")
@@ -26,7 +40,7 @@ def add_comment_to_jira_ticket(
         raise JiraApiError(f"Failed to add comment to {key}: {e}", instance_name=name)
 
 
-def get_issue_transitions(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def get_issue_transitions(issue_key: str, instance_name: str | None = None) -> TransitionsResult:
     """Get available workflow transitions for a Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)

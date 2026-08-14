@@ -1,0 +1,185 @@
+{
+  "resources": [],
+  "server_info": {
+    "description": "Create and manage MCP servers",
+    "icons": null,
+    "name": "mcpservercreator-server",
+    "title": null,
+    "version": "1.4.0",
+    "websiteUrl": null
+  },
+  "tools": [
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get detailed help and security information about the MCP Server Creator.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "helpArguments",
+        "type": "object"
+      },
+      "name": "help",
+      "outputSchema": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "limitations": {
+            "title": "Limitations",
+            "type": "string"
+          },
+          "security_features": {
+            "title": "Security Features",
+            "type": "string"
+          },
+          "security_warning": {
+            "title": "Security Warning",
+            "type": "string"
+          },
+          "usage": {
+            "title": "Usage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "security_warning",
+          "usage",
+          "security_features",
+          "limitations"
+        ],
+        "title": "HelpResult",
+        "type": "object"
+      },
+      "title": "Help"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create and install a new MCP server from a Python code snippet.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "author": {
+            "default": "MCP Server Creator",
+            "title": "Author",
+            "type": "string"
+          },
+          "code_snippet": {
+            "title": "Code Snippet",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "server_name": {
+            "title": "Server Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_snippet",
+          "server_name"
+        ],
+        "title": "create_mcp_serverArguments",
+        "type": "object"
+      },
+      "name": "create_mcp_server",
+      "outputSchema": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "server_name": {
+            "title": "Server Name",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "tool_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "success",
+          "server_name",
+          "tool_names",
+          "message"
+        ],
+        "title": "CreatedServerResult",
+        "type": "object"
+      },
+      "title": "Create Mcp Server"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List all installed MCP servers.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "list_installed_serversArguments",
+        "type": "object"
+      },
+      "name": "list_installed_servers",
+      "outputSchema": {
+        "properties": {
+          "servers": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "title": "Servers",
+            "type": "object"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "servers"
+        ],
+        "title": "InstalledServersResult",
+        "type": "object"
+      },
+      "title": "List Installed Servers"
+    }
+  ]
+}

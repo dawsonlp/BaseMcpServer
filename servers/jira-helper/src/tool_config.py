@@ -4,6 +4,9 @@ Tool configuration for Jira Helper MCP Server.
 Maps tool names to implementation functions for factory-based SDK registration.
 """
 
+from mcp.types import ToolAnnotations
+from mcp.server.mcpserver.resources import FileResource
+
 from tools.issues import (
     list_jira_projects,
     get_issue_details,
@@ -38,6 +41,8 @@ from tools.time_tracking import (
 )
 from tools.workflow import (
     generate_project_workflow_graph,
+    WORKFLOW_RESOURCE_PATHS,
+    WORKFLOW_RESOURCE_URIS,
 )
 from tools.confluence import (
     list_confluence_spaces,
@@ -191,6 +196,45 @@ JIRA_TOOLS = {
 }
 
 
+_READ_ONLY_TOOLS = {
+    "list_jira_projects", "get_issue_details", "get_full_issue_details",
+    "get_issue_transitions", "list_project_tickets", "get_custom_field_mappings",
+    "list_jira_instances", "search_jira_issues",
+    "validate_jql_query", "get_issue_links", "get_work_logs",
+    "get_time_tracking_info", "list_issue_attachments", "list_confluence_spaces",
+    "list_confluence_pages", "get_confluence_page", "search_confluence_pages",
+}
+_DESTRUCTIVE_TOOLS = {
+    "transition_jira_issue", "change_issue_assignee", "update_jira_issue",
+    "update_time_estimates", "delete_issue_attachment", "update_confluence_page",
+}
+
+for _name, _spec in JIRA_TOOLS.items():
+    _read_only = _name in _READ_ONLY_TOOLS
+    _spec["title"] = _name.replace("_", " ").title()
+    _spec["annotations"] = ToolAnnotations(
+        readOnlyHint=_read_only,
+        destructiveHint=_name in _DESTRUCTIVE_TOOLS,
+        idempotentHint=_read_only or _name == "generate_project_workflow_graph",
+        openWorldHint=_name not in {"list_jira_instances", "validate_jql_query"},
+    )
+
+
 def get_tools_config() -> dict:
     """Get the tools configuration consumed by ``create_server()``."""
     return JIRA_TOOLS
+
+
+def get_resources() -> tuple[FileResource, ...]:
+    """Return the fixed workflow artifacts exposed through MCP resources."""
+    return tuple(
+        FileResource(
+            uri=WORKFLOW_RESOURCE_URIS[fmt],
+            path=WORKFLOW_RESOURCE_PATHS[fmt],
+            name=f"latest-jira-workflow-{fmt}",
+            title=f"Latest Jira Workflow ({fmt.upper()})",
+            description=f"Most recently generated Jira workflow graph in {fmt.upper()} format.",
+            mime_type="image/png" if fmt == "png" else "image/svg+xml",
+        )
+        for fmt in ("png", "svg")
+    )

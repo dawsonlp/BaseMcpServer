@@ -47,8 +47,10 @@ class Settings(BaseSettings):
     """Configuration settings for the MCP Server Creator server."""
     
     # MCP server settings
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 7501
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allowed_origins: list[str] = Field(default_factory=list)
     api_key: str = "example_key"
     server_name: str = "mcpservercreator-server"
     

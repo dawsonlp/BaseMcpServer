@@ -68,8 +68,10 @@ class Settings:
 
         server_config = self.config_data.get("server", {})
         self.server_name: str = server_config.get("name", "jira-helper-server")
-        self.host: str = server_config.get("host", "0.0.0.0")
+        self.host: str = server_config.get("host", "127.0.0.1")
         self.port: int = server_config.get("port", 7501)
+        self.allowed_hosts: list[str] = list(server_config.get("allowed_hosts", []))
+        self.allowed_origins: list[str] = list(server_config.get("allowed_origins", []))
         self.api_key: str = server_config.get("api_key", "example_key")
         self.debug_mode: bool = server_config.get("debug_mode", False)
         self.log_level: str = server_config.get("log_level", "INFO")

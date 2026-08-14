@@ -38,7 +38,16 @@ Then update:
 ## Add a tool
 
 ```python
-def list_widgets(category: str | None = None) -> dict:
+from typing import TypedDict
+
+from mcp.types import ToolAnnotations
+
+
+class WidgetList(TypedDict):
+    widgets: list[str]
+
+
+def list_widgets(category: str | None = None) -> WidgetList:
     """List widgets, optionally filtered by category."""
     return {"widgets": []}
 
@@ -46,13 +55,29 @@ def list_widgets(category: str | None = None) -> dict:
 TEMPLATE_TOOLS = {
     "list_widgets": {
         "function": list_widgets,
+        "title": "List Widgets",
         "description": "List widgets, optionally filtered by category.",
+        "annotations": ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
     },
 }
 ```
 
 `create_server()` registers this map with `add_tool()`. Do not add an MCP
 decorator to the function.
+
+Raise `ValueError` for invalid arguments and `RuntimeError` for execution
+failures. Reserve returned `status` or `error` fields for real domain state,
+such as a background job that completed unsuccessfully.
+
+The package version is read from installed distribution metadata and reported
+by `MCPServer`. Streamable HTTP binds to loopback by default. If you deliberately
+bind elsewhere, configure both `server.allowed_hosts` and
+`server.allowed_origins`; startup otherwise fails closed.
 
 ## Run and test
 

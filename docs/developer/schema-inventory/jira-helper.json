@@ -1,0 +1,2744 @@
+{
+  "resources": [
+    {
+      "_meta": null,
+      "annotations": null,
+      "description": "Most recently generated Jira workflow graph in PNG format.",
+      "icons": null,
+      "mimeType": "image/png",
+      "name": "latest-jira-workflow-png",
+      "size": null,
+      "title": "Latest Jira Workflow (PNG)",
+      "uri": "jira-workflow://latest/workflow.png"
+    },
+    {
+      "_meta": null,
+      "annotations": null,
+      "description": "Most recently generated Jira workflow graph in SVG format.",
+      "icons": null,
+      "mimeType": "image/svg+xml",
+      "name": "latest-jira-workflow-svg",
+      "size": null,
+      "title": "Latest Jira Workflow (SVG)",
+      "uri": "jira-workflow://latest/workflow.svg"
+    }
+  ],
+  "server_info": {
+    "description": "Jira and Confluence integration",
+    "icons": null,
+    "name": "jira-helper-server",
+    "title": null,
+    "version": "2.2.0",
+    "websiteUrl": null
+  },
+  "tools": [
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List all projects available in the Jira instance.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          }
+        },
+        "title": "list_jira_projectsArguments",
+        "type": "object"
+      },
+      "name": "list_jira_projects",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instance",
+          "count",
+          "projects"
+        ],
+        "title": "ProjectsResult",
+        "type": "object"
+      },
+      "title": "List Jira Projects"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get detailed information about a specific Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_issue_detailsArguments",
+        "type": "object"
+      },
+      "name": "get_issue_details",
+      "outputSchema": {
+        "properties": {
+          "assignee": {
+            "title": "Assignee",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "reporter": {
+            "title": "Reporter",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "status",
+          "assignee",
+          "reporter",
+          "priority",
+          "issue_type",
+          "project",
+          "description",
+          "created",
+          "updated",
+          "labels",
+          "components",
+          "instance"
+        ],
+        "title": "IssueDetailsResult",
+        "type": "object"
+      },
+      "title": "Get Issue Details"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get comprehensive information about a specific Jira issue with formatting options.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "format": {
+            "const": "structured",
+            "default": "structured",
+            "title": "Format",
+            "type": "string"
+          },
+          "include_comments": {
+            "default": true,
+            "title": "Include Comments",
+            "type": "boolean"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "raw_data": {
+            "default": false,
+            "title": "Raw Data",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_full_issue_detailsArguments",
+        "type": "object"
+      },
+      "name": "get_full_issue_details",
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_full_issue_detailsDictOutput",
+        "type": "object"
+      },
+      "title": "Get Full Issue Details"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create a new Jira ticket (issue).",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assignee"
+          },
+          "components": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Components"
+          },
+          "custom_fields": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Custom Fields"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_type": {
+            "default": "Task",
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Labels"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Priority"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_key",
+          "summary"
+        ],
+        "title": "create_jira_ticketArguments",
+        "type": "object"
+      },
+      "name": "create_jira_ticket",
+      "outputSchema": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "self": {
+            "title": "Self",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "id",
+          "self",
+          "instance",
+          "message"
+        ],
+        "title": "CreatedIssueResult",
+        "type": "object"
+      },
+      "title": "Create Jira Ticket"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Add a comment to an existing Jira ticket.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "comment"
+        ],
+        "title": "add_comment_to_jira_ticketArguments",
+        "type": "object"
+      },
+      "name": "add_comment_to_jira_ticket",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "message"
+        ],
+        "title": "CommentResult",
+        "type": "object"
+      },
+      "title": "Add Comment To Jira Ticket"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Transition a Jira issue through its workflow.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "transition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Transition Id"
+          },
+          "transition_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Transition Name"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "transition_jira_issueArguments",
+        "type": "object"
+      },
+      "name": "transition_jira_issue",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "transition": {
+            "title": "Transition",
+            "type": "string"
+          },
+          "transition_id": {
+            "title": "Transition Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "transition",
+          "transition_id",
+          "message"
+        ],
+        "title": "TransitionResult",
+        "type": "object"
+      },
+      "title": "Transition Jira Issue"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get available workflow transitions for a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_issue_transitionsArguments",
+        "type": "object"
+      },
+      "name": "get_issue_transitions",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "transitions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Transitions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "transitions",
+          "count"
+        ],
+        "title": "TransitionsResult",
+        "type": "object"
+      },
+      "title": "Get Issue Transitions"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Change the assignee of a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "assignee": {
+            "title": "Assignee",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "assignee"
+        ],
+        "title": "change_issue_assigneeArguments",
+        "type": "object"
+      },
+      "name": "change_issue_assignee",
+      "outputSchema": {
+        "properties": {
+          "assignee": {
+            "title": "Assignee",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "assignee",
+          "message"
+        ],
+        "title": "AssigneeResult",
+        "type": "object"
+      },
+      "title": "Change Issue Assignee"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List tickets (issues) in a Jira project with optional filtering.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assignee"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Issue Type"
+          },
+          "max_results": {
+            "default": 20,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          }
+        },
+        "required": [
+          "project_key"
+        ],
+        "title": "list_project_ticketsArguments",
+        "type": "object"
+      },
+      "name": "list_project_tickets",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "jql",
+          "issues",
+          "total"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "title": "List Project Tickets"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get mappings between Jira custom field IDs and their names/descriptions.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          }
+        },
+        "title": "get_custom_field_mappingsArguments",
+        "type": "object"
+      },
+      "name": "get_custom_field_mappings",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "custom_fields": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Custom Fields",
+            "type": "array"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "count",
+          "custom_fields"
+        ],
+        "title": "CustomFieldsResult",
+        "type": "object"
+      },
+      "title": "Get Custom Field Mappings"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Generate a visual workflow graph for a specific project and issue type.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_type": {
+            "default": "Task",
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "output_format": {
+            "default": "png",
+            "enum": [
+              "png",
+              "svg",
+              "json"
+            ],
+            "title": "Output Format",
+            "type": "string"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_key"
+        ],
+        "title": "generate_project_workflow_graphArguments",
+        "type": "object"
+      },
+      "name": "generate_project_workflow_graph",
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "generate_project_workflow_graphDictOutput",
+        "type": "object"
+      },
+      "title": "Generate Project Workflow Graph"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List all configured Jira instances.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "list_jira_instancesArguments",
+        "type": "object"
+      },
+      "name": "list_jira_instances",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instances": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Instances",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instances",
+          "count"
+        ],
+        "title": "InstancesResult",
+        "type": "object"
+      },
+      "title": "List Jira Instances"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Update an existing Jira issue with new field values.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assignee"
+          },
+          "components": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Components"
+          },
+          "custom_fields": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Custom Fields"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Labels"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Priority"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "update_jira_issueArguments",
+        "type": "object"
+      },
+      "name": "update_jira_issue",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "updated_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "updated_fields",
+          "message"
+        ],
+        "title": "UpdatedIssueResult",
+        "type": "object"
+      },
+      "title": "Update Jira Issue"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Execute a JQL search query to find Jira issues.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 20,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jql"
+        ],
+        "title": "search_jira_issuesArguments",
+        "type": "object"
+      },
+      "name": "search_jira_issues",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "jql",
+          "issues",
+          "total"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "title": "Search Jira Issues"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Validate JQL syntax without executing the query.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jql"
+        ],
+        "title": "validate_jql_queryArguments",
+        "type": "object"
+      },
+      "name": "validate_jql_query",
+      "outputSchema": {
+        "properties": {
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "jql",
+          "issues"
+        ],
+        "title": "JqlValidationResult",
+        "type": "object"
+      },
+      "title": "Validate Jql Query"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create a link between two Jira issues.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "from_issue_key": {
+            "title": "From Issue Key",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "link_type": {
+            "default": "Relates",
+            "title": "Link Type",
+            "type": "string"
+          },
+          "to_issue_key": {
+            "title": "To Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_issue_key",
+          "to_issue_key"
+        ],
+        "title": "create_issue_linkArguments",
+        "type": "object"
+      },
+      "name": "create_issue_link",
+      "outputSchema": {
+        "properties": {
+          "from_issue": {
+            "title": "From Issue",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "link_type": {
+            "title": "Link Type",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "to_issue": {
+            "title": "To Issue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_issue",
+          "to_issue",
+          "link_type",
+          "instance",
+          "message"
+        ],
+        "title": "LinkCreatedResult",
+        "type": "object"
+      },
+      "title": "Create Issue Link"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create an Epic-Story link between issues.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "epic_key": {
+            "title": "Epic Key",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "story_key": {
+            "title": "Story Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "epic_key",
+          "story_key"
+        ],
+        "title": "create_epic_story_linkArguments",
+        "type": "object"
+      },
+      "name": "create_epic_story_link",
+      "outputSchema": {
+        "properties": {
+          "epic_key": {
+            "title": "Epic Key",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "story_key": {
+            "title": "Story Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "epic_key",
+          "story_key",
+          "instance",
+          "message"
+        ],
+        "title": "EpicLinkResult",
+        "type": "object"
+      },
+      "title": "Create Epic Story Link"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get all links for a specific Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_issue_linksArguments",
+        "type": "object"
+      },
+      "name": "get_issue_links",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Links",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "links",
+          "count"
+        ],
+        "title": "IssueLinksResult",
+        "type": "object"
+      },
+      "title": "Get Issue Links"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create a new Jira issue with links to other issues.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "$defs": {
+          "IssueLinkInput": {
+            "properties": {
+              "issue_key": {
+                "title": "Issue Key",
+                "type": "string"
+              },
+              "link_type": {
+                "title": "Link Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "issue_key"
+            ],
+            "title": "IssueLinkInput",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_type": {
+            "default": "Task",
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/IssueLinkInput"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Links"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_key",
+          "summary"
+        ],
+        "title": "create_issue_with_linksArguments",
+        "type": "object"
+      },
+      "name": "create_issue_with_links",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "link_errors": {
+            "default": null,
+            "items": {
+              "type": "string"
+            },
+            "title": "Link Errors",
+            "type": "array"
+          },
+          "links_created": {
+            "title": "Links Created",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "links_created",
+          "message"
+        ],
+        "title": "LinkedIssueResult",
+        "type": "object"
+      },
+      "title": "Create Issue With Links"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Log work time on a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "started": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started"
+          },
+          "time_spent": {
+            "title": "Time Spent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "time_spent"
+        ],
+        "title": "log_workArguments",
+        "type": "object"
+      },
+      "name": "log_work",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "time_spent": {
+            "title": "Time Spent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "time_spent",
+          "message"
+        ],
+        "title": "WorkLoggedResult",
+        "type": "object"
+      },
+      "title": "Log Work"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get work log entries for a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_work_logsArguments",
+        "type": "object"
+      },
+      "name": "get_work_logs",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "worklogs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Worklogs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "worklogs",
+          "count"
+        ],
+        "title": "WorkLogsResult",
+        "type": "object"
+      },
+      "title": "Get Work Logs"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get time tracking information for a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_time_tracking_infoArguments",
+        "type": "object"
+      },
+      "name": "get_time_tracking_info",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "time_tracking": {
+            "additionalProperties": true,
+            "title": "Time Tracking",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "time_tracking"
+        ],
+        "title": "TimeTrackingResult",
+        "type": "object"
+      },
+      "title": "Get Time Tracking Info"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Update time estimates for a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "original_estimate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Original Estimate"
+          },
+          "remaining_estimate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Remaining Estimate"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "update_time_estimatesArguments",
+        "type": "object"
+      },
+      "name": "update_time_estimates",
+      "outputSchema": {
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "updated": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "updated",
+          "message"
+        ],
+        "title": "EstimatesUpdatedResult",
+        "type": "object"
+      },
+      "title": "Update Time Estimates"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Upload a file to a Jira issue as an attachment.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "file_path"
+        ],
+        "title": "upload_file_to_jiraArguments",
+        "type": "object"
+      },
+      "name": "upload_file_to_jira",
+      "outputSchema": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "filename",
+          "size",
+          "message"
+        ],
+        "title": "UploadResult",
+        "type": "object"
+      },
+      "title": "Upload File To Jira"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List all attachments for a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "list_issue_attachmentsArguments",
+        "type": "object"
+      },
+      "name": "list_issue_attachments",
+      "outputSchema": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "instance",
+          "attachments",
+          "count"
+        ],
+        "title": "AttachmentsResult",
+        "type": "object"
+      },
+      "title": "List Issue Attachments"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Delete an attachment from a Jira issue.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          }
+        },
+        "required": [
+          "attachment_id"
+        ],
+        "title": "delete_issue_attachmentArguments",
+        "type": "object"
+      },
+      "name": "delete_issue_attachment",
+      "outputSchema": {
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "instance",
+          "message"
+        ],
+        "title": "DeleteAttachmentResult",
+        "type": "object"
+      },
+      "title": "Delete Issue Attachment"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List all Confluence spaces available in the instance.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          }
+        },
+        "title": "list_confluence_spacesArguments",
+        "type": "object"
+      },
+      "name": "list_confluence_spaces",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "spaces": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Spaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instance",
+          "count",
+          "spaces"
+        ],
+        "title": "SpacesResult",
+        "type": "object"
+      },
+      "title": "List Confluence Spaces"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List pages in a specific Confluence space.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "space_key": {
+            "title": "Space Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "space_key"
+        ],
+        "title": "list_confluence_pagesArguments",
+        "type": "object"
+      },
+      "name": "list_confluence_pages",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "space_key": {
+            "title": "Space Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "count",
+          "space_key",
+          "pages"
+        ],
+        "title": "PagesResult",
+        "type": "object"
+      },
+      "title": "List Confluence Pages"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get detailed information about a specific Confluence page.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page Id"
+          },
+          "space_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Space Key"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          }
+        },
+        "title": "get_confluence_pageArguments",
+        "type": "object"
+      },
+      "name": "get_confluence_page",
+      "outputSchema": {
+        "properties": {
+          "body": {
+            "default": null,
+            "title": "Body",
+            "type": "string"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "id": {
+            "default": null,
+            "title": "Id",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "default": null,
+            "title": "Message",
+            "type": "string"
+          },
+          "space_key": {
+            "default": null,
+            "title": "Space Key",
+            "type": "string"
+          },
+          "status": {
+            "default": null,
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "default": null,
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "default": null,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "found"
+        ],
+        "title": "PageResult",
+        "type": "object"
+      },
+      "title": "Get Confluence Page"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Search for Confluence pages using text query.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_confluence_pagesArguments",
+        "type": "object"
+      },
+      "name": "search_confluence_pages",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "count",
+          "query",
+          "pages"
+        ],
+        "title": "SearchPagesResult",
+        "type": "object"
+      },
+      "title": "Search Confluence Pages"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create a new Confluence page.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          },
+          "space_key": {
+            "title": "Space Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "space_key",
+          "title",
+          "body"
+        ],
+        "title": "create_confluence_pageArguments",
+        "type": "object"
+      },
+      "name": "create_confluence_page",
+      "outputSchema": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "space_key": {
+            "title": "Space Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "id",
+          "title",
+          "space_key",
+          "message"
+        ],
+        "title": "CreatedPageResult",
+        "type": "object"
+      },
+      "title": "Create Confluence Page"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Update an existing Confluence page.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body"
+          },
+          "instance_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instance Name"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          }
+        },
+        "required": [
+          "page_id"
+        ],
+        "title": "update_confluence_pageArguments",
+        "type": "object"
+      },
+      "name": "update_confluence_page",
+      "outputSchema": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "id",
+          "title",
+          "version",
+          "message"
+        ],
+        "title": "UpdatedPageResult",
+        "type": "object"
+      },
+      "title": "Update Confluence Page"
+    }
+  ]
+}

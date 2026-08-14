@@ -44,18 +44,34 @@ deployable server applications.
 Keep business behavior independent of the MCP runtime:
 
 ```python
-def say_hello(name: str, style: str = "casual") -> dict:
+from typing import Literal, TypedDict
+
+from mcp.types import ToolAnnotations
+
+
+class GreetingResult(TypedDict):
+    greeting: str
+
+
+def say_hello(name: str, style: Literal["casual", "formal"] = "casual") -> GreetingResult:
     """Generate a greeting for one person."""
     if not name:
-        return {"success": False, "error": "name is required"}
+        raise ValueError("name is required")
     text = f"Hello, {name}." if style == "formal" else f"Hey {name}!"
-    return {"success": True, "greeting": text}
+    return {"greeting": text}
 
 
 MY_SERVER_TOOLS = {
     "say_hello": {
         "function": say_hello,
+        "title": "Say Hello",
         "description": "Generate a greeting for someone.",
+        "annotations": ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
     },
 }
 
@@ -65,14 +81,25 @@ def get_tools_config() -> dict:
 ```
 
 Do not decorate the function. Its signature and type annotations remain the
-source for the SDK-generated input schema.
+source for the SDK-generated input and output schemas. Use explicit optional
+types, typed collection items, and existing domain bounds. Do not expose
+`**kwargs`; use a named `dict[str, Any]` parameter when the domain genuinely
+accepts arbitrary fields.
+
+Raise ordinary `ValueError` or `RuntimeError` exceptions when a tool invocation
+fails. Keep returned error or status fields only when they describe valid domain
+state, such as an asynchronous job whose final state is `error`.
 
 ## Server factory
 
 `main.py` owns construction and transport wiring:
 
 ```python
+from importlib.metadata import version
+from typing import cast
+
 from mcp.server import MCPServer
+from mcp.types import ToolAnnotations
 
 from config import config
 from tool_config import get_tools_config
@@ -82,6 +109,7 @@ def create_server() -> MCPServer:
     server = MCPServer(
         name=str(config.get("server", "name", default="my-server")),
         description="What this server does",
+        version=version("my-server"),
     )
     for name, spec in get_tools_config().items():
         function = spec["function"]
@@ -90,12 +118,16 @@ def create_server() -> MCPServer:
         server.add_tool(
             function,
             name=name,
+            title=spec["title"],
             description=spec.get("description") or f"Tool: {name}",
+            annotations=cast(ToolAnnotations, spec["annotations"]),
+            structured_output=True,
         )
     return server
 
 
 def create_app():
+    # The SDK supplies DNS-rebinding protection for loopback hosts.
     return create_server().streamable_http_app(host="127.0.0.1")
 ```
 
@@ -105,6 +137,25 @@ Supported transports are:
 - `stdio` for local MCP clients;
 - `streamable-http` for new network deployments;
 - `sse` only for legacy clients.
+
+Streamable HTTP must default to `127.0.0.1`, `localhost`, or `::1`. For an
+intentional non-loopback binding, construct `TransportSecuritySettings` with
+non-empty `allowed_hosts` and `allowed_origins`; reject startup when either list
+is absent. Use the SDK facility rather than duplicating it in custom middleware.
+
+## Lifespan and resources
+
+Create executors, clients, and other long-lived objects in an
+`@asynccontextmanager` lifespan function passed to `MCPServer(lifespan=...)`.
+The context-manager decorator is appropriate here because it defines resource
+acquisition and release across the entire server lifecycle; it is not tool
+registration. Access the yielded state through an injected MCP `Context` and
+test deterministic shutdown.
+
+Expose generated or reusable files with `FileResource` and
+`MCPServer.add_resource()`. Return the resource URI from the producing tool
+instead of embedding large base64 payloads, atomically replace the artifact,
+and notify subscribers only after replacement succeeds.
 
 ## Configuration
 
@@ -130,7 +181,7 @@ from main import create_server
 
 def test_server_exposes_tools():
     async def check():
-        async with Client(create_server()) as client:
+        async with Client(create_server(), raise_exceptions=True) as client:
             result = await client.list_tools()
         assert {tool.name for tool in result.tools} == {"say_hello"}
 
@@ -138,6 +189,11 @@ def test_server_exposes_tools():
 ```
 
 Run `uv run --locked --extra dev pytest`.
+
+Protocol tests should assert complete input schemas, representative structured
+content, `is_error` behavior, titles, descriptions, annotations, server version,
+resource discovery/read behavior, lifespan shutdown, and HTTP host/origin
+rejection. A tool-name count alone does not verify the public contract.
 
 ## Install and connect
 

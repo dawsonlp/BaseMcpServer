@@ -4,6 +4,9 @@ server:
   name: "loadbearing-youtube"
   host: "localhost"
   port: 7502
+  # Required when host is not loopback:
+  # allowed_hosts: ["mcp.example.com"]
+  # allowed_origins: ["https://client.example.com"]
 
 # Defaults for the analysis. Any tool argument overrides these; if left blank
 # here, the loadbearing_youtube package falls back to its own LOADBEARING_* env

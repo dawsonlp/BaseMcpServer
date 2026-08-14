@@ -8,6 +8,9 @@ server:
   name: template
   host: localhost
   port: 7501
+  # Required when host is not loopback:
+  # allowed_hosts: ["mcp.example.com"]
+  # allowed_origins: ["https://client.example.com"]
 
 # Add your server-specific configuration sections below. They become
 # accessible via `config.get("section", "key", default=...)` in tool_config.py.

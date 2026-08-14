@@ -2,19 +2,47 @@
 
 import logging
 import re
+from typing import Any, TypedDict
 
 from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
 
 logger = logging.getLogger(__name__)
 
+
+class WorkLoggedResult(TypedDict):
+    key: str
+    instance: str
+    time_spent: str
+    message: str
+
+
+class WorkLogsResult(TypedDict):
+    key: str
+    instance: str
+    worklogs: list[dict[str, Any]]
+    count: int
+
+
+class TimeTrackingResult(TypedDict):
+    key: str
+    instance: str
+    time_tracking: dict[str, Any]
+
+
+class EstimatesUpdatedResult(TypedDict):
+    key: str
+    instance: str
+    updated: dict[str, str]
+    message: str
+
 _TIME_FORMAT = re.compile(r"^(\d+[wdhm]\s*)+$", re.IGNORECASE)
 
 
 def log_work(
-    issue_key: str, time_spent: str, comment: str = None,
-    started: str = None, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, time_spent: str, comment: str | None = None,
+    started: str | None = None, instance_name: str | None = None,
+) -> WorkLoggedResult:
     """Log work time on a Jira issue."""
     key = validate_issue_key(issue_key)
     if not time_spent or not time_spent.strip():
@@ -40,7 +68,7 @@ def log_work(
         raise JiraApiError(f"Failed to log work on {key}: {e}", instance_name=name)
 
 
-def get_work_logs(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def get_work_logs(issue_key: str, instance_name: str | None = None) -> WorkLogsResult:
     """Get work log entries for a Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -71,7 +99,7 @@ def get_work_logs(issue_key: str, instance_name: str = None, **kwargs) -> dict:
         raise JiraApiError(f"Failed to get worklogs for {key}: {e}", instance_name=name)
 
 
-def get_time_tracking_info(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def get_time_tracking_info(issue_key: str, instance_name: str | None = None) -> TimeTrackingResult:
     """Get time tracking information for a Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -97,9 +125,9 @@ def get_time_tracking_info(issue_key: str, instance_name: str = None, **kwargs) 
 
 
 def update_time_estimates(
-    issue_key: str, original_estimate: str = None,
-    remaining_estimate: str = None, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, original_estimate: str | None = None,
+    remaining_estimate: str | None = None, instance_name: str | None = None,
+) -> EstimatesUpdatedResult:
     """Update time estimates for a Jira issue."""
     key = validate_issue_key(issue_key)
     if not original_estimate and not remaining_estimate:

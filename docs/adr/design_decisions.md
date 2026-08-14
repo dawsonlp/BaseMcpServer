@@ -2,6 +2,42 @@
 
 This document logs important design decisions made during the development of BasicMcpServer.
 
+## 2026-08-14: Direct MCP SDK v2 with Imperative Registration
+
+### Decision
+
+All maintained and generated servers use the stable MCP Python SDK v2 through
+`MCPServer`. Server factories register plain functions and resources with
+`add_tool()` and `add_resource()`.
+
+Registration decorators are not part of the repository pattern. A decorator is
+appropriate only when it implements genuine aspect-oriented behavior that is
+independent of a specific tool, such as authorization, tracing, or retry policy.
+Using a decorator merely to register or validate one tool obscures the explicit
+tool inventory and is not accepted here.
+
+Tool signatures are the public input contract. They must not contain accidental
+`**kwargs`, bare collections, or false nullability. Stable repository-owned
+results use `TypedDict` or Pydantic models; open upstream payloads remain open.
+Tool execution failures raise ordinary actionable exceptions, while domain
+states such as an in-progress job remain structured results.
+
+Every registration supplies a stable title, description, and behavior hints.
+Long-lived resources belong to server lifespan, generated artifacts are exposed
+as MCP resources, and Streamable HTTP defaults to loopback. Non-loopback use
+requires explicit allowed-host and allowed-origin policy through the SDK's
+transport-security support.
+
+### Consequences
+
+- The tool registry remains directly inspectable and testable.
+- SDK-generated schemas and structured results are verified through an in-memory
+  MCP client.
+- Generated servers cannot use decorators, untyped parameters, `**kwargs`, or
+  bare collection return annotations.
+- Historical FastMCP decorator guidance below remains as history but is
+  superseded by this decision.
+
 ## 2025-04-22: MCP Manager Development
 
 ### Decision
@@ -363,6 +399,10 @@ The tradeoffs heavily favor the new approach as it provides better maintainabili
 - [Python 3.13 Release Notes](https://www.python.org/downloads/)
 
 ## 2025-04-15: Migration from Low-Level Server to FastMCP
+
+**Status: Superseded by “2026-08-14: Direct MCP SDK v2 with Imperative
+Registration.”** This section records the historical decision and is not active
+implementation guidance.
 
 ### Decision
 

@@ -10,7 +10,10 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Annotated, Any, Dict, TypedDict
+
+from mcp.types import ToolAnnotations
+from pydantic import Field
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -352,7 +355,81 @@ def _fetch_versions_concurrently() -> tuple:
 # MCP tool implementations
 # ---------------------------------------------------------------------------
 
-def get_current_datetime() -> Dict[str, Any]:
+
+class CurrentDateTimeResult(TypedDict):
+    current_datetime: str
+    current_date: str
+    current_time: str
+    day_of_week: str
+    month: str
+    year: int
+    week_number: int
+    timezone: str
+    utc_datetime: str
+    unix_timestamp: int
+    formatted_display: str
+
+
+class PackageVersionResult(TypedDict):
+    name: str
+    latest_version: str
+    release_date: str
+    source: str
+    homepage: str
+    summary: str
+    pypi_url: str
+    install_command: str
+
+
+class ToolVersionsResult(TypedDict):
+    last_updated: str
+    python_packages: dict[str, Any]
+    infrastructure: dict[str, Any]
+    summary: dict[str, int]
+    note: str
+
+
+class StockQuoteResult(TypedDict):
+    symbol: str
+    open: str
+    high: str
+    low: str
+    price: str
+    volume: str
+    latest_trading_day: str
+    previous_close: str
+    change: str
+    change_percent: str
+    api_key_status: str
+    note: str
+
+
+class MarketOverviewResult(TypedDict):
+    market_status: str
+    market_timezone: str
+    last_updated: str
+    indices: dict[str, Any]
+    api_key_status: str
+    note: str
+
+
+class NewsResult(TypedDict):
+    count: int
+    headlines: list[dict[str, Any]]
+    last_updated: str
+    api_key_status: str
+    sources: str
+    note: str
+
+
+class ContextSummaryResult(TypedDict):
+    summary_generated_at: str
+    current_context: dict[str, Any]
+    detailed_data: dict[str, Any]
+    note: str
+
+
+def get_current_datetime() -> CurrentDateTimeResult:
     """Get current date and time information."""
     now = datetime.datetime.now()
     utc_now = datetime.datetime.now(datetime.timezone.utc)
@@ -372,27 +449,28 @@ def get_current_datetime() -> Dict[str, Any]:
     }
 
 
-def get_python_package_version(package_name: str) -> Dict[str, Any]:
+def get_python_package_version(package_name: str) -> PackageVersionResult:
     """Get the latest version of any Python package from PyPI.
 
     Args:
         package_name: Name of the Python package to look up.
     """
     if not package_name or not isinstance(package_name, str):
-        return {"error": "Package name must be a non-empty string", "package_name": str(package_name)}
+        raise ValueError("package_name must be a non-empty string")
 
     package_name = package_name.strip().lower()
     if not package_name:
-        return {"error": "Package name cannot be empty after cleaning"}
+        raise ValueError("package_name cannot be empty after cleaning")
 
     result = fetch_pypi_version(package_name)
-    if "error" not in result:
-        result["pypi_url"] = f"https://pypi.org/project/{package_name}/"
-        result["install_command"] = f"pip install {package_name}"
+    if "error" in result:
+        raise RuntimeError(f"PyPI lookup failed for {package_name}: {result['error']}")
+    result["pypi_url"] = f"https://pypi.org/project/{package_name}/"
+    result["install_command"] = f"pip install {package_name}"
     return result
 
 
-def get_latest_tool_versions() -> Dict[str, Any]:
+def get_latest_tool_versions() -> ToolVersionsResult:
     """Get latest versions of tracked development tools (cached 1 hour)."""
 
     # Stable cache key — changes once per hour
@@ -417,23 +495,23 @@ def get_latest_tool_versions() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error("Error in get_latest_tool_versions: %s", e)
-        return {"error": str(e), "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        raise RuntimeError(f"Failed to retrieve tool versions: {e}") from e
 
 
-def get_stock_quote(symbol: str) -> Dict[str, Any]:
+def get_stock_quote(symbol: str) -> StockQuoteResult:
     """Get the latest Alpha Vantage quote for one stock or ETF symbol.
 
     Args:
         symbol: Stock or ETF ticker symbol.
     """
     if not isinstance(symbol, str) or not symbol.strip():
-        return {"error": "Symbol must be a non-empty string", "symbol": str(symbol)}
+        raise ValueError("symbol must be a non-empty string")
 
     normalized_symbol = symbol.strip().upper()
     api_key = config.get("api_keys", "alphavantage", default="demo")
     result = _fetch_alpha_vantage_quote(normalized_symbol)
     if "error" in result:
-        return {"symbol": normalized_symbol, **result}
+        raise RuntimeError(f"Quote lookup failed for {normalized_symbol}: {result['error']}")
 
     quote = result["quote"]
     return {
@@ -452,7 +530,7 @@ def get_stock_quote(symbol: str) -> Dict[str, Any]:
     }
 
 
-def get_stock_market_overview() -> Dict[str, Any]:
+def get_stock_market_overview() -> MarketOverviewResult:
     """Get current stock market overview and major indices.
 
     Note: Uses Alpha Vantage API — configure your API key in config.yaml.
@@ -488,7 +566,10 @@ def get_stock_market_overview() -> Dict[str, Any]:
     }
 
 
-def get_news_headlines(count: int = 5) -> Dict[str, Any]:
+HeadlineCount = Annotated[int, Field(ge=1, le=20)]
+
+
+def get_news_headlines(count: HeadlineCount = 5) -> NewsResult:
     """Get current news headlines from NewsAPI across multiple categories.
 
     Args:
@@ -497,7 +578,6 @@ def get_news_headlines(count: int = 5) -> Dict[str, Any]:
     Note: Uses NewsAPI — configure your API key in config.yaml.
     """
     api_key = config.get("api_keys", "newsapi", default="demo")
-    count = max(1, min(count, 20))
     all_headlines: list[Dict[str, Any]] = []
 
     # Curated news source queries
@@ -574,7 +654,7 @@ def get_news_headlines(count: int = 5) -> Dict[str, Any]:
     }
 
 
-def get_context_summary() -> Dict[str, Any]:
+def get_context_summary() -> ContextSummaryResult:
     """Get a comprehensive context summary (date/time + market + news) in one call."""
     dt = get_current_datetime()
     market = get_stock_market_overview()
@@ -657,6 +737,15 @@ WORLDCONTEXT_TOOLS: Dict[str, Dict[str, Any]] = {
         ),
     },
 }
+
+for _name, _spec in WORLDCONTEXT_TOOLS.items():
+    _spec["title"] = _name.replace("_", " ").title()
+    _spec["annotations"] = ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=_name != "get_current_datetime",
+    )
 
 
 def get_tools_config() -> Dict[str, Dict[str, Any]]:
