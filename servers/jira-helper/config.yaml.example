@@ -3,9 +3,12 @@
 
 server:
   name: jira-helper-server
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 7501
   log_level: INFO
+  # Required when host is not loopback:
+  # allowed_hosts: ["mcp.example.com"]
+  # allowed_origins: ["https://client.example.com"]
 
 # Which instance is used when a tool call doesn't name one.
 # If omitted, an instance named "primary" is used, else the first instance.

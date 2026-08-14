@@ -1,15 +1,66 @@
 """Confluence operations: spaces, pages, search, create, update."""
 
 import logging
+from typing import Annotated, Any, NotRequired, TypedDict
+
+from pydantic import Field
 
 from jira_client import get_confluence_client, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
 from output_sanitizer import sanitize_string
 
 logger = logging.getLogger(__name__)
+ResultLimit = Annotated[int, Field(ge=1, le=1000)]
 
 
-def list_confluence_spaces(instance_name: str = None, **kwargs) -> dict:
+class ConfluenceListResult(TypedDict):
+    instance: str
+    count: int
+
+
+class SpacesResult(ConfluenceListResult):
+    spaces: list[dict[str, Any]]
+
+
+class PagesResult(ConfluenceListResult):
+    space_key: str
+    pages: list[dict[str, Any]]
+
+
+class PageResult(TypedDict):
+    instance: str
+    found: bool
+    id: NotRequired[str]
+    title: NotRequired[str]
+    space_key: NotRequired[str]
+    version: NotRequired[int]
+    body: NotRequired[str]
+    status: NotRequired[str]
+    message: NotRequired[str]
+
+
+class SearchPagesResult(ConfluenceListResult):
+    query: str
+    pages: list[dict[str, Any]]
+
+
+class CreatedPageResult(TypedDict):
+    instance: str
+    id: str
+    title: str
+    space_key: str
+    message: str
+
+
+class UpdatedPageResult(TypedDict):
+    instance: str
+    id: str
+    title: str
+    version: int
+    message: str
+
+
+def list_confluence_spaces(instance_name: str | None = None) -> SpacesResult:
     """List all Confluence spaces available in the instance."""
     name = resolve_instance_name(instance_name)
     client = get_confluence_client(name)
@@ -32,8 +83,8 @@ def list_confluence_spaces(instance_name: str = None, **kwargs) -> dict:
 
 
 def list_confluence_pages(
-    space_key: str, instance_name: str = None, limit: int = 20, **kwargs
-) -> dict:
+    space_key: str, instance_name: str | None = None, limit: ResultLimit = 20,
+) -> PagesResult:
     """List pages in a specific Confluence space."""
     if not space_key:
         raise JiraValidationError("space_key is required.")
@@ -57,9 +108,9 @@ def list_confluence_pages(
 
 
 def get_confluence_page(
-    page_id: str = None, title: str = None, space_key: str = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    page_id: str | None = None, title: str | None = None, space_key: str | None = None,
+    instance_name: str | None = None,
+) -> PageResult:
     """Get detailed information about a specific Confluence page."""
     if not page_id and not (title and space_key):
         raise JiraValidationError("Either page_id or both title and space_key are required.")
@@ -90,8 +141,8 @@ def get_confluence_page(
 
 
 def search_confluence_pages(
-    query: str, instance_name: str = None, limit: int = 20, **kwargs
-) -> dict:
+    query: str, instance_name: str | None = None, limit: ResultLimit = 20,
+) -> SearchPagesResult:
     """Search for Confluence pages using text query."""
     if not query or not query.strip():
         raise JiraValidationError("query is required.")
@@ -118,9 +169,9 @@ def search_confluence_pages(
 
 
 def create_confluence_page(
-    space_key: str, title: str, body: str, parent_id: str = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    space_key: str, title: str, body: str, parent_id: str | None = None,
+    instance_name: str | None = None,
+) -> CreatedPageResult:
     """Create a new Confluence page."""
     if not space_key or not title or not body:
         raise JiraValidationError("space_key, title, and body are required.")
@@ -145,9 +196,9 @@ def create_confluence_page(
 
 
 def update_confluence_page(
-    page_id: str, title: str = None, body: str = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    page_id: str, title: str | None = None, body: str | None = None,
+    instance_name: str | None = None,
+) -> UpdatedPageResult:
     """Update an existing Confluence page."""
     if not page_id:
         raise JiraValidationError("page_id is required.")

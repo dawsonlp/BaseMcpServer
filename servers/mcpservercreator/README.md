@@ -76,7 +76,7 @@ Example:
 <tool_name>create_mcp_server</tool_name>
 <arguments>
 {
-  "code_snippet": "def add_numbers(a: int, b: int) -> dict:\n    \"\"\"Add two numbers together.\"\"\"\n    return {\"result\": a + b}",
+  "code_snippet": "def add_numbers(a: int, b: int) -> dict[str, int]:\n    \"\"\"Add two numbers together.\"\"\"\n    return {\"result\": a + b}",
   "server_name": "simple-calculator",
   "description": "A simple calculator MCP server",
   "author": "Your Name"
@@ -86,6 +86,11 @@ Example:
 ```
 
 This will create a new MCP server named `simple-calculator` with a single tool that adds two numbers.
+
+Generated tools must type every parameter and use a concrete generic,
+`TypedDict`, or Pydantic result type. The creator rejects decorators,
+`**kwargs`, untyped parameters, missing return annotations, and bare collection
+return types because each would create an ambiguous or false MCP contract.
 
 ### Listing Installed Servers
 

@@ -1,0 +1,505 @@
+{
+  "resources": [],
+  "server_info": {
+    "description": "Context Provider",
+    "icons": null,
+    "name": "worldcontext",
+    "title": null,
+    "version": "1.3.0",
+    "websiteUrl": null
+  },
+  "tools": [
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get current date and time \u2014 essential for timestamping files, reports, logs, and making time-aware decisions.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "get_current_datetimeArguments",
+        "type": "object"
+      },
+      "name": "get_current_datetime",
+      "outputSchema": {
+        "properties": {
+          "current_date": {
+            "title": "Current Date",
+            "type": "string"
+          },
+          "current_datetime": {
+            "title": "Current Datetime",
+            "type": "string"
+          },
+          "current_time": {
+            "title": "Current Time",
+            "type": "string"
+          },
+          "day_of_week": {
+            "title": "Day Of Week",
+            "type": "string"
+          },
+          "formatted_display": {
+            "title": "Formatted Display",
+            "type": "string"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "unix_timestamp": {
+            "title": "Unix Timestamp",
+            "type": "integer"
+          },
+          "utc_datetime": {
+            "title": "Utc Datetime",
+            "type": "string"
+          },
+          "week_number": {
+            "title": "Week Number",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current_datetime",
+          "current_date",
+          "current_time",
+          "day_of_week",
+          "month",
+          "year",
+          "week_number",
+          "timezone",
+          "utc_datetime",
+          "unix_timestamp",
+          "formatted_display"
+        ],
+        "title": "CurrentDateTimeResult",
+        "type": "object"
+      },
+      "title": "Get Current Datetime"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Check if markets are open and how major indices are performing.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "get_stock_market_overviewArguments",
+        "type": "object"
+      },
+      "name": "get_stock_market_overview",
+      "outputSchema": {
+        "properties": {
+          "api_key_status": {
+            "title": "Api Key Status",
+            "type": "string"
+          },
+          "indices": {
+            "additionalProperties": true,
+            "title": "Indices",
+            "type": "object"
+          },
+          "last_updated": {
+            "title": "Last Updated",
+            "type": "string"
+          },
+          "market_status": {
+            "title": "Market Status",
+            "type": "string"
+          },
+          "market_timezone": {
+            "title": "Market Timezone",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market_status",
+          "market_timezone",
+          "last_updated",
+          "indices",
+          "api_key_status",
+          "note"
+        ],
+        "title": "MarketOverviewResult",
+        "type": "object"
+      },
+      "title": "Get Stock Market Overview"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get the latest quote for one stock or ETF symbol.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "get_stock_quoteArguments",
+        "type": "object"
+      },
+      "name": "get_stock_quote",
+      "outputSchema": {
+        "properties": {
+          "api_key_status": {
+            "title": "Api Key Status",
+            "type": "string"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "change_percent": {
+            "title": "Change Percent",
+            "type": "string"
+          },
+          "high": {
+            "title": "High",
+            "type": "string"
+          },
+          "latest_trading_day": {
+            "title": "Latest Trading Day",
+            "type": "string"
+          },
+          "low": {
+            "title": "Low",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "open": {
+            "title": "Open",
+            "type": "string"
+          },
+          "previous_close": {
+            "title": "Previous Close",
+            "type": "string"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "volume": {
+            "title": "Volume",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "open",
+          "high",
+          "low",
+          "price",
+          "volume",
+          "latest_trading_day",
+          "previous_close",
+          "change",
+          "change_percent",
+          "api_key_status",
+          "note"
+        ],
+        "title": "StockQuoteResult",
+        "type": "object"
+      },
+      "title": "Get Stock Quote"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get breaking news and current events across international, US politics, and Tennessee categories.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "count": {
+            "default": 5,
+            "maximum": 20,
+            "minimum": 1,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "title": "get_news_headlinesArguments",
+        "type": "object"
+      },
+      "name": "get_news_headlines",
+      "outputSchema": {
+        "properties": {
+          "api_key_status": {
+            "title": "Api Key Status",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "headlines": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Headlines",
+            "type": "array"
+          },
+          "last_updated": {
+            "title": "Last Updated",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "headlines",
+          "last_updated",
+          "api_key_status",
+          "sources",
+          "note"
+        ],
+        "title": "NewsResult",
+        "type": "object"
+      },
+      "title": "Get News Headlines"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get complete situational awareness in one call \u2014 current time, market status, and breaking news combined.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "get_context_summaryArguments",
+        "type": "object"
+      },
+      "name": "get_context_summary",
+      "outputSchema": {
+        "properties": {
+          "current_context": {
+            "additionalProperties": true,
+            "title": "Current Context",
+            "type": "object"
+          },
+          "detailed_data": {
+            "additionalProperties": true,
+            "title": "Detailed Data",
+            "type": "object"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "summary_generated_at": {
+            "title": "Summary Generated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary_generated_at",
+          "current_context",
+          "detailed_data",
+          "note"
+        ],
+        "title": "ContextSummaryResult",
+        "type": "object"
+      },
+      "title": "Get Context Summary"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Check latest versions of tracked development tools and Python libraries (cached 1 hour).",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "get_latest_tool_versionsArguments",
+        "type": "object"
+      },
+      "name": "get_latest_tool_versions",
+      "outputSchema": {
+        "properties": {
+          "infrastructure": {
+            "additionalProperties": true,
+            "title": "Infrastructure",
+            "type": "object"
+          },
+          "last_updated": {
+            "title": "Last Updated",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "python_packages": {
+            "additionalProperties": true,
+            "title": "Python Packages",
+            "type": "object"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "last_updated",
+          "python_packages",
+          "infrastructure",
+          "summary",
+          "note"
+        ],
+        "title": "ToolVersionsResult",
+        "type": "object"
+      },
+      "title": "Get Latest Tool Versions"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Look up the latest version of any Python package on PyPI.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "package_name": {
+            "title": "Package Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_name"
+        ],
+        "title": "get_python_package_versionArguments",
+        "type": "object"
+      },
+      "name": "get_python_package_version",
+      "outputSchema": {
+        "properties": {
+          "homepage": {
+            "title": "Homepage",
+            "type": "string"
+          },
+          "install_command": {
+            "title": "Install Command",
+            "type": "string"
+          },
+          "latest_version": {
+            "title": "Latest Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pypi_url": {
+            "title": "Pypi Url",
+            "type": "string"
+          },
+          "release_date": {
+            "title": "Release Date",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "latest_version",
+          "release_date",
+          "source",
+          "homepage",
+          "summary",
+          "pypi_url",
+          "install_command"
+        ],
+        "title": "PackageVersionResult",
+        "type": "object"
+      },
+      "title": "Get Python Package Version"
+    }
+  ]
+}

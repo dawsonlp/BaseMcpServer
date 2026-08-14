@@ -1,20 +1,36 @@
 """Workflow operations: transitions, workflow graph generation."""
 
-import base64
-import io
 import json
 import logging
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, Literal
 
+from mcp.server.mcpserver import Context
+
+from config import settings
 from jira_client import get_jira_client, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError, JiraGraphError
 
 logger = logging.getLogger(__name__)
 
+WORKFLOW_RESOURCE_DIR = settings.config_file.parent / "resources"
+WORKFLOW_RESOURCE_URIS = {
+    "png": "jira-workflow://latest/workflow.png",
+    "svg": "jira-workflow://latest/workflow.svg",
+}
+WORKFLOW_RESOURCE_PATHS = {
+    fmt: WORKFLOW_RESOURCE_DIR / f"workflow.{fmt}" for fmt in ("png", "svg")
+}
 
-def generate_project_workflow_graph(
-    project_key: str, issue_type: str = "Task", output_format: str = "png",
-    instance_name: str = None, **kwargs
-) -> dict:
+
+async def generate_project_workflow_graph(
+    project_key: str, issue_type: str = "Task",
+    output_format: Literal["png", "svg", "json"] = "png",
+    instance_name: str | None = None,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """Generate a visual workflow graph for a project and issue type."""
     if not project_key:
         raise JiraValidationError("project_key is required.")
@@ -79,17 +95,31 @@ def generate_project_workflow_graph(
         ax.axis("off")
         plt.tight_layout()
 
-        buf = io.BytesIO()
         fmt = "svg" if output_format == "svg" else "png"
-        fig.savefig(buf, format=fmt, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        buf.seek(0)
-        encoded = base64.b64encode(buf.read()).decode("utf-8")
+        resource_path = WORKFLOW_RESOURCE_PATHS[fmt]
+        resource_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=resource_path.parent, suffix=f".{fmt}", delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+            fig.savefig(temporary_path, format=fmt, dpi=150, bbox_inches="tight")
+            os.replace(temporary_path, resource_path)
+            temporary_path = None
+        finally:
+            plt.close(fig)
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+        resource_uri = WORKFLOW_RESOURCE_URIS[fmt]
+        if ctx is not None:
+            await ctx.notify_resource_updated(resource_uri)
 
         return {
             "project_key": project_key, "issue_type": issue_type,
             "instance": name, "format": fmt,
-            "image_base64": encoded,
+            "resource_uri": resource_uri,
             "message": f"Generated {fmt.upper()} workflow graph for {project_key}/{issue_type}",
         }
     except (JiraError, JiraGraphError):

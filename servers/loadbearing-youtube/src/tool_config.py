@@ -11,8 +11,14 @@ import os
 import threading
 import time
 import uuid
+from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict
+from typing import Annotated, Any, AsyncIterator, Dict, TypedDict
+
+from mcp.server import MCPServer
+from mcp.server.mcpserver import Context
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from loadbearing_youtube import analyze, get_transcript
 from loadbearing_youtube.providers import discover
@@ -32,7 +38,46 @@ logger = logging.getLogger(__name__)
 _JOBS: Dict[str, Dict[str, Any]] = {}
 _EVENTS: Dict[str, threading.Event] = {}
 _JOBS_LOCK = threading.Lock()
-_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="lb-analysis")
+
+
+class LifespanState(TypedDict):
+    executor: ThreadPoolExecutor
+
+
+class TranscriptResult(TypedDict):
+    success: bool
+    video_id: str
+    url: str
+    title: str
+    author: str
+    language: str
+    is_generated: bool
+    duration_seconds: float
+    char_count: int
+    segment_count: int
+    transcript: str
+
+
+class JobsResult(TypedDict):
+    success: bool
+    jobs: list[dict[str, Any]]
+    count: int
+
+
+class ProvidersResult(TypedDict):
+    success: bool
+    providers: list[dict[str, Any]]
+    default: str
+
+
+@asynccontextmanager
+async def server_lifespan(_server: MCPServer) -> AsyncIterator[LifespanState]:
+    """Own the analysis executor for exactly one server lifespan."""
+    executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="lb-analysis")
+    try:
+        yield {"executor": executor}
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
 
 # How long analyze_video blocks before handing back a job_id. Kept under the
 # common ~60s MCP request timeout so short videos return inline in one call.
@@ -41,6 +86,7 @@ _INLINE_WAIT_S = 45
 _MAX_POLL_WAIT_S = 45
 # Drop finished jobs older than this when a new one starts.
 _JOB_TTL_S = 3600
+PollWait = Annotated[int, Field(ge=0, le=_MAX_POLL_WAIT_S)]
 
 
 def _prune_jobs() -> None:
@@ -120,7 +166,7 @@ def _resolve(provider: str, model: str, languages: str) -> tuple:
     return prov, mdl, lang_list
 
 
-def get_video_transcript(url: str, languages: str = "", timestamps: bool = True) -> Dict[str, Any]:
+def get_video_transcript(url: str, languages: str = "", timestamps: bool = True) -> TranscriptResult:
     """Fetch the full transcript of a YouTube video (no LLM involved).
 
     Args:
@@ -129,14 +175,14 @@ def get_video_transcript(url: str, languages: str = "", timestamps: bool = True)
         timestamps: Include [mm:ss] markers in the transcript text.
     """
     if not url or not isinstance(url, str):
-        return {"error": "url must be a non-empty string", "success": False}
+        raise ValueError("url must be a non-empty string")
 
     _, _, lang_list = _resolve("", "", languages)
     try:
         t = get_transcript(url, lang_list)
     except Exception as e:
         logger.warning("transcript fetch failed for %s: %s", url, e)
-        return {"error": str(e), "success": False}
+        raise RuntimeError(f"Transcript fetch failed: {e}") from e
 
     return {
         "success": True,
@@ -158,7 +204,8 @@ def analyze_video(
     provider: str = "",
     model: str = "",
     languages: str = "",
-) -> Dict[str, Any]:
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """Extract a video's transcript and expose its LOAD-BEARING components:
     the claims, decisions, tradeoffs, and verdicts the video's conclusion
     actually rests on (not a generic summary).
@@ -175,7 +222,7 @@ def analyze_video(
         languages: Comma-separated language preference. Blank = "en".
     """
     if not url or not isinstance(url, str):
-        return {"error": "url must be a non-empty string", "success": False}
+        raise ValueError("url must be a non-empty string")
 
     _prune_jobs()
     prov, mdl, lang_list = _resolve(provider, model, languages)
@@ -185,14 +232,17 @@ def analyze_video(
     with _JOBS_LOCK:
         _EVENTS[job_id] = event
         _JOBS[job_id] = {"status": "running", "url": url, "created": time.time()}
-    _EXECUTOR.submit(_run_job, job_id, url, prov, mdl, lang_list)
+    if ctx is None:
+        raise RuntimeError("analyze_video requires an active MCP server lifespan")
+    executor = ctx.request_context.lifespan_context["executor"]
+    executor.submit(_run_job, job_id, url, prov, mdl, lang_list)
 
     event.wait(_INLINE_WAIT_S)
     with _JOBS_LOCK:
         return _public_job(job_id, dict(_JOBS[job_id]))
 
 
-def get_analysis_result(job_id: str, wait_seconds: int = 30) -> Dict[str, Any]:
+def get_analysis_result(job_id: str, wait_seconds: PollWait = 30) -> dict[str, Any]:
     """Retrieve (or wait for) the result of an analyze_video job.
 
     Args:
@@ -202,13 +252,13 @@ def get_analysis_result(job_id: str, wait_seconds: int = 30) -> Dict[str, Any]:
             still-running job to finish.
     """
     if not job_id or not isinstance(job_id, str):
-        return {"error": "job_id must be a non-empty string", "success": False}
+        raise ValueError("job_id must be a non-empty string")
 
     with _JOBS_LOCK:
         event = _EVENTS.get(job_id)
         exists = job_id in _JOBS
     if not exists:
-        return {"error": f"unknown job_id: {job_id}", "success": False}
+        raise ValueError(f"unknown job_id: {job_id}")
 
     wait = max(0, min(int(wait_seconds or 0), _MAX_POLL_WAIT_S))
     if wait and event is not None:
@@ -218,7 +268,7 @@ def get_analysis_result(job_id: str, wait_seconds: int = 30) -> Dict[str, Any]:
         return _public_job(job_id, dict(_JOBS[job_id]))
 
 
-def list_analysis_jobs() -> Dict[str, Any]:
+def list_analysis_jobs() -> JobsResult:
     """List analysis jobs tracked by this server (most recent first)."""
     with _JOBS_LOCK:
         jobs = [
@@ -234,13 +284,13 @@ def list_analysis_jobs() -> Dict[str, Any]:
     return {"success": True, "jobs": jobs, "count": len(jobs)}
 
 
-def list_analysis_providers() -> Dict[str, Any]:
+def list_analysis_providers() -> ProvidersResult:
     """List the LLM providers available for analysis, which are configured
     right now, and the models each one can use."""
     try:
         providers = discover()
     except Exception as e:
-        return {"error": str(e), "success": False}
+        raise RuntimeError(f"Provider discovery failed: {e}") from e
     return {
         "success": True,
         "providers": providers,
@@ -291,6 +341,16 @@ LOADBEARING_YOUTUBE_TOOLS: Dict[str, Dict[str, Any]] = {
         ),
     },
 }
+
+for _name, _spec in LOADBEARING_YOUTUBE_TOOLS.items():
+    _read_only = _name != "analyze_video"
+    _spec["title"] = _name.replace("_", " ").title()
+    _spec["annotations"] = ToolAnnotations(
+        readOnlyHint=_read_only,
+        destructiveHint=False,
+        idempotentHint=_read_only,
+        openWorldHint=_name in {"analyze_video", "get_video_transcript"},
+    )
 
 
 def get_tools_config() -> Dict[str, Dict[str, Any]]:

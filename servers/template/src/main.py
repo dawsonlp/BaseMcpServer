@@ -2,9 +2,12 @@
 
 import logging
 import sys
+from importlib.metadata import version
 from typing import Literal, cast
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 
 from config import config
 from tool_config import get_tools_config
@@ -12,6 +15,31 @@ from tool_config import get_tools_config
 Transport = Literal["stdio", "sse", "streamable-http"]
 TRANSPORTS: tuple[Transport, ...] = ("stdio", "sse", "streamable-http")
 DESCRIPTION = "Template MCP Server (replace this description)"
+PACKAGE_VERSION = version("template-mcp-server")
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _string_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def _transport_security(host: str) -> TransportSecuritySettings | None:
+    if host in _LOOPBACK_HOSTS:
+        return None
+    allowed_hosts = _string_list(config.get("server", "allowed_hosts", default=[]))
+    allowed_origins = _string_list(config.get("server", "allowed_origins", default=[]))
+    if not allowed_hosts or not allowed_origins:
+        raise ValueError(
+            "Non-loopback Streamable HTTP requires non-empty server.allowed_hosts "
+            "and server.allowed_origins."
+        )
+    return TransportSecuritySettings(
+        allowed_hosts=allowed_hosts, allowed_origins=allowed_origins,
+    )
 
 
 def create_server() -> MCPServer:
@@ -19,6 +47,7 @@ def create_server() -> MCPServer:
     server = MCPServer(
         name=str(config.get("server", "name", default="template")),
         description=DESCRIPTION,
+        version=PACKAGE_VERSION,
     )
     for tool_name, spec in get_tools_config().items():
         function = spec.get("function")
@@ -27,7 +56,10 @@ def create_server() -> MCPServer:
         server.add_tool(
             function,
             name=tool_name,
+            title=spec["title"],
             description=spec.get("description") or f"Tool: {tool_name}",
+            annotations=cast(ToolAnnotations, spec["annotations"]),
+            structured_output=True,
         )
     return server
 
@@ -35,7 +67,9 @@ def create_server() -> MCPServer:
 def create_app():
     """Build a Streamable HTTP ASGI app for an external ASGI server."""
     host = str(config.get("server", "host", default="localhost"))
-    return create_server().streamable_http_app(host=host)
+    return create_server().streamable_http_app(
+        host=host, transport_security=_transport_security(host),
+    )
 
 
 def _print_help() -> None:
@@ -77,10 +111,13 @@ def main() -> None:
     )
     run_options = {}
     if transport != "stdio":
+        host = str(config.get("server", "host", default="localhost"))
         run_options = {
-            "host": str(config.get("server", "host", default="localhost")),
+            "host": host,
             "port": int(config.get("server", "port", default=7501)),
         }
+        if transport == "streamable-http":
+            run_options["transport_security"] = _transport_security(host)
     try:
         create_server().run(transport, **run_options)
     except KeyboardInterrupt:

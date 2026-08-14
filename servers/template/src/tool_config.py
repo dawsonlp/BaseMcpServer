@@ -5,7 +5,9 @@ Replace the `echo` example with your real tools. Add entries to the
 them through ``MCPServer.add_tool()``. The dict is the single source of truth.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, TypedDict
+
+from mcp.types import ToolAnnotations
 
 from config import config
 
@@ -14,7 +16,12 @@ from config import config
 # Tool implementations
 # -----------------------------------------------------------------------------
 
-def echo(message: str) -> Dict[str, Any]:
+class EchoResult(TypedDict):
+    server: str
+    message: str
+
+
+def echo(message: str) -> EchoResult:
     """Return the message verbatim, prefixed with the server's name from config.
 
     Replace this with your real tool. A tool is just a function that takes
@@ -42,6 +49,15 @@ TEMPLATE_TOOLS: Dict[str, Dict[str, Any]] = {
         "description": "Echo a message back with the server name attached. Replace with your real tools.",
     },
 }
+
+for _name, _spec in TEMPLATE_TOOLS.items():
+    _spec["title"] = _name.replace("_", " ").title()
+    _spec["annotations"] = ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    )
 
 
 def get_tools_config() -> Dict[str, Dict[str, Any]]:

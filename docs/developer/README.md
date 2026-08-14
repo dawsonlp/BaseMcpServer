@@ -4,8 +4,16 @@ This directory contains technical documentation for developers building and exte
 
 ## Available Documentation
 
+### [MCP Python SDK v2 Upgrade Development Checklist](development-checklist.md)
+Status-bearing implementation checklist for dependency upgrades, MCP v2 adoption,
+verification, and managed local deployment.
+
 ### [Build Your Own MCP Server](BUILD_A_NEW_MCP.md)
 Complete guide for creating new MCP (Model Context Protocol) servers, including setup, development patterns, and best practices.
+
+### [MCP Python SDK v2 Conventions](mcp-v2-conventions.md)
+Current contract, metadata, lifecycle, resource, HTTP security, and tool-behavior
+rules for maintained and generated servers.
 
 ### [MCP Result Adapter](mcp-result-adapter.md)
 Technical documentation for the MCP result adapter system, including implementation details and usage patterns.

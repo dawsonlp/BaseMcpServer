@@ -2,9 +2,12 @@
 
 import logging
 import sys
+from importlib.metadata import version
 from typing import Literal, cast
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 
 from config import settings
 from tool_config import get_tools_config
@@ -12,11 +15,27 @@ from tool_config import get_tools_config
 Transport = Literal["stdio", "sse", "streamable-http"]
 TRANSPORTS: tuple[Transport, ...] = ("stdio", "sse", "streamable-http")
 DESCRIPTION = "Create and manage MCP servers"
+PACKAGE_VERSION = version("mcpservercreator")
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _transport_security(host: str) -> TransportSecuritySettings | None:
+    if host in _LOOPBACK_HOSTS:
+        return None
+    if not settings.allowed_hosts or not settings.allowed_origins:
+        raise ValueError(
+            "Non-loopback Streamable HTTP requires non-empty allowed_hosts and allowed_origins."
+        )
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=settings.allowed_hosts,
+        allowed_origins=settings.allowed_origins,
+    )
 
 
 def create_server() -> MCPServer:
     """Build a new server and register tools through the public SDK API."""
-    server = MCPServer(name=settings.server_name, description=DESCRIPTION)
+    server = MCPServer(name=settings.server_name, description=DESCRIPTION, version=PACKAGE_VERSION)
     for tool_name, spec in get_tools_config().items():
         function = spec.get("function")
         if not callable(function):
@@ -24,14 +43,19 @@ def create_server() -> MCPServer:
         server.add_tool(
             function,
             name=tool_name,
+            title=spec["title"],
             description=spec.get("description") or f"Tool: {tool_name}",
+            annotations=cast(ToolAnnotations, spec["annotations"]),
+            structured_output=True,
         )
     return server
 
 
 def create_app():
     """Build a Streamable HTTP ASGI app for an external ASGI server."""
-    return create_server().streamable_http_app(host=settings.host)
+    return create_server().streamable_http_app(
+        host=settings.host, transport_security=_transport_security(settings.host),
+    )
 
 
 def _print_help() -> None:
@@ -74,6 +98,8 @@ def main() -> None:
     run_options = {}
     if transport != "stdio":
         run_options = {"host": settings.host, "port": settings.port}
+        if transport == "streamable-http":
+            run_options["transport_security"] = _transport_security(settings.host)
     try:
         create_server().run(transport, **run_options)
     except KeyboardInterrupt:

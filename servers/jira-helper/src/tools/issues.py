@@ -1,6 +1,7 @@
 """Issue operations: get, create, update, transition, assign."""
 
 import logging
+from typing import Any, Literal, TypedDict
 
 from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
@@ -9,7 +10,72 @@ from output_sanitizer import sanitize_string
 logger = logging.getLogger(__name__)
 
 
-def list_jira_projects(instance_name: str = None, **kwargs) -> dict:
+class ListResult(TypedDict):
+    instance: str
+    count: int
+
+
+class ProjectsResult(ListResult):
+    projects: list[dict[str, Any]]
+
+
+class IssueDetailsResult(TypedDict):
+    key: str
+    summary: str
+    status: str
+    assignee: str
+    reporter: str
+    priority: str
+    issue_type: str
+    project: str
+    description: str
+    created: str
+    updated: str
+    labels: list[str]
+    components: list[str]
+    instance: str
+
+
+class CreatedIssueResult(TypedDict):
+    key: str
+    id: str
+    self: str
+    instance: str
+    message: str
+
+
+class UpdatedIssueResult(TypedDict):
+    key: str
+    instance: str
+    updated_fields: list[str]
+    message: str
+
+
+class TransitionResult(TypedDict):
+    key: str
+    instance: str
+    transition: str
+    transition_id: str
+    message: str
+
+
+class AssigneeResult(TypedDict):
+    key: str
+    instance: str
+    assignee: str
+    message: str
+
+
+class InstancesResult(TypedDict):
+    instances: list[dict[str, Any]]
+    count: int
+
+
+class CustomFieldsResult(ListResult):
+    custom_fields: list[dict[str, Any]]
+
+
+def list_jira_projects(instance_name: str | None = None) -> ProjectsResult:
     """List all projects available in the Jira instance."""
     name = resolve_instance_name(instance_name)
     client = get_jira_client(name)
@@ -30,7 +96,7 @@ def list_jira_projects(instance_name: str = None, **kwargs) -> dict:
         raise JiraApiError(f"Failed to list projects: {e}", instance_name=name)
 
 
-def get_issue_details(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def get_issue_details(issue_key: str, instance_name: str | None = None) -> IssueDetailsResult:
     """Get detailed information about a specific Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -61,9 +127,9 @@ def get_issue_details(issue_key: str, instance_name: str = None, **kwargs) -> di
 
 
 def get_full_issue_details(
-    issue_key: str, instance_name: str = None, include_comments: bool = True,
-    raw_data: bool = False, format: str = "structured", **kwargs
-) -> dict:
+    issue_key: str, instance_name: str | None = None, include_comments: bool = True,
+    raw_data: bool = False, format: Literal["structured"] = "structured",
+) -> dict[str, Any]:
     """Get comprehensive information about a Jira issue with formatting options."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -144,10 +210,10 @@ def get_full_issue_details(
 
 def create_jira_ticket(
     project_key: str, summary: str, issue_type: str = "Task",
-    description: str = "", priority: str = None, assignee: str = None,
-    labels: list = None, components: list = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    description: str = "", priority: str | None = None, assignee: str | None = None,
+    labels: list[str] | None = None, components: list[str] | None = None,
+    instance_name: str | None = None, custom_fields: dict[str, Any] | None = None,
+) -> CreatedIssueResult:
     """Create a new Jira ticket."""
     if not project_key or not summary:
         raise JiraValidationError("project_key and summary are required.")
@@ -170,10 +236,12 @@ def create_jira_ticket(
         if components:
             fields["components"] = [{"name": c} for c in components]
 
-        # Add any extra fields from kwargs
-        for k, v in kwargs.items():
-            if k.startswith("customfield_"):
-                fields[k] = v
+        for field_name, value in (custom_fields or {}).items():
+            if not field_name.startswith("customfield_"):
+                raise JiraValidationError(
+                    f"Invalid custom field {field_name!r}; keys must start with 'customfield_'."
+                )
+            fields[field_name] = value
 
         result = client.issue_create(fields=fields)
         return {
@@ -190,10 +258,11 @@ def create_jira_ticket(
 
 
 def update_jira_issue(
-    issue_key: str, summary: str = None, description: str = None,
-    priority: str = None, assignee: str = None, labels: list = None,
-    components: list = None, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, summary: str | None = None, description: str | None = None,
+    priority: str | None = None, assignee: str | None = None,
+    labels: list[str] | None = None, components: list[str] | None = None,
+    instance_name: str | None = None, custom_fields: dict[str, Any] | None = None,
+) -> UpdatedIssueResult:
     """Update an existing Jira issue with new field values."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -213,10 +282,12 @@ def update_jira_issue(
         if components is not None:
             fields["components"] = [{"name": c} for c in components]
 
-        # Add any custom fields from kwargs
-        for k, v in kwargs.items():
-            if k.startswith("customfield_"):
-                fields[k] = v
+        for field_name, value in (custom_fields or {}).items():
+            if not field_name.startswith("customfield_"):
+                raise JiraValidationError(
+                    f"Invalid custom field {field_name!r}; keys must start with 'customfield_'."
+                )
+            fields[field_name] = value
 
         if not fields:
             raise JiraValidationError("No fields to update. Provide at least one field.")
@@ -235,9 +306,9 @@ def update_jira_issue(
 
 
 def transition_jira_issue(
-    issue_key: str, transition_name: str = None, transition_id: str = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, transition_name: str | None = None, transition_id: str | None = None,
+    instance_name: str | None = None,
+) -> TransitionResult:
     """Transition a Jira issue through its workflow."""
     key = validate_issue_key(issue_key)
     if not transition_name and not transition_id:
@@ -281,8 +352,8 @@ def transition_jira_issue(
 
 
 def change_issue_assignee(
-    issue_key: str, assignee: str, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, assignee: str, instance_name: str | None = None,
+) -> AssigneeResult:
     """Change the assignee of a Jira issue."""
     key = validate_issue_key(issue_key)
     if not assignee:
@@ -303,14 +374,14 @@ def change_issue_assignee(
         raise JiraApiError(f"Failed to change assignee for {key}: {e}", instance_name=name)
 
 
-def list_jira_instances(**kwargs) -> dict:
+def list_jira_instances() -> InstancesResult:
     """List all configured Jira instances."""
     from jira_client import get_instances_info
     instances = get_instances_info()
     return {"instances": instances, "count": len(instances)}
 
 
-def get_custom_field_mappings(instance_name: str = None, **kwargs) -> dict:
+def get_custom_field_mappings(instance_name: str | None = None) -> CustomFieldsResult:
     """Get mappings between Jira custom field IDs and their names."""
     name = resolve_instance_name(instance_name)
     client = get_jira_client(name)

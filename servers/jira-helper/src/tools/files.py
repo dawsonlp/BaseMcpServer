@@ -2,18 +2,40 @@
 
 import logging
 import os
+from typing import Any, TypedDict
 
 from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
 
 logger = logging.getLogger(__name__)
 
+
+class UploadResult(TypedDict):
+    key: str
+    instance: str
+    filename: str
+    size: int
+    message: str
+
+
+class AttachmentsResult(TypedDict):
+    key: str
+    instance: str
+    attachments: list[dict[str, Any]]
+    count: int
+
+
+class DeleteAttachmentResult(TypedDict):
+    attachment_id: str
+    instance: str
+    message: str
+
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 def upload_file_to_jira(
-    issue_key: str, file_path: str, instance_name: str = None, **kwargs
-) -> dict:
+    issue_key: str, file_path: str, instance_name: str | None = None,
+) -> UploadResult:
     """Upload a file to a Jira issue as an attachment."""
     key = validate_issue_key(issue_key)
     if not file_path:
@@ -41,7 +63,7 @@ def upload_file_to_jira(
         raise JiraApiError(f"Failed to upload file to {key}: {e}", instance_name=name)
 
 
-def list_issue_attachments(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def list_issue_attachments(issue_key: str, instance_name: str | None = None) -> AttachmentsResult:
     """List all attachments for a Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -67,8 +89,8 @@ def list_issue_attachments(issue_key: str, instance_name: str = None, **kwargs) 
 
 
 def delete_issue_attachment(
-    attachment_id: str, instance_name: str = None, **kwargs
-) -> dict:
+    attachment_id: str, instance_name: str | None = None,
+) -> DeleteAttachmentResult:
     """Delete an attachment from a Jira issue."""
     if not attachment_id:
         raise JiraValidationError("attachment_id is required.")

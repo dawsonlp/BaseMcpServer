@@ -2,6 +2,9 @@
 
 import logging
 import re
+from typing import Annotated, Any, TypedDict
+
+from pydantic import Field
 
 from jira_client import get_jira_client, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
@@ -30,7 +33,25 @@ def _extract_issue(issue: dict) -> dict:
     }
 
 
-def search_jira_issues(jql: str, max_results: int = 20, instance_name: str = None, **kwargs) -> dict:
+ResultLimit = Annotated[int, Field(ge=1, le=1000)]
+
+
+class JqlValidationResult(TypedDict):
+    valid: bool
+    jql: str
+    issues: list[str]
+
+
+class SearchResult(TypedDict):
+    instance: str
+    jql: str
+    issues: list[dict[str, Any]]
+    total: int
+
+
+def search_jira_issues(
+    jql: str, max_results: ResultLimit = 20, instance_name: str | None = None,
+) -> SearchResult:
     """Execute a JQL search query to find Jira issues."""
     if not jql or not jql.strip():
         raise JiraValidationError("JQL query is required.")
@@ -53,10 +74,10 @@ def search_jira_issues(jql: str, max_results: int = 20, instance_name: str = Non
 
 
 def list_project_tickets(
-    project_key: str, status: str = None, assignee: str = None,
-    issue_type: str = None, max_results: int = 20,
-    instance_name: str = None, **kwargs
-) -> dict:
+    project_key: str, status: str | None = None, assignee: str | None = None,
+    issue_type: str | None = None, max_results: ResultLimit = 20,
+    instance_name: str | None = None,
+) -> SearchResult:
     """List tickets in a Jira project with optional filtering."""
     if not project_key:
         raise JiraValidationError("project_key is required.")
@@ -71,7 +92,7 @@ def list_project_tickets(
     return search_jira_issues(jql=jql, max_results=max_results, instance_name=instance_name)
 
 
-def validate_jql_query(jql: str, **kwargs) -> dict:
+def validate_jql_query(jql: str) -> JqlValidationResult:
     """Validate JQL syntax without executing the query."""
     issues = []
     if not jql or not jql.strip():

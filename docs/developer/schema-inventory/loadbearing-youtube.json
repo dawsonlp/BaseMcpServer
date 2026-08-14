@@ -1,0 +1,296 @@
+{
+  "resources": [],
+  "server_info": {
+    "description": "Expose the load-bearing components of a YouTube video",
+    "icons": null,
+    "name": "loadbearing-youtube",
+    "title": null,
+    "version": "0.1.0",
+    "websiteUrl": null
+  },
+  "tools": [
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Extract a YouTube video's transcript and expose its load-bearing components \u2014 the claims, decisions, tradeoffs, comparison verdicts, and recommendation the conclusion actually rests on, with timestamps. Returns structured data plus a rendered markdown report. Runs as a background job: short videos return inline; if the response has status 'running', call get_analysis_result with the returned job_id.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "languages": {
+            "default": "",
+            "title": "Languages",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "default": "",
+            "title": "Provider",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "analyze_videoArguments",
+        "type": "object"
+      },
+      "name": "analyze_video",
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "analyze_videoDictOutput",
+        "type": "object"
+      },
+      "title": "Analyze Video"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Fetch the result of an analyze_video job by job_id (optionally waiting up to 45s for it to finish). Returns status 'running', 'done' (with the full report), or 'error'.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "wait_seconds": {
+            "default": 30,
+            "maximum": 45,
+            "minimum": 0,
+            "title": "Wait Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "get_analysis_resultArguments",
+        "type": "object"
+      },
+      "name": "get_analysis_result",
+      "outputSchema": {
+        "additionalProperties": true,
+        "title": "get_analysis_resultDictOutput",
+        "type": "object"
+      },
+      "title": "Get Analysis Result"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List analysis jobs tracked by this server and their status.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "list_analysis_jobsArguments",
+        "type": "object"
+      },
+      "name": "list_analysis_jobs",
+      "outputSchema": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "jobs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "jobs",
+          "count"
+        ],
+        "title": "JobsResult",
+        "type": "object"
+      },
+      "title": "List Analysis Jobs"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Fetch the full transcript of a YouTube video (no LLM), with optional [mm:ss] timestamps, title, author, and duration.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {
+          "languages": {
+            "default": "",
+            "title": "Languages",
+            "type": "string"
+          },
+          "timestamps": {
+            "default": true,
+            "title": "Timestamps",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "get_video_transcriptArguments",
+        "type": "object"
+      },
+      "name": "get_video_transcript",
+      "outputSchema": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "char_count": {
+            "title": "Char Count",
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "is_generated": {
+            "title": "Is Generated",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "segment_count": {
+            "title": "Segment Count",
+            "type": "integer"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "video_id": {
+            "title": "Video Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "video_id",
+          "url",
+          "title",
+          "author",
+          "language",
+          "is_generated",
+          "duration_seconds",
+          "char_count",
+          "segment_count",
+          "transcript"
+        ],
+        "title": "TranscriptResult",
+        "type": "object"
+      },
+      "title": "Get Video Transcript"
+    },
+    {
+      "_meta": null,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "List LLM providers available for analysis, which are configured, and the models each can use (Ollama is the local, no-key default).",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "properties": {},
+        "title": "list_analysis_providersArguments",
+        "type": "object"
+      },
+      "name": "list_analysis_providers",
+      "outputSchema": {
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "providers",
+          "default"
+        ],
+        "title": "ProvidersResult",
+        "type": "object"
+      },
+      "title": "List Analysis Providers"
+    }
+  ]
+}

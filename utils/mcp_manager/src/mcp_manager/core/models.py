@@ -6,8 +6,8 @@ Defines all data structures used throughout the application.
 
 from enum import Enum
 from pathlib import Path
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any, Union
+from pydantic import AfterValidator, BaseModel, Field
+from typing import Annotated, Optional, List, Dict, Any, Union
 from datetime import datetime, timedelta
 import json
 
@@ -45,9 +45,18 @@ class PlatformType(str, Enum):
     ANTIGRAVITY = "antigravity"
 
 
+def _validate_server_name(value: str) -> str:
+    if not value.replace('-', '').replace('_', '').isalnum():
+        raise ValueError("Server name must contain only alphanumeric characters, hyphens, and underscores")
+    return value
+
+
+ServerName = Annotated[str, AfterValidator(_validate_server_name)]
+
+
 class Server(BaseModel):
     """Base server model."""
-    name: str
+    name: ServerName
     server_type: ServerType
     transport: TransportType = TransportType.STDIO
     enabled: bool = True
@@ -66,12 +75,6 @@ class Server(BaseModel):
     # Configuration
     config_file: Optional[Path] = None
     environment: Dict[str, str] = Field(default_factory=dict)
-    
-    @validator('name')
-    def validate_name(cls, v):
-        if not v.replace('-', '').replace('_', '').isalnum():
-            raise ValueError("Server name must contain only alphanumeric characters, hyphens, and underscores")
-        return v
     
     def is_local(self) -> bool:
         return self.server_type == ServerType.LOCAL

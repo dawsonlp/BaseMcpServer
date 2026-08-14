@@ -1,6 +1,7 @@
 """Issue link operations: create, query, and bulk-link on creation."""
 
 import logging
+from typing import Any, NotRequired, TypedDict
 
 from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
 from exceptions import JiraError, JiraValidationError, JiraApiError
@@ -8,10 +9,45 @@ from exceptions import JiraError, JiraValidationError, JiraApiError
 logger = logging.getLogger(__name__)
 
 
+class IssueLinkInput(TypedDict):
+    issue_key: str
+    link_type: NotRequired[str]
+
+
+class LinkCreatedResult(TypedDict):
+    from_issue: str
+    to_issue: str
+    link_type: str
+    instance: str
+    message: str
+
+
+class EpicLinkResult(TypedDict):
+    epic_key: str
+    story_key: str
+    instance: str
+    message: str
+
+
+class IssueLinksResult(TypedDict):
+    key: str
+    instance: str
+    links: list[dict[str, Any]]
+    count: int
+
+
+class LinkedIssueResult(TypedDict):
+    key: str
+    instance: str
+    links_created: int
+    message: str
+    link_errors: NotRequired[list[str]]
+
+
 def create_issue_link(
     from_issue_key: str, to_issue_key: str, link_type: str = "Relates",
-    instance_name: str = None, **kwargs
-) -> dict:
+    instance_name: str | None = None,
+) -> LinkCreatedResult:
     """Create a link between two Jira issues."""
     from_key = validate_issue_key(from_issue_key)
     to_key = validate_issue_key(to_issue_key)
@@ -34,7 +70,9 @@ def create_issue_link(
         raise JiraApiError(f"Failed to create link: {e}", instance_name=name)
 
 
-def create_epic_story_link(epic_key: str, story_key: str, instance_name: str = None, **kwargs) -> dict:
+def create_epic_story_link(
+    epic_key: str, story_key: str, instance_name: str | None = None,
+) -> EpicLinkResult:
     """Create an Epic-Story link between issues."""
     e_key = validate_issue_key(epic_key)
     s_key = validate_issue_key(story_key)
@@ -62,7 +100,7 @@ def create_epic_story_link(epic_key: str, story_key: str, instance_name: str = N
         raise JiraApiError(f"Failed to create epic-story link: {e}", instance_name=name)
 
 
-def get_issue_links(issue_key: str, instance_name: str = None, **kwargs) -> dict:
+def get_issue_links(issue_key: str, instance_name: str | None = None) -> IssueLinksResult:
     """Get all links for a specific Jira issue."""
     key = validate_issue_key(issue_key)
     name = resolve_instance_name(instance_name)
@@ -95,9 +133,9 @@ def get_issue_links(issue_key: str, instance_name: str = None, **kwargs) -> dict
 
 def create_issue_with_links(
     project_key: str, summary: str, issue_type: str = "Task",
-    description: str = "", links: list = None,
-    instance_name: str = None, **kwargs
-) -> dict:
+    description: str = "", links: list[IssueLinkInput] | None = None,
+    instance_name: str | None = None,
+) -> LinkedIssueResult:
     """Create a new Jira issue with links to other issues."""
     if not project_key or not summary:
         raise JiraValidationError("project_key and summary are required.")
