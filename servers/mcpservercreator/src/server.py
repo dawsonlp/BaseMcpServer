@@ -324,7 +324,7 @@ authors = [
 ]
 dependencies = [
     # Core MCP dependencies
-    "mcp==2.0.0rc1",
+    "mcp>=2.0.0,<3.0.0",
     "PyYAML>=6.0.3",
 
     # Common utilities that may be needed
@@ -365,8 +365,6 @@ line_length = 100
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
-[tool.uv]
-prerelease = "allow"
 '''
     
     with open(server_dir / "pyproject.toml", "w") as f:
