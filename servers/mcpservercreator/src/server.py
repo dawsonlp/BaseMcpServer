@@ -80,386 +80,145 @@ def create_server_files(
         tool_names: List of tools defined in the code snippet
     """
     logger.info(f"Creating server files for '{server_name}' with {len(tool_names)} tools")
-    
-    # Own creation of the complete destination tree so callers do not have to
-    # reproduce filesystem setup that belongs to this factory.
-    server_dir.mkdir(parents=True, exist_ok=True)
+
+    template_dir = _resolve_template_dir()
+    shutil.copytree(
+        template_dir,
+        server_dir,
+        dirs_exist_ok=False,
+        ignore=shutil.ignore_patterns(
+            ".venv", ".pytest_cache", "__pycache__", "*.egg-info", "dist", "build"
+        ),
+    )
+    (server_dir / "uv.lock").unlink(missing_ok=True)
     src_dir = server_dir / "src"
-    src_dir.mkdir(exist_ok=True)
-    
-    # Create __init__.py
-    _create_init_file(src_dir, server_name)
-    
-    # Create config.py using modern approach
-    _create_config_file(src_dir, server_name)
-    _create_config_example(server_dir, server_name)
-    
-    # Parse code snippet and extract components
+
     parsed_code = ast.parse(code_snippet)
     imports = _extract_imports(parsed_code)
     _, function_defs = _extract_tool_functions(parsed_code, code_snippet)
-    
-    # Create server.py with implementation class
-    _create_server_file(src_dir, server_name, description, imports, function_defs)
-    
-    # Create tool_config.py
-    _create_tool_config_file(src_dir, server_name, tool_names)
-    
-    # Create main.py
-    _create_main_file(src_dir, server_name, description)
-    
-    # Create pyproject.toml with modern dependencies
-    _create_pyproject_file(server_dir, server_name, description, author)
-
-    # Create the package README referenced by pyproject.toml
-    _create_readme_file(server_dir, server_name, description)
-    _create_test_files(server_dir, server_name, tool_names)
-    
+    _customize_template(
+        server_dir, server_name, description, author, imports, function_defs, tool_names
+    )
     logger.info(f"Successfully created all files for server '{server_name}'")
 
 
-def _create_init_file(src_dir: Path, server_name: str) -> None:
-    """Create __init__.py file."""
-    with open(src_dir / "__init__.py", "w") as f:
-        f.write(f"# {server_name} package\n")
+def _resolve_template_dir() -> Path:
+    """Locate the canonical repository scaffold.
 
-
-def _create_config_file(src_dir: Path, server_name: str) -> None:
-    """Create a package-local YAML and environment configuration reader."""
-    config_content = f'''"""Configuration for {server_name}.
-
-Looks under ~/.config/mcp-manager/servers/{server_name}/config.yaml first
-(populated by `mcp-manager install`), then XDG, then CWD. Returns a
-sane default config if no file exists, so the server can run before the
-user fills in their own config.yaml.
-"""
-
-import os
-from pathlib import Path
-from typing import Any
-
-import yaml
-
-
-class ServerConfig:
-    def __init__(self, server_name: str, env_prefix: str):
-        self.env_prefix = env_prefix
-        candidates = (
-            Path.home() / ".config" / "mcp-manager" / "servers" / server_name / "config.yaml",
-            Path.home() / ".config" / server_name / "config.yaml",
-            Path.cwd() / "config.yaml",
-        )
-        config_path = next((path for path in candidates if path.exists()), None)
-        self.config_data: dict[str, Any] = {{}}
-        if config_path is not None:
-            self.config_data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {{}}
-
-    def get(self, section: str, key: str, default: Any = None) -> Any:
-        env_name = f"{{self.env_prefix}}_{{section.upper()}}_{{key.upper()}}"
-        if env_name in os.environ:
-            return os.environ[env_name]
-        section_data = self.config_data.get(section, {{}})
-        return section_data.get(key, default) if isinstance(section_data, dict) else default
-
-
-config = ServerConfig(
-    server_name="{server_name}",
-    env_prefix="{server_name.replace('-', '_').upper()}",
-)
-'''
-
-    with open(src_dir / "config.py", "w") as f:
-        f.write(config_content)
-
-
-def _create_config_example(server_dir: Path, server_name: str) -> None:
-    """Create a safe loopback-first configuration example."""
-    content = f'''server:
-  name: "{server_name}"
-  host: "127.0.0.1"
-  port: 7501
-  # Required when host is not loopback:
-  # allowed_hosts: ["mcp.example.com"]
-  # allowed_origins: ["https://client.example.com"]
-'''
-    with open(server_dir / "config.yaml.example", "w") as f:
-        f.write(content)
-
-
-def _create_server_file(src_dir: Path, server_name: str, description: str, imports: List[str], function_defs: List[str]) -> None:
-    """Create server.py file with implementation class."""
-    # Create implementation class methods
-    impl_methods = []
-    for func_def in function_defs:
-        # Indent the function definition for class method
-        indented_func = '\n'.join('    ' + line for line in func_def.split('\n'))
-        impl_methods.append(indented_func)
-    
-    # Build import statements for server.py
-    import_statements = [
-        "import logging",
-        "from typing import Dict, Any, List, Optional"
+    Generation intentionally fails when the canonical template is unavailable;
+    carrying a private embedded copy would recreate the drift this tool exists
+    to avoid. Packaged installations may set ``BASE_MCP_TEMPLATE_DIR`` to a
+    checkout's ``servers/template`` directory.
+    """
+    configured = os.environ.get("BASE_MCP_TEMPLATE_DIR")
+    candidates = [
+        Path(configured).expanduser() if configured else None,
+        Path(__file__).resolve().parents[2] / "template",
+        Path.cwd() / "servers" / "template",
     ]
-    
-    # Add extracted imports from code snippet (avoid duplicates)
-    for imp in imports:
-        if imp not in import_statements:
-            import_statements.append(imp)
-    
-    imports_section = '\n'.join(import_statements)
-    
-    # Create server.py with implementation class
-    server_content = f'''"""
-{description}
-
-Implementation class for {server_name} MCP server tools.
-"""
-
-{imports_section}
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+    for candidate in candidates:
+        if candidate and (candidate / "src" / "main.py").is_file():
+            return candidate
+    raise RuntimeError(
+        "Canonical servers/template scaffold not found; set BASE_MCP_TEMPLATE_DIR "
+        "to a BaseMcpServer checkout's servers/template directory"
+    )
 
 
-class {server_name.replace('-', '_').title()}Implementation:
-    """
-    Implementation class containing all MCP tool methods.
-    
-    The server factory registers these methods with MCPServer.add_tool().
-    """
-    
-{chr(10).join(impl_methods) if impl_methods else '    def placeholder_tool(self) -> Dict[str, Any]:\n        """Placeholder tool."""\n        return {"message": "No tools implemented"}'}
-'''
-    
-    with open(src_dir / "server.py", "w") as f:
-        f.write(server_content)
+def _customize_template(
+    server_dir: Path,
+    server_name: str,
+    description: str,
+    author: str,
+    imports: List[str],
+    function_defs: List[str],
+    tool_names: List[str],
+) -> None:
+    """Apply the permitted substitutions to a copied canonical template."""
+    package_name = server_name
+    env_prefix = server_name.replace("-", "_").upper()
+    main_path = server_dir / "src" / "main.py"
+    main_source = main_path.read_text(encoding="utf-8")
+    main_source = main_source.replace("template MCP server", f"{server_name} MCP server")
+    main_source = main_source.replace(
+        'DESCRIPTION = "Template MCP Server (replace this description)"',
+        f"DESCRIPTION = {description or server_name!r}",
+    )
+    main_source = main_source.replace('version("template-mcp-server")', f'version("{package_name}")')
+    main_source = main_source.replace('default="template"', f'default="{server_name}"')
+    main_source = main_source.replace("Template MCP Server", f"{server_name} MCP Server")
+    main_source = main_source.replace("Usage: template ", f"Usage: {server_name} ")
+    main_path.write_text(main_source, encoding="utf-8")
+
+    config_path = server_dir / "src" / "config.py"
+    config_source = config_path.read_text(encoding="utf-8")
+    config_source = config_source.replace("template MCP server", f"{server_name} MCP server")
+    config_source = config_source.replace(
+        'ServerConfig(server_name="template", env_prefix="TEMPLATE")',
+        f'ServerConfig(server_name="{server_name}", env_prefix="{env_prefix}")',
+    )
+    config_path.write_text(config_source, encoding="utf-8")
+
+    config_example = server_dir / "config.yaml.example"
+    config_example.write_text(
+        config_example.read_text(encoding="utf-8").replace("name: template", f"name: {server_name}"),
+        encoding="utf-8",
+    )
+
+    tools_source = "\n".join(imports + [""] + function_defs).rstrip() + "\n"
+    (server_dir / "src" / "tools.py").write_text(tools_source, encoding="utf-8")
+    _create_plain_tool_config(server_dir / "src", tool_names)
+    _customize_pyproject(server_dir, package_name, description, author)
+    _create_readme_file(server_dir, server_name, description)
+    shutil.rmtree(server_dir / "tests")
+    _create_test_files(server_dir, server_name, tool_names)
 
 
-def _create_tool_config_file(src_dir: Path, server_name: str, tool_names: List[str]) -> None:
-    """Create tool_config.py file with tool configuration."""
-    impl_class_name = f"{server_name.replace('-', '_').title()}Implementation"
-    
-    tool_entries = []
+def _create_plain_tool_config(src_dir: Path, tool_names: List[str]) -> None:
+    imports = ", ".join(tool_names)
+    entries = []
     for tool_name in tool_names:
-        tool_entries.append(f'''    '{tool_name}': {{
-        'function': _implementation.{tool_name},
-        'description': '{tool_name.replace("_", " ").title()} tool'
-    }}''')
-    
-    tool_config_content = f'''"""
-Tool configuration for {server_name}.
-
-Registered by the server factory through MCPServer.add_tool().
-"""
-
-from typing import Any, Dict
-
-from mcp.types import ToolAnnotations
-from server import {impl_class_name}
-
-
-_implementation = {impl_class_name}()
-
-
-# Single source of truth for all {server_name} tools.
-{server_name.replace('-', '_').upper()}_TOOLS: Dict[str, Dict[str, Any]] = {{
-{',\n\n'.join(tool_entries) if tool_entries else '    \'placeholder_tool\': {\n        \'function\': _implementation.placeholder_tool,\n        \'description\': \'Placeholder tool\'\n    }'}
-}}
-
-for _name, _spec in {server_name.replace('-', '_').upper()}_TOOLS.items():
-    _spec["title"] = _name.replace("_", " ").title()
-    # The generator cannot infer effects from source syntax. Keep every hint
-    # explicitly unknown until the author classifies the tool from behavior.
-    _spec["annotations"] = ToolAnnotations(
-        readOnlyHint=None,
-        destructiveHint=None,
-        idempotentHint=None,
-        openWorldHint=None,
-    )
-
-
-def get_tools_config() -> Dict[str, Dict[str, Any]]:
-    return {server_name.replace('-', '_').upper()}_TOOLS
-'''
-    
-    with open(src_dir / "tool_config.py", "w") as f:
-        f.write(tool_config_content)
-
-
-def _create_main_file(src_dir: Path, server_name: str, description: str) -> None:
-    """Create main.py file with server startup logic."""
-    main_content = f'''"""
-Main entry point for the {server_name} MCP Server.
-
-Uses MCP SDK v2 directly with factory-based tool registration.
-"""
-
-import sys
-from importlib.metadata import version
-from typing import cast
-
-from mcp.server import MCPServer
-from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
-
-from config import config
-from tool_config import get_tools_config
-
-
-PACKAGE_VERSION = version("{server_name}")
-_LOOPBACK_HOSTS = {{"127.0.0.1", "localhost", "::1"}}
-
-
-def _string_list(value: object) -> list[str]:
-    if isinstance(value, list):
-        return [str(item) for item in value if str(item)]
-    if isinstance(value, str):
-        return [item.strip() for item in value.split(",") if item.strip()]
-    return []
-
-
-def _transport_security(host: str) -> TransportSecuritySettings | None:
-    if host in _LOOPBACK_HOSTS:
-        return None
-    allowed_hosts = _string_list(config.get("server", "allowed_hosts", default=[]))
-    allowed_origins = _string_list(config.get("server", "allowed_origins", default=[]))
-    if not allowed_hosts or not allowed_origins:
-        raise ValueError(
-            "Non-loopback Streamable HTTP requires non-empty server.allowed_hosts "
-            "and server.allowed_origins."
+        entries.append(
+            f'    "{tool_name}": {{\n'
+            f'        "function": {tool_name},\n'
+            f'        "title": "{tool_name.replace("_", " ").title()}",\n'
+            f'        "description": {tool_name.replace("_", " ").title()!r},\n'
+            '        "annotations": ToolAnnotations(\n'
+            '            readOnlyHint=None, destructiveHint=None,\n'
+            '            idempotentHint=None, openWorldHint=None,\n'
+            '        ),\n'
+            '    },'
         )
-    return TransportSecuritySettings(
-        allowed_hosts=allowed_hosts, allowed_origins=allowed_origins,
+    content = (
+        '"""Tool registration metadata; classify annotations before deployment."""\n\n'
+        'from typing import Any\n\nfrom mcp.types import ToolAnnotations\n'
+        f'from tools import {imports}\n\nTOOLS: dict[str, dict[str, Any]] = {{\n'
+        + "\n".join(entries)
+        + '\n}\n\ndef get_tools_config() -> dict[str, dict[str, Any]]:\n    return TOOLS\n'
     )
+    (src_dir / "tool_config.py").write_text(content, encoding="utf-8")
 
 
-def create_server() -> MCPServer:
-    server = MCPServer(
-        name=str(config.get("server", "name", default="{server_name}")),
-        description={description!r},
-        version=PACKAGE_VERSION,
+def _customize_pyproject(
+    server_dir: Path, package_name: str, description: str, author: str
+) -> None:
+    path = server_dir / "pyproject.toml"
+    source = path.read_text(encoding="utf-8")
+    source = source.replace('name = "template-mcp-server"', f'name = "{package_name}"')
+    source = source.replace(
+        'description = "Starter template for new MCP servers in the BaseMcpServer monorepo"',
+        f'description = {json.dumps(description or package_name)}',
     )
-    for tool_name, spec in get_tools_config().items():
-        function = spec["function"]
-        if not callable(function):
-            raise TypeError(f"Tool {{tool_name!r}} does not define a callable function")
-        server.add_tool(
-            function,
-            name=tool_name,
-            title=spec["title"],
-            description=spec.get("description") or f"Tool: {{tool_name}}",
-            annotations=cast(ToolAnnotations, spec["annotations"]),
-            structured_output=True,
-        )
-    return server
-
-
-def create_app():
-    host = str(config.get("server", "host", default="localhost"))
-    return create_server().streamable_http_app(
-        host=host, transport_security=_transport_security(host),
+    source = source.replace(
+        '{name = "Your Name", email = "you@example.com"}',
+        f'{{name = {json.dumps(author)}}}',
     )
-
-
-def main() -> None:
-    args = sys.argv[1:]
-    if not args or args[0] in {{"help", "--help", "-h"}}:
-        print("Usage: {server_name} [stdio|streamable-http|sse]")
-        return
-    transport = args[1] if args[0] == "--transport" and len(args) == 2 else args[0]
-    if transport not in {{"stdio", "sse", "streamable-http"}}:
-        raise SystemExit(f"Unknown transport: {{transport}}")
-    options = {{}}
-    if transport != "stdio":
-        host = str(config.get("server", "host", default="localhost"))
-        options = {{
-            "host": host,
-            "port": int(config.get("server", "port", default=7501)),
-        }}
-        if transport == "streamable-http":
-            options["transport_security"] = _transport_security(host)
-    try:
-        create_server().run(transport, **options)
-    except KeyboardInterrupt:
-        pass
-
-
-if __name__ == "__main__":
-    main()
-'''
-    
-    with open(src_dir / "main.py", "w") as f:
-        f.write(main_content)
-
-
-def _create_pyproject_file(server_dir: Path, server_name: str, description: str, author: str) -> None:
-    """Create pyproject.toml file with modern Python packaging standards."""
-    logger.info(f"Creating pyproject.toml for server '{server_name}'")
-    
-    # Build the pyproject.toml content
-    pyproject_content = f'''[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "{server_name}"
-version = "1.0.0"
-description = "{description if description else f'Generated MCP server: {server_name}'}"
-readme = "README.md"
-requires-python = ">=3.11"
-authors = [
-    {{name = "{author}", email = "generated@example.com"}},
-]
-dependencies = [
-    # Core MCP dependencies
-    "mcp>=2.0.0,<3.0.0",
-    "PyYAML>=6.0.3",
-
-    # Common utilities that may be needed
-    "python-dateutil>=2.8.0",
-    "pydantic>=2.13.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-]
-
-[project.scripts]
-{server_name} = "main:main"
-
-[tool.setuptools]
-py-modules = ["main", "config", "server", "tool_config"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.black]
-line-length = 100
-target-version = ['py311']
-include = '\\.pyi?$'
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-asyncio_mode = "auto"
-
-'''
-    
-    with open(server_dir / "pyproject.toml", "w") as f:
-        f.write(pyproject_content)
-    
-    logger.info(f"Successfully created pyproject.toml for server '{server_name}'")
+    source = source.replace('template = "main:main"', f'{package_name} = "main:main"')
+    source = source.replace(
+        'py-modules = ["main", "config", "tool_config"]',
+        'py-modules = ["main", "config", "tools", "tool_config"]',
+    )
+    path.write_text(source, encoding="utf-8")
 
 
 def _create_readme_file(server_dir: Path, server_name: str, description: str) -> None:
@@ -538,30 +297,8 @@ def _extract_tool_functions(parsed_code: ast.Module, code_snippet: str) -> Tuple
 
 
 def _process_function_definition(func_source: str) -> Optional[str]:
-    """Turn a plain top-level function into an implementation class method."""
-    lines = func_source.split('\n')
-    filtered_lines = []
-    
-    for line in lines:
-        if line.strip().startswith(("def ", "async def ")):
-            line = _add_self_parameter(line)
-        filtered_lines.append(line)
-    
-    return '\n'.join(filtered_lines) if filtered_lines else None
-
-
-def _add_self_parameter(line: str) -> str:
-    """Add self parameter to function signature."""
-    if '(' in line and ')' in line:
-        before_paren = line[:line.find('(')]
-        after_paren = line[line.find('(') + 1:]
-        if after_paren.strip().startswith(')'):
-            # No parameters, just add self
-            return f"{before_paren}(self{after_paren}"
-        else:
-            # Has parameters, add self as first
-            return f"{before_paren}(self, {after_paren}"
-    return line
+    """Preserve a validated plain top-level tool function."""
+    return func_source.strip() or None
 
 
 def _validate_security_restrictions(parsed_code: ast.Module) -> None:
@@ -668,7 +405,7 @@ def sync_with_cline(server_name: str) -> bool:
     try:
         logger.info(f"Syncing server '{server_name}' with Cline configuration")
         result = subprocess.run(
-            ["mcp-manager", "config", "cline"],
+            ["mcp-manager", "sync", "--platform", "cline"],
             check=True,
             capture_output=True,
             text=True,
@@ -710,7 +447,7 @@ def install_server(server_dir: Path, server_name: str) -> bool:
     try:
         logger.info(f"Installing server '{server_name}' from {server_dir}")
         result = subprocess.run(
-            ["mcp-manager", "install", "local", server_name, "--source", str(server_dir), "--force"],
+            ["mcp-manager", "install", server_name, "--source", str(server_dir), "--force"],
             check=True,
             capture_output=True,
             text=True,
@@ -856,7 +593,6 @@ Currently, the MCP Server Creator has limitations:
             # Create the server files
             if server_dir.exists():
                 shutil.rmtree(server_dir)
-            server_dir.mkdir(exist_ok=True, parents=True)
             create_server_files(
                 server_dir=server_dir,
                 server_name=server_name,

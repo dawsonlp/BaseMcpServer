@@ -7,6 +7,9 @@ import pytest
 from mcp.client import Client
 
 from main import create_app, create_server
+import subprocess
+
+import server as server_module
 from server import create_server_files, validate_code_snippet
 from tool_config import get_tools_config
 
@@ -55,6 +58,7 @@ def add_numbers(a: int, b: int) -> dict[str, int]:
 
     main_source = (server_dir / "src" / "main.py").read_text()
     tool_config_source = (server_dir / "src" / "tool_config.py").read_text()
+    tools_source = (server_dir / "src" / "tools.py").read_text()
     pyproject = (server_dir / "pyproject.toml").read_text()
     config_example = (server_dir / "config.yaml.example").read_text()
     assert "def create_server() -> MCPServer:" in main_source
@@ -65,12 +69,14 @@ def add_numbers(a: int, b: int) -> dict[str, int]:
     assert "TransportSecuritySettings" in main_source
     assert "ToolAnnotations" in tool_config_source
     assert "readOnlyHint=None" in tool_config_source
-    assert 'host: "127.0.0.1"' in config_example
+    assert "host: localhost" in config_example
+    assert "def add_numbers(a: int, b: int)" in tools_source
+    assert "self" not in tools_source
     assert "allowed_hosts" in config_example
     assert '"mcp>=2.0.0,<3.0.0"' in pyproject
     assert "prerelease" not in pyproject
     assert "mcp-commons" not in pyproject
-    assert 'py-modules = ["main", "config", "server", "tool_config"]' in pyproject
+    assert 'py-modules = ["main", "config", "tools", "tool_config"]' in pyproject
     assert (server_dir / "README.md").exists()
     for python_file in (server_dir / "src").glob("*.py"):
         compile(python_file.read_text(), str(python_file), "exec")
@@ -84,6 +90,22 @@ def decorated_tool() -> dict:
 '''
     with pytest.raises(ValueError, match="Decorators are not accepted"):
         validate_code_snippet(snippet)
+
+
+def test_manager_commands_follow_flat_cli_contract(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(server_module.subprocess, "run", fake_run)
+    assert server_module.install_server(tmp_path, "example") is True
+    assert server_module.sync_with_cline("example") is True
+    assert calls == [
+        ["mcp-manager", "install", "example", "--source", str(tmp_path), "--force"],
+        ["mcp-manager", "sync", "--platform", "cline"],
+    ]
 
 
 @pytest.mark.parametrize(

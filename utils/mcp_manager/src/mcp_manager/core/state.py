@@ -10,9 +10,21 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import os
+import sys
 
 from mcp_manager import __version__
 from mcp_manager.core.models import Server
+
+
+SUPPORTED_PLATFORMS = {"darwin", "linux"}
+
+
+def ensure_supported_platform() -> None:
+    """Fail explicitly outside the operating systems this project tests."""
+    if sys.platform not in SUPPORTED_PLATFORMS:
+        raise RuntimeError(
+            f"mcp-manager supports macOS and Linux; unsupported platform: {sys.platform}"
+        )
 
 
 def get_mcp_home() -> Path:
@@ -47,26 +59,16 @@ def get_registry_file() -> Path:
 
 def get_vscode_cline_settings_path() -> Path:
     """Get the path to the VS Code Cline settings file."""
-    import sys
-    
     if sys.platform == "darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
-    elif sys.platform == "win32":  # Windows
-        return Path.home() / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
-    else:  # Linux and others
-        return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
 
 
 def get_claude_desktop_settings_path() -> Path:
     """Get the path to the Claude Desktop settings file."""
-    import sys
-
     if sys.platform == "darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
-    elif sys.platform == "win32":  # Windows
-        return Path.home() / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
-    else:  # Linux and others
-        return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+    return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
 
 
 def get_vscode_mcp_settings_path() -> Path:
@@ -75,14 +77,9 @@ def get_vscode_mcp_settings_path() -> Path:
     This is VS Code's own MCP support (Copilot), distinct from the Cline
     extension. Entries live under a top-level `servers` key.
     """
-    import sys
-
     if sys.platform == "darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / "Code" / "User" / "mcp.json"
-    elif sys.platform == "win32":  # Windows
-        return Path.home() / "AppData" / "Roaming" / "Code" / "User" / "mcp.json"
-    else:  # Linux and others
-        return Path.home() / ".config" / "Code" / "User" / "mcp.json"
+    return Path.home() / ".config" / "Code" / "User" / "mcp.json"
 
 
 def get_antigravity_mcp_settings_path() -> Path:

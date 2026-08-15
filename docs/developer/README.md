@@ -19,21 +19,20 @@ rules for maintained and generated servers.
 Technical documentation for the MCP result adapter system, including implementation details and usage patterns.
 
 ### [MCP Client Support Research](mcp-client-support.md)
-Research findings and configuration formats for extending mcp-manager to additional MCP clients (Claude Code, ChatGPT, etc.) beyond the currently-supported Cline and Claude Desktop.
+Historical research and configuration notes used while extending mcp-manager beyond its original Cline and Claude Desktop support. Treat the implementation and `utils/mcp_manager/README.md` as authoritative for current support.
 
 ## Architecture & Patterns
 
-This project follows hexagonal (ports-and-adapters) architecture principles:
-
-- **Domain Layer**: Core business logic and models
-- **Application Layer**: Use cases and service orchestration  
-- **Infrastructure Layer**: External integrations (databases, APIs)
-- **Adapters Layer**: Protocol-specific implementations (MCP, HTTP)
+The maintained servers use a deliberately small structure: plain business
+functions, a tool-registration map, and a direct MCP server factory. The
+manager keeps its registry model separate from client-specific file and CLI
+adapters. Do not introduce additional architectural layers without a concrete
+behavioral need.
 
 ## Development Workflow
 
 1. **Setup**: Use the server template in `servers/template/` as a starting point
-2. **Architecture**: Follow domain-driven design principles
+2. **Architecture**: Preserve the direct SDK factory and explicit registration boundaries
 3. **Testing**: Separate unit tests from integration tests
 4. **Documentation**: Update relevant docs and ADRs for architectural decisions
 

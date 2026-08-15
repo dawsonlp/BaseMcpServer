@@ -17,7 +17,7 @@
 
 Specifically:
 
-- `mcp-manager install local` runs `uv venv <server>/.venv` then `uv pip install --python <venv-python> <source>` (no fallbacks, no flags to pick a mode).
+- `mcp-manager install` runs `uv venv <server>/.venv` then `uv pip install --python <venv-python> <source>` (no fallbacks, no flags to pick a mode).
 - The `InstallationType` enum collapses to a single live value (`uv`); the `pipx` and `venv` values are gone.
 - The `virtualenv` library is dropped as a dependency (uv handles venv creation).
 - `mcp-manager` itself is published for installation via `uv tool install` (pipx is no longer documented as the install path).
@@ -28,7 +28,7 @@ Specifically:
 mcp-manager 1.2.0 (the cleanup release that finalized this decision) removed the validators that auto-migrated legacy state values. Old registry entries (`installation_type: "pipx"` or `"venv"`, `server_type: "local_stdio"` / `"local_sse"`, etc.) are skipped on load with a clear, actionable message:
 
 ```
-mcp-manager install local <name> --source <path> --force
+mcp-manager install <name> --source <path> --force
 ```
 
 Per-server `config.yaml` files (API keys, credentials) under `~/.config/mcp-manager/servers/<name>/` are preserved automatically across reinstall — `install local --force` backs up and restores `config.yaml`. The auto-migration of `~/.mcp_servers` → `~/.config/mcp-manager` was also removed; the new install root has been the only documented location for years.
@@ -39,14 +39,14 @@ Per-server `config.yaml` files (API keys, credentials) under `~/.config/mcp-mana
 
 - **One install method to document and reason about.** Reduced ~250 lines of branching code and several confusingly-named flags.
 - **No `virtualenv` dependency.** uv supplies a faster, statically-linked venv creator.
-- **Aligned with the wider project's install story.** Everything in this repo now installs via `uv tool install` or `mcp-manager install local`; the words "pipx" and "virtualenv" are no longer needed in user-facing docs.
+- **Aligned with the wider project's install story.** Everything in this repo now installs via `uv tool install` or `mcp-manager install`; the words "pipx" and "virtualenv" are no longer needed in user-facing docs.
 - **Cache wins on reinstall.** uv's content-addressed cache makes `--force` reinstalls noticeably faster.
 
 ### Negative
 
-- **uv is now a hard requirement on `PATH`.** `mcp-manager install local` fails fast with a helpful install pointer if `shutil.which("uv")` returns None.
+- **uv is now a hard requirement on `PATH`.** `mcp-manager install` fails fast with a helpful install pointer if `shutil.which("uv")` returns None.
 - **Loss of `pipx` as an alternative install channel for mcp-manager itself.** A user who already has pipx but not uv has one more tool to install. We judged this an acceptable trade for narrative simplicity.
-- **No automatic migration of pre-1.1.0 registry entries.** Affected users must run `mcp-manager install local <name> --source <path> --force` per server. Config files survive; the registry entry is rewritten.
+- **No automatic migration of pre-1.1.0 registry entries.** Affected users must run `mcp-manager install <name> --source <path> --force` per server. Config files survive; the registry entry is rewritten.
 
 ## Implementation
 

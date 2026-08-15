@@ -28,7 +28,7 @@ from mcp_manager.cli.commands.info import list_servers, show_status
 from mcp_manager.cli.commands.install import install_local
 from mcp_manager.cli.common.errors import handle_error
 from mcp_manager.cli.common.output import get_output_manager
-from mcp_manager.core.state import create_directory_structure, get_mcp_home
+from mcp_manager.core.state import create_directory_structure, ensure_supported_platform, get_mcp_home
 
 app = typer.Typer(
     help="🚀 MCP Manager: install local MCP servers and sync them into your AI tools.",
@@ -51,6 +51,7 @@ def callback(
     if ctx.invoked_subcommand is None:
         get_output_manager().console.print(ctx.get_help())
         raise typer.Exit()
+    ensure_supported_platform()
     create_directory_structure()
 
 

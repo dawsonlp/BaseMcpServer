@@ -20,7 +20,7 @@ BaseMcpServer/
 └── QUICKSTART.md              # End-to-end jira-helper onboarding
 ```
 
-Every server in this repo is a Python package installable via `mcp-manager install`, gets its own isolated [`uv`](https://docs.astral.sh/uv/)-managed environment under `~/.config/mcp-manager/servers/<name>/.venv`, and is wired into VS Code/Cline + Claude Desktop with a single `mcp-manager sync` call.
+Every server in this repo is a Python package installable via `mcp-manager install`, gets its own isolated [`uv`](https://docs.astral.sh/uv/)-managed environment under `~/.config/mcp-manager/servers/<name>/.venv`, and can be wired into supported MCP clients with a single `mcp-manager sync` call. The repository currently supports and tests macOS and Linux; Windows is explicitly out of scope.
 
 ## Quick install
 
@@ -39,7 +39,7 @@ mcp-manager install loadbearing-youtube --source ./servers/loadbearing-youtube
 # 3. Edit the per-server config files (where credentials go) — see each server's README
 $EDITOR ~/.config/mcp-manager/servers/jira-helper/config.yaml
 
-# 4. Wire the servers into Cline + Claude Desktop
+# 4. Wire the servers into installed supported clients
 mcp-manager sync
 ```
 
@@ -56,13 +56,13 @@ For dynamically generating a server from a code snippet, see the [`mcpservercrea
 ## Connecting clients
 
 ```bash
-mcp-manager sync      # write to both Cline + Claude Desktop
+mcp-manager sync      # sync every detected supported client
 # or selectively:
 mcp-manager sync --platform cline
-mcp-manager sync --platform claude
+mcp-manager sync --platform codex
 ```
 
-`mcp-manager` writes `mcpServers` entries that point at `~/.config/mcp-manager/servers/<name>/.venv/bin/<name>` over stdio. Restart your editor for the new entries to take effect.
+`mcp-manager` supports Cline, Claude Desktop, Claude Code, VS Code native MCP, Codex, and Antigravity. It writes or delegates stdio entries that point at the executable in each server's managed environment. Restart the affected client for new entries to take effect.
 
 Example entry (written automatically; shown for reference):
 ```json

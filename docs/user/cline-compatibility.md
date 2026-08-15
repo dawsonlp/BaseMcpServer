@@ -65,7 +65,7 @@ mcp.run(transport="sse")
 
 ### 4. Cross-Platform Compatibility
 - Avoid hardcoded paths
-- Test on Windows, macOS, and Linux
+- Test on macOS and Linux. Windows is not currently supported because the project has no Windows verification environment.
 - Handle character encoding properly
 - Support both regular VS Code and VSCodium
 
@@ -116,12 +116,12 @@ npx @modelcontextprotocol/inspector
 
 1. **Check Issue #4391** - Comprehensive issue tracker
 2. **Test with MCP Inspector** - Verify server works outside Cline
-3. **Use SSE Transport** - Most reliable option currently
+3. **Prefer stdio locally** - Use Streamable HTTP for intentional network deployments; retain SSE only for legacy clients
 4. **Report New Issues** - Help improve Cline's MCP support
 
 ## Summary
 
-MCP server development for Cline requires careful attention to transport selection, configuration format, and known compatibility issues. Use SSE transport, avoid StreamableHttpTransport, and implement robust error handling. Monitor the GitHub issue tracker for updates and fixes.
+MCP server development for Cline requires careful attention to transport selection, configuration format, and known compatibility issues. This repository uses stdio for locally managed clients and Streamable HTTP for intentional network deployments; SSE remains available only for legacy clients. Monitor the current Cline issue tracker before relying on older compatibility observations in this document.
 
 The MCP ecosystem is rapidly evolving, and many of these issues are being actively addressed by the Cline development team.
 

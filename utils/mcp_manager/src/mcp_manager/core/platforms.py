@@ -21,9 +21,10 @@ the install (venv_dir + source_dir).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
-import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -213,10 +214,8 @@ def _resolve_console_script(server: Server) -> Optional[str]:
 def _server_executable_path(server: Server) -> Optional[Path]:
     if not server.venv_dir:
         return None
-    bin_dir = "Scripts" if sys.platform == "win32" else "bin"
-    suffix = ".exe" if sys.platform == "win32" else ""
     script_name = _resolve_console_script(server) or server.name
-    return server.venv_dir / bin_dir / f"{script_name}{suffix}"
+    return server.venv_dir / "bin" / script_name
 
 
 def _resolved_command(server: Server) -> Optional[Tuple[str, List[str]]]:
@@ -286,14 +285,25 @@ def read_platform_settings(platform: PlatformType) -> Dict[str, Any]:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"Cannot safely read {platform.value} settings at {path}: {error}") from error
 
 
 def write_platform_settings(platform: PlatformType, settings: Dict[str, Any]) -> None:
     path = get_platform_settings_path(platform)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(settings, stream, indent=2, ensure_ascii=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def _sync_to_file_platform(

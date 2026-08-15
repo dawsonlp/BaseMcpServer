@@ -100,11 +100,7 @@ class Server(BaseModel):
         if not self.is_local() or not self.venv_dir:
             return None
         
-        import sys
-        if sys.platform == "win32":
-            return self.venv_dir / "Scripts" / "python.exe"
-        else:
-            return self.venv_dir / "bin" / "python"
+        return self.venv_dir / "bin" / "python"
 
 
 class ValidationError(BaseModel):
