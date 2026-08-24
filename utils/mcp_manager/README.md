@@ -3,6 +3,10 @@
 A small command-line tool that installs local MCP servers into isolated
 environments and syncs one registry into every AI client you use.
 
+Supported operating systems are macOS and Linux. Windows is deliberately out
+of scope until the project has access to a Windows system for behavioral
+verification; the CLI fails explicitly rather than pretending partial support.
+
 ## What it does
 
 - Installs a local MCP server into its own uv-managed environment.

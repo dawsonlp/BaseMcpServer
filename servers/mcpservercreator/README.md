@@ -28,6 +28,7 @@ For detailed security information, use the `help` tool after installation.
 ## Features
 
 - Generate complete MCP servers from Python code snippets
+- Copy the canonical `servers/template` scaffold so generated structure cannot drift independently
 - Automatically validate code for security concerns
 - Install the generated servers locally with mcp-manager
 - List all installed MCP servers
@@ -67,6 +68,11 @@ To create a new MCP server, use the `create_mcp_server` tool with the following 
 - `server_name`: Name for the new MCP server (alphanumeric with optional hyphens)
 - `description`: Optional description for the server
 - `author`: Optional author name for the server
+
+The creator must be able to locate the canonical `servers/template` directory.
+When it is run outside a BaseMcpServer checkout, set `BASE_MCP_TEMPLATE_DIR` to
+that directory explicitly. It will fail instead of falling back to a stale
+embedded scaffold.
 
 Example:
 
