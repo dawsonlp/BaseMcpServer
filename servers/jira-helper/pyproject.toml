@@ -17,7 +17,7 @@ dependencies = [
     "pydantic>=2.0.0,<3.0.0",
     
     # Jira/Confluence integration 
-    "atlassian-python-api>=4.0.7",
+    "atlassian-python-api>=5.0.3",
     
     # Configuration
     "PyYAML>=6.0.3",

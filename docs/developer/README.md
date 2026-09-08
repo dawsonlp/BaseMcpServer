@@ -8,6 +8,10 @@ This directory contains technical documentation for developers building and exte
 Status-bearing implementation checklist for dependency upgrades, MCP v2 adoption,
 verification, and managed local deployment.
 
+### [MCP Python SDK 2.2.0 Assessment](mcp-sdk-2.2.0-assessment.md)
+Per-server impact analysis, dependency results, and the boundary between the
+upstream development CLI and MCP Manager.
+
 ### [Build Your Own MCP Server](BUILD_A_NEW_MCP.md)
 Complete guide for creating new MCP (Model Context Protocol) servers, including setup, development patterns, and best practices.
 
