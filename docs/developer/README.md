@@ -4,6 +4,9 @@ This directory contains technical documentation for developers building and exte
 
 ## Available Documentation
 
+### [Dependency Refresh — September 25, 2026](dependency-refresh-2026-09-25.md)
+Resolved versions, SDK guidance review, and validation evidence.
+
 ### [MCP Python SDK v2 Upgrade Development Checklist](development-checklist.md)
 Status-bearing implementation checklist for dependency upgrades, MCP v2 adoption,
 verification, and managed local deployment.

@@ -204,7 +204,7 @@ def analyze_video(
     provider: str = "",
     model: str = "",
     languages: str = "",
-    ctx: Context | None = None,
+    ctx: Context[LifespanState] | None = None,
 ) -> dict[str, Any]:
     """Extract a video's transcript and expose its LOAD-BEARING components:
     the claims, decisions, tradeoffs, and verdicts the video's conclusion

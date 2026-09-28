@@ -13,11 +13,11 @@ authors = [
 ]
 dependencies = [
     "mcp>=2.0.0,<3.0.0",
-    "pydantic-settings>=2.13.1",
+    "pydantic-settings>=2.15.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.0"]
+dev = ["pytest>=9.1.1"]
 
 [project.scripts]
 mcpservercreator = "main:main"

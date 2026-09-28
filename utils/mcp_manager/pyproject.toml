@@ -12,14 +12,14 @@ authors = [
     {name = "Larry Dawson", email = "larry.dawson@gmail.com"},
 ]
 dependencies = [
-    "typer>=0.24.1",           # CLI framework
-    "pydantic>=2.12.5",       # Data validation
-    "rich>=14.3.3",           # Rich text and formatting
+    "typer>=0.27.2",           # CLI framework
+    "pydantic>=2.13.5",       # Data validation
+    "rich>=15.0.0",           # Rich text and formatting
     "pyyaml>=6.0.3",          # YAML parsing
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.0"]
+dev = ["pytest>=9.1.1"]
 
 [project.scripts]
 mcp-manager = "mcp_manager.cli:app"
