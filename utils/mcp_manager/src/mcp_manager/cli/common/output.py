@@ -6,13 +6,13 @@ Status/health tables lived here for the removed process-management features and
 are gone; commands render their own tables directly.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Optional
 
 from rich.console import Console
 
 
-class StatusIcon(str, Enum):
+class StatusIcon(StrEnum):
     """Status icons for consistent messages."""
 
     SUCCESS = "✅"
