@@ -4,7 +4,9 @@ Date: 2026-09-30
 
 Status: implemented and verified on branch `improve/jira-helper-mcp-integration`.
 The user authorized branching and implementation after reviewing this plan.
-Managed installation and publication were not requested and have not occurred.
+The subsequent release request authorizes pushing this branch and tagging the
+repository as `v1.9.0`, with Jira Helper package version `2.3.0`. Managed
+installation remains outside this release.
 
 ## Vision and scope
 

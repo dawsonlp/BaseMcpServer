@@ -28,7 +28,7 @@
     "icons": null,
     "name": "jira-helper-server",
     "title": null,
-    "version": "2.2.0",
+    "version": "2.3.0",
     "websiteUrl": null
   },
   "tools": [
@@ -64,6 +64,36 @@
       },
       "name": "list_jira_projects",
       "outputSchema": {
+        "$defs": {
+          "ProjectInfo": {
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "project_type": {
+                "title": "Project Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "name",
+              "id",
+              "project_type"
+            ],
+            "title": "ProjectInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -75,8 +105,7 @@
           },
           "projects": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/ProjectInfo"
             },
             "title": "Projects",
             "type": "array"
@@ -636,6 +665,31 @@
       },
       "name": "get_issue_transitions",
       "outputSchema": {
+        "$defs": {
+          "TransitionInfo": {
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "to_status": {
+                "title": "To Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "to_status"
+            ],
+            "title": "TransitionInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -651,8 +705,7 @@
           },
           "transitions": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/TransitionInfo"
             },
             "title": "Transitions",
             "type": "array"
@@ -824,6 +877,51 @@
       },
       "name": "list_project_tickets",
       "outputSchema": {
+        "$defs": {
+          "IssueSummary": {
+            "properties": {
+              "assignee": {
+                "title": "Assignee",
+                "type": "string"
+              },
+              "issue_type": {
+                "title": "Issue Type",
+                "type": "string"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "priority": {
+                "title": "Priority",
+                "type": "string"
+              },
+              "project": {
+                "title": "Project",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "summary",
+              "status",
+              "assignee",
+              "priority",
+              "issue_type",
+              "project"
+            ],
+            "title": "IssueSummary",
+            "type": "object"
+          }
+        },
         "properties": {
           "instance": {
             "title": "Instance",
@@ -831,8 +929,7 @@
           },
           "issues": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/IssueSummary"
             },
             "title": "Issues",
             "type": "array"
@@ -889,6 +986,36 @@
       },
       "name": "get_custom_field_mappings",
       "outputSchema": {
+        "$defs": {
+          "CustomFieldInfo": {
+            "properties": {
+              "custom_type": {
+                "title": "Custom Type",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "type",
+              "custom_type"
+            ],
+            "title": "CustomFieldInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -896,8 +1023,7 @@
           },
           "custom_fields": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/CustomFieldInfo"
             },
             "title": "Custom Fields",
             "type": "array"
@@ -971,8 +1097,118 @@
       },
       "name": "generate_project_workflow_graph",
       "outputSchema": {
-        "additionalProperties": true,
-        "title": "generate_project_workflow_graphDictOutput",
+        "$defs": {
+          "WorkflowData": {
+            "properties": {
+              "statuses": {
+                "items": {
+                  "$ref": "#/$defs/WorkflowStatus"
+                },
+                "title": "Statuses",
+                "type": "array"
+              },
+              "transitions": {
+                "items": {
+                  "$ref": "#/$defs/WorkflowTransition"
+                },
+                "title": "Transitions",
+                "type": "array"
+              }
+            },
+            "required": [
+              "statuses",
+              "transitions"
+            ],
+            "title": "WorkflowData",
+            "type": "object"
+          },
+          "WorkflowStatus": {
+            "properties": {
+              "category": {
+                "title": "Category",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "category"
+            ],
+            "title": "WorkflowStatus",
+            "type": "object"
+          },
+          "WorkflowTransition": {
+            "properties": {
+              "from_status": {
+                "title": "From Status",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "to_status": {
+                "title": "To Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "from_status",
+              "to_status"
+            ],
+            "title": "WorkflowTransition",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "format": {
+            "enum": [
+              "png",
+              "svg",
+              "json"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "resource_uri": {
+            "title": "Resource Uri",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/$defs/WorkflowData"
+          }
+        },
+        "required": [
+          "project_key",
+          "issue_type",
+          "instance",
+          "format"
+        ],
+        "title": "WorkflowResult",
         "type": "object"
       },
       "title": "Generate Project Workflow Graph"
@@ -996,6 +1232,41 @@
       },
       "name": "list_jira_instances",
       "outputSchema": {
+        "$defs": {
+          "InstanceInfo": {
+            "properties": {
+              "description": {
+                "title": "Description",
+                "type": "string"
+              },
+              "is_default": {
+                "title": "Is Default",
+                "type": "boolean"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "url": {
+                "title": "Url",
+                "type": "string"
+              },
+              "user": {
+                "title": "User",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "url",
+              "user",
+              "description",
+              "is_default"
+            ],
+            "title": "InstanceInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -1003,8 +1274,7 @@
           },
           "instances": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/InstanceInfo"
             },
             "title": "Instances",
             "type": "array"
@@ -1227,6 +1497,51 @@
       },
       "name": "search_jira_issues",
       "outputSchema": {
+        "$defs": {
+          "IssueSummary": {
+            "properties": {
+              "assignee": {
+                "title": "Assignee",
+                "type": "string"
+              },
+              "issue_type": {
+                "title": "Issue Type",
+                "type": "string"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "priority": {
+                "title": "Priority",
+                "type": "string"
+              },
+              "project": {
+                "title": "Project",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "summary",
+              "status",
+              "assignee",
+              "priority",
+              "issue_type",
+              "project"
+            ],
+            "title": "IssueSummary",
+            "type": "object"
+          }
+        },
         "properties": {
           "instance": {
             "title": "Instance",
@@ -1234,8 +1549,7 @@
           },
           "issues": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/IssueSummary"
             },
             "title": "Issues",
             "type": "array"
@@ -1509,6 +1823,37 @@
       },
       "name": "get_issue_links",
       "outputSchema": {
+        "$defs": {
+          "IssueLinkInfo": {
+            "properties": {
+              "direction": {
+                "title": "Direction",
+                "type": "string"
+              },
+              "issue_key": {
+                "title": "Issue Key",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "title": "IssueLinkInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -1524,8 +1869,7 @@
           },
           "links": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/IssueLinkInfo"
             },
             "title": "Links",
             "type": "array"
@@ -1640,7 +1984,6 @@
             "type": "string"
           },
           "link_errors": {
-            "default": null,
             "items": {
               "type": "string"
             },
@@ -1803,6 +2146,45 @@
       },
       "name": "get_work_logs",
       "outputSchema": {
+        "$defs": {
+          "WorkLogInfo": {
+            "properties": {
+              "author": {
+                "title": "Author",
+                "type": "string"
+              },
+              "comment": {
+                "title": "Comment"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "started": {
+                "title": "Started",
+                "type": "string"
+              },
+              "time_spent": {
+                "title": "Time Spent",
+                "type": "string"
+              },
+              "time_spent_seconds": {
+                "title": "Time Spent Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "author",
+              "time_spent",
+              "time_spent_seconds",
+              "started",
+              "comment"
+            ],
+            "title": "WorkLogInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -1818,8 +2200,7 @@
           },
           "worklogs": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/WorkLogInfo"
             },
             "title": "Worklogs",
             "type": "array"
@@ -1875,6 +2256,46 @@
       },
       "name": "get_time_tracking_info",
       "outputSchema": {
+        "$defs": {
+          "TimeTrackingInfo": {
+            "properties": {
+              "original_estimate": {
+                "title": "Original Estimate",
+                "type": "string"
+              },
+              "original_estimate_seconds": {
+                "title": "Original Estimate Seconds",
+                "type": "integer"
+              },
+              "remaining_estimate": {
+                "title": "Remaining Estimate",
+                "type": "string"
+              },
+              "remaining_estimate_seconds": {
+                "title": "Remaining Estimate Seconds",
+                "type": "integer"
+              },
+              "time_spent": {
+                "title": "Time Spent",
+                "type": "string"
+              },
+              "time_spent_seconds": {
+                "title": "Time Spent Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "original_estimate",
+              "remaining_estimate",
+              "time_spent",
+              "original_estimate_seconds",
+              "remaining_estimate_seconds",
+              "time_spent_seconds"
+            ],
+            "title": "TimeTrackingInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "instance": {
             "title": "Instance",
@@ -1885,9 +2306,7 @@
             "type": "string"
           },
           "time_tracking": {
-            "additionalProperties": true,
-            "title": "Time Tracking",
-            "type": "object"
+            "$ref": "#/$defs/TimeTrackingInfo"
           }
         },
         "required": [
@@ -2112,11 +2531,50 @@
       },
       "name": "list_issue_attachments",
       "outputSchema": {
+        "$defs": {
+          "AttachmentInfo": {
+            "properties": {
+              "author": {
+                "title": "Author",
+                "type": "string"
+              },
+              "created": {
+                "title": "Created",
+                "type": "string"
+              },
+              "filename": {
+                "title": "Filename",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "mime_type": {
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "size": {
+                "title": "Size",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "filename",
+              "size",
+              "mime_type",
+              "created",
+              "author"
+            ],
+            "title": "AttachmentInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "attachments": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/AttachmentInfo"
             },
             "title": "Attachments",
             "type": "array"
@@ -2240,6 +2698,36 @@
       },
       "name": "list_confluence_spaces",
       "outputSchema": {
+        "$defs": {
+          "SpaceInfo": {
+            "properties": {
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "name",
+              "type",
+              "status"
+            ],
+            "title": "SpaceInfo",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -2251,8 +2739,7 @@
           },
           "spaces": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/SpaceInfo"
             },
             "title": "Spaces",
             "type": "array"
@@ -2314,6 +2801,36 @@
       },
       "name": "list_confluence_pages",
       "outputSchema": {
+        "$defs": {
+          "PageSummary": {
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "title": {
+                "title": "Title",
+                "type": "string"
+              },
+              "version": {
+                "title": "Version",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "status",
+              "version"
+            ],
+            "title": "PageSummary",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -2325,8 +2842,7 @@
           },
           "pages": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/PageSummary"
             },
             "title": "Pages",
             "type": "array"
@@ -2417,7 +2933,6 @@
       "outputSchema": {
         "properties": {
           "body": {
-            "default": null,
             "title": "Body",
             "type": "string"
           },
@@ -2426,7 +2941,6 @@
             "type": "boolean"
           },
           "id": {
-            "default": null,
             "title": "Id",
             "type": "string"
           },
@@ -2435,27 +2949,22 @@
             "type": "string"
           },
           "message": {
-            "default": null,
             "title": "Message",
             "type": "string"
           },
           "space_key": {
-            "default": null,
             "title": "Space Key",
             "type": "string"
           },
           "status": {
-            "default": null,
             "title": "Status",
             "type": "string"
           },
           "title": {
-            "default": null,
             "title": "Title",
             "type": "string"
           },
           "version": {
-            "default": null,
             "title": "Version",
             "type": "integer"
           }
@@ -2515,6 +3024,36 @@
       },
       "name": "search_confluence_pages",
       "outputSchema": {
+        "$defs": {
+          "PageSearchHit": {
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "space_key": {
+                "title": "Space Key",
+                "type": "string"
+              },
+              "title": {
+                "title": "Title",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "type",
+              "space_key"
+            ],
+            "title": "PageSearchHit",
+            "type": "object"
+          }
+        },
         "properties": {
           "count": {
             "title": "Count",
@@ -2526,8 +3065,7 @@
           },
           "pages": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/PageSearchHit"
             },
             "title": "Pages",
             "type": "array"

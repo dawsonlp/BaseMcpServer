@@ -2,7 +2,7 @@
 
 A Jira and Confluence integration MCP server providing 32 tools for issue management, search, time tracking, workflow visualization, file operations, and Confluence page management.
 
-**Version:** 2.0.0
+**Version:** 2.3.0
 
 ## Architecture
 
