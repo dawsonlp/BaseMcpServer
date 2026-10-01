@@ -2,16 +2,21 @@
 
 import encodings.idna  # noqa: F401 -- required by headless macOS stdio subprocesses
 import logging
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
 import sys
 from importlib.metadata import version
 from logging import FileHandler
 from typing import Literal, cast
 
+import anyio
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from config import settings
+from jira_client import ClientRegistry
+from runtime import RuntimeState
 from tool_config import get_resources, get_tools_config
 
 Transport = Literal["stdio", "sse", "streamable-http"]
@@ -36,9 +41,26 @@ def _transport_security(host: str) -> TransportSecuritySettings | None:
     )
 
 
-def create_server() -> MCPServer:
+def create_server(
+    *, client_registry_factory: Callable[[], ClientRegistry] | None = None
+) -> MCPServer[RuntimeState]:
     """Build a new server and register tools through the public SDK API."""
+
+    @asynccontextmanager
+    async def lifespan(_server: MCPServer[RuntimeState]) -> AsyncIterator[RuntimeState]:
+        clients = (
+            client_registry_factory()
+            if client_registry_factory is not None
+            else ClientRegistry(settings)
+        )
+        try:
+            yield RuntimeState(clients)
+        finally:
+            with anyio.CancelScope(shield=True):
+                await anyio.to_thread.run_sync(clients.close)
+
     server = MCPServer(
+        lifespan=lifespan,
         name=settings.server_name,
         description=DESCRIPTION,
         version=PACKAGE_VERSION,
@@ -64,7 +86,8 @@ def create_server() -> MCPServer:
 def create_app():
     """Build a Streamable HTTP ASGI app for an external ASGI server."""
     return create_server().streamable_http_app(
-        host=settings.host, transport_security=_transport_security(settings.host),
+        host=settings.host,
+        transport_security=_transport_security(settings.host),
     )
 
 
@@ -92,7 +115,9 @@ def _parse_transport(argv: list[str] | None = None) -> Transport | None:
     else:
         raise SystemExit("Expected one transport argument; use --help for usage")
     if value not in TRANSPORTS:
-        raise SystemExit(f"Unknown transport {value!r}; choose one of {', '.join(TRANSPORTS)}")
+        raise SystemExit(
+            f"Unknown transport {value!r}; choose one of {', '.join(TRANSPORTS)}"
+        )
     return cast(Transport, value)
 
 

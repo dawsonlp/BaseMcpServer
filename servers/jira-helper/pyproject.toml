@@ -39,7 +39,7 @@ dev = [
 jira-helper = "main:main"
 
 [tool.setuptools]
-py-modules = ["main", "config", "tool_config", "jira_client", "exceptions", "output_sanitizer"]
+py-modules = ["main", "config", "tool_config", "jira_client", "exceptions", "output_sanitizer", "mcp_adapters", "runtime"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

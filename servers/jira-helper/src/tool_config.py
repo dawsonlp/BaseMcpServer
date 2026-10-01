@@ -5,9 +5,11 @@ Maps tool names to implementation functions for factory-based SDK registration.
 """
 
 from mcp.types import ToolAnnotations
+from tools.workflow import WORKFLOW_RESOURCE_PATHS, WORKFLOW_RESOURCE_URIS
 from mcp.server.mcpserver.resources import FileResource
+from mcp.server.mcpserver.exceptions import ResourceNotFoundError
 
-from tools.issues import (
+from mcp_adapters import (
     list_jira_projects,
     get_issue_details,
     get_full_issue_details,
@@ -18,33 +20,31 @@ from tools.issues import (
     list_jira_instances,
     get_custom_field_mappings,
 )
-from tools.search import (
+from mcp_adapters import (
     search_jira_issues,
     list_project_tickets,
     validate_jql_query,
 )
-from tools.comments import (
+from mcp_adapters import (
     add_comment_to_jira_ticket,
     get_issue_transitions,
 )
-from tools.links import (
+from mcp_adapters import (
     create_issue_link,
     create_epic_story_link,
     get_issue_links,
     create_issue_with_links,
 )
-from tools.time_tracking import (
+from mcp_adapters import (
     log_work,
     get_work_logs,
     get_time_tracking_info,
     update_time_estimates,
 )
-from tools.workflow import (
+from mcp_adapters import (
     generate_project_workflow_graph,
-    WORKFLOW_RESOURCE_PATHS,
-    WORKFLOW_RESOURCE_URIS,
 )
-from tools.confluence import (
+from mcp_adapters import (
     list_confluence_spaces,
     list_confluence_pages,
     get_confluence_page,
@@ -52,7 +52,7 @@ from tools.confluence import (
     create_confluence_page,
     update_confluence_page,
 )
-from tools.files import (
+from mcp_adapters import (
     upload_file_to_jira,
     list_issue_attachments,
     delete_issue_attachment,
@@ -197,16 +197,31 @@ JIRA_TOOLS = {
 
 
 _READ_ONLY_TOOLS = {
-    "list_jira_projects", "get_issue_details", "get_full_issue_details",
-    "get_issue_transitions", "list_project_tickets", "get_custom_field_mappings",
-    "list_jira_instances", "search_jira_issues",
-    "validate_jql_query", "get_issue_links", "get_work_logs",
-    "get_time_tracking_info", "list_issue_attachments", "list_confluence_spaces",
-    "list_confluence_pages", "get_confluence_page", "search_confluence_pages",
+    "list_jira_projects",
+    "get_issue_details",
+    "get_full_issue_details",
+    "get_issue_transitions",
+    "list_project_tickets",
+    "get_custom_field_mappings",
+    "list_jira_instances",
+    "search_jira_issues",
+    "validate_jql_query",
+    "get_issue_links",
+    "get_work_logs",
+    "get_time_tracking_info",
+    "list_issue_attachments",
+    "list_confluence_spaces",
+    "list_confluence_pages",
+    "get_confluence_page",
+    "search_confluence_pages",
 }
 _DESTRUCTIVE_TOOLS = {
-    "transition_jira_issue", "change_issue_assignee", "update_jira_issue",
-    "update_time_estimates", "delete_issue_attachment", "update_confluence_page",
+    "transition_jira_issue",
+    "change_issue_assignee",
+    "update_jira_issue",
+    "update_time_estimates",
+    "delete_issue_attachment",
+    "update_confluence_page",
 }
 
 for _name, _spec in JIRA_TOOLS.items():
@@ -225,10 +240,22 @@ def get_tools_config() -> dict:
     return JIRA_TOOLS
 
 
+class WorkflowFileResource(FileResource):
+    """A registered artifact may not have been generated yet."""
+
+    async def read(self) -> str | bytes:
+        try:
+            return await super().read()
+        except FileNotFoundError as error:
+            raise ResourceNotFoundError(
+                "Workflow artifact has not been generated yet."
+            ) from error
+
+
 def get_resources() -> tuple[FileResource, ...]:
     """Return the fixed workflow artifacts exposed through MCP resources."""
     return tuple(
-        FileResource(
+        WorkflowFileResource(
             uri=WORKFLOW_RESOURCE_URIS[fmt],
             path=WORKFLOW_RESOURCE_PATHS[fmt],
             name=f"latest-jira-workflow-{fmt}",

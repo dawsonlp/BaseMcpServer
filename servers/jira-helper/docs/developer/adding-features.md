@@ -1,233 +1,95 @@
-# Adding New Features
+# Adding Jira Helper Features
 
-## Quick Start
+Use the [MCP v2 conventions](../../../../docs/developer/mcp-v2-conventions.md).
+Jira Helper uses ordinary domain functions, explicit MCP adapters, a registration
+map, and a server factory. Start from a concrete operation and its input/output
+contract; there are no generic service/use-case/repository layers to instantiate.
 
-Adding new functionality follows the hexagonal architecture pattern. Here's the step-by-step process:
+## Where responsibilities live
 
-## 1. Add Domain Logic (if needed)
+| File | Responsibility |
+| --- | --- |
+| `src/tools/*.py` | Domain validation, Atlassian operations, and typed projected results |
+| `src/mcp_adapters.py` | Explicit public tool signatures, MCP context, worker dispatch, safe errors, and notifications |
+| `src/jira_client.py` | Lazy client construction, per-service/instance serialization, and deterministic cleanup |
+| `src/runtime.py` | Lifespan state and execution using its owned registry |
+| `src/tool_config.py` | Tool metadata, adapter references, behavior hints, and resource registration objects |
+| `src/main.py` | Fresh server factory, lifespan composition, and transport entry points |
 
-**Location**: `src/domain/`
+## Add an operation
 
-```python
-# src/domain/models.py - Add new data models
-@dataclass
-class NewFeatureRequest:
-    param1: str
-    param2: Optional[int] = None
+1. Define its typed domain function in the appropriate `tools` module. For network
+   operations, accept an explicit keyword-only `get_client: Callable[[], Jira]`
+   (or `Confluence`) dependency. Invoke it after local validation. The adapter
+   supplies an instance name resolved from the server's configuration.
+2. Define stable results using `TypedDict`, including nested projected records.
+   Use an open dictionary only for genuinely open upstream data. Domain functions
+   do not import MCP or retrieve runtime globals.
+3. Add an ordinary, explicitly typed async function in `mcp_adapters.py`. Keep
+   client-facing arguments concrete and inject `ctx: Context[RuntimeState]` as a
+   keyword-only parameter. Call the private `_call` execution helper with the
+   service, instance, domain function, and its arguments. This helper runs the
+   synchronous operation off-loop, within the owned client scope, and translates
+   expected domain exceptions. Do not expose its internal `**arguments` on tools.
+4. Add the adapter reference and description to `JIRA_TOOLS`, classify its behavior
+   hints, and let `create_server()` register it through `add_tool()`. No tool
+   decorators, import-time server, or private SDK manager access is needed.
+5. Test direct domain behavior with a fake client supplier, then test the public
+   tool using `Client(create_server(client_registry_factory=...))`. Exercise both
+   protocol modes for behavior claimed to support both.
 
-# src/domain/services.py - Add business logic
-class NewFeatureService(BaseService):
-    async def process_feature(self, request: NewFeatureRequest) -> FeatureResult:
-        # Business logic here
-        pass
-```
+Use a lazy client supplier so invalid arguments fail before an external request.
+It is scoped to one operation: do not retain it or return a client to background
+work. Compound operations stay within that scope and reuse its client.
 
-## 2. Create Use Case
+## Errors and partial success
 
-**Location**: `src/application/use_cases.py`
+Domain code raises the existing `JiraError` subclasses. Locally authored validation
+and missing-configuration messages must be safe to show callers. Authentication,
+permission, connection, and API messages are translated by `public_error_message()`;
+raw upstream bodies and credentials must not reach the tool result.
 
-```python
-class NewFeatureUseCase(BaseUseCase):
-    def __init__(self, feature_service: NewFeatureService):
-        self._feature_service = feature_service
-    
-    async def execute(self, param1: str, param2: Optional[int] = None) -> Dict[str, Any]:
-        request = NewFeatureRequest(param1=param1, param2=param2)
-        result = await self._feature_service.process_feature(request)
-        return self._map_result(result)
-```
+Unexpected exceptions remain sanitized by the SDK. Test the public `is_error`
+flag and explanation, not merely that a Python exception occurred. Successful
+partial operations retain their result, identifiers, and failure details: an issue
+created with failed links must not look like nothing happened. Check existing state
+before retrying a write; cancellation does not reverse completed external effects.
 
-## 3. Register MCP Tool
+## Ownership and concurrency
 
-**Location**: `src/adapters/mcp_tool_config.py`
+Each server lifespan owns a separate registry. Clients are created lazily, have
+finite request timeouts, and are closed on shutdown. Operations are serialized per
+service/instance; distinct instances can run independently. Worker cancellation
+is not abandonment: shutdown waits for owned operations before closing clients.
+A timeout is a bound on an HTTP request, not a guarantee of immediate shutdown of
+an entire compound operation or graph render.
 
-```python
-JIRA_TOOLS = {
-    # ... existing tools ...
-    'new_feature_tool': {
-        'use_case_class': NewFeatureUseCase,
-        'description': 'Brief description of what this tool does',
-        'dependencies': ['feature_service']  # Services this tool needs
-    }
-}
-```
+Workflow rendering runs off-loop and uses a process-wide rendering lock because
+Matplotlib has shared state. It closes figures on failure and atomically replaces
+artifacts. The adapter publishes updates only after success. See
+[resource behavior](../architecture/mcp-resource-system.md).
 
-## 4. Add Infrastructure (if needed)
+## Preserve output sanitization
 
-**Location**: `src/infrastructure/`
-
-```python
-# Only if you need new external API calls
-class NewFeatureRepository:
-    async def fetch_external_data(self, param: str) -> ExternalData:
-        # API calls, database access, etc.
-        pass
-```
-
-## 5. Update Service Registration
-
-**Location**: `src/server.py`
-
-```python
-# Add to service setup
-feature_repository = NewFeatureRepository(jira_client)
-feature_service = NewFeatureService(feature_repository)
-new_feature_use_case = NewFeatureUseCase(feature_service)
-
-# Add to use case registry
-use_cases = {
-    # ... existing use cases ...
-    'new_feature_tool': new_feature_use_case
-}
-```
-
-## 6. Test Your Feature
-
-```bash
-# Deploy updated server
-mcp-manager install jira-helper --source servers/jira-helper --force
-
-# Test the new tool
-new_feature_tool param1="test" param2=42
-```
-
-## Common Patterns
-
-### Simple CRUD Operations
-Most tools follow this pattern:
-1. **Domain Model** - Data structure
-2. **Use Case** - Orchestration logic  
-3. **Service** - Business rules
-4. **Repository** - External API calls
-
-### Search/Query Tools
-Use the existing search patterns:
-```python
-# Extend SearchFilters for new filter types
-# Use JQLBuilder for secure query construction
-# Follow SearchService patterns
-```
-
-### Workflow Operations
-For Jira workflow operations:
-```python
-# Use WorkflowService patterns
-# Handle state transitions properly
-# Include proper error handling
-```
-
-## File Locations
-
-```
-src/
-├── domain/          # Business logic, models, services
-├── application/     # Use cases, orchestration
-├── infrastructure/  # External APIs, repositories
-└── adapters/        # MCP tools, HTTP endpoints
-```
-
-## Testing
-
-```python
-# src/tests/test_use_cases.py
-async def test_new_feature_use_case():
-    mock_service = Mock()
-    use_case = NewFeatureUseCase(mock_service)
-    
-    result = await use_case.execute("test", 42)
-    
-    assert result['success'] is True
-    mock_service.process_feature.assert_called_once()
-```
-
-## Best Practices
-
-1. **Follow Existing Patterns** - Look at similar tools for guidance
-2. **Keep It Simple** - Start with minimal implementation
-3. **Test Early** - Deploy and test frequently
-4. **Security First** - Validate all inputs
-5. **Error Handling** - Use consistent error patterns
-
-## Need Help?
-
-- Check existing tools in `mcp_tool_config.py` for examples
-- Review the [Architecture Guide](../architecture/hexagonal-design.md)
-- Look at similar use cases in `use_cases.py`
-
----
-
-**Most features can be added in under 30 minutes following this pattern.**
-
----
-
-## Output Sanitization Requirement
-
-**All new tools that return user-authored content must sanitize those fields before returning them.**
-
-The current architecture uses a flat module structure under `src/tools/`. Tool functions extract
-fields from Jira/Confluence API responses and return plain dicts. There is no automatic
-sanitization at the serialization boundary -- sanitization is applied explicitly at each
-extraction point.
-
-### What Must Be Sanitized
-
-User-authored fields are any field whose value originates from free-text entered by a human in
-Jira or Confluence. These include:
-
-| Field type | Examples |
-|-----------|---------|
-| Issue summary | The single-line title of a Jira ticket |
-| Issue description | The body of a Jira ticket |
-| Comment body | Text of a comment on a Jira ticket |
-| Linked issue summary | Summary of an issue referenced via an issue link |
-| Confluence page title | Title of a Confluence page |
-| Confluence page body | HTML/wiki content stored in a Confluence page |
-
-For the full classification table, see
-[docs/architecture/cline-safe-output.md](architecture/cline-safe-output.md).
-
-### What Does NOT Need Sanitization
-
-Structural metadata fields whose values come from Jira's controlled vocabulary do not contain
-angle brackets and do not require sanitization. These include: `status`, `assignee`, `reporter`,
-`priority`, `issue_type`, `project`, `key`, `id`, `created`, `updated`, `labels`, `components`,
-`filename`, `size`, `version`, `type`, `space_key`, `transition`, `message`.
-
-### How to Apply Sanitization
-
-Import from `output_sanitizer` and call `sanitize_string()` on each user-authored field at the
-point of extraction:
+Apply `sanitize_string()` to user-authored content at field extraction, as existing
+operations do. This compatibility behavior protects XML-sensitive consumers; it
+is separate from safe error messages. Use `truncate_string()` for existing bounded
+list summaries, and preserve full detail where the contract calls for it.
 
 ```python
 from output_sanitizer import sanitize_string, truncate_string
 
-def my_new_tool(project_key: str, instance_name: str = None, **kwargs) -> dict:
-    # ... fetch from Jira API ...
-    return {
-        "key": issue.get("key", ""),           # Jira-controlled -- no sanitization needed
-        "status": fields.get("status", ""),    # Jira-controlled -- no sanitization needed
-        "summary": sanitize_string(fields.get("summary", "")),      # User-authored -- sanitize
-        "description": sanitize_string(fields.get("description", "")),  # User-authored -- sanitize
-    }
+summary = truncate_string(sanitize_string(issue["fields"].get("summary", "")), 200)
 ```
 
-For list-view responses (returning many items), also apply `truncate_string()` to cap field
-length:
+See [Cline-safe output](../architecture/cline-safe-output.md) for the existing
+classification and rationale. Do not silently change escaping behavior as part
+of a schema refinement.
 
-```python
-# List view: sanitize then truncate
-"summary": truncate_string(sanitize_string(fields.get("summary", "")), 200),
+## Verify before installation
 
-# Detail view: sanitize only (no truncation)
-"summary": sanitize_string(fields.get("summary", "")),
-```
-
-### Why This Convention Exists
-
-Cline and other XML-sensitive MCP clients inject protocol markers (e.g.,
-`<environment_details>`) into their context pipelines. If a tool response contains the same
-literal string, the client parser silently truncates the response. The failure is
-data-dependent and intermittent, making it very hard to diagnose.
-
-See [docs/user/cline-compatibility.md](../../docs/user/cline-compatibility.md) for the full
-explanation and limitation documentation.
+Run `uv run --directory servers/jira-helper --locked --extra dev pytest`, build
+and inspect the package, and exercise a fresh stdio subprocess. Test actual
+subscription delivery when adding notifications and ASGI behavior when changing
+HTTP integration. Managed installation is separate from checkout verification;
+use MCP Manager when installation is requested and verify the new process.

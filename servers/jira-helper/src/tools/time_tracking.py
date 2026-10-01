@@ -4,10 +4,30 @@ import logging
 import re
 from typing import Any, TypedDict
 
-from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
+from jira_client import validate_issue_key
+from collections.abc import Callable
+from atlassian import Jira
 from exceptions import JiraError, JiraValidationError, JiraApiError
 
 logger = logging.getLogger(__name__)
+
+
+class WorkLogInfo(TypedDict):
+    id: str
+    author: str
+    time_spent: str
+    time_spent_seconds: int
+    started: str
+    comment: Any  # Upstream Jira may return text or a structured document.
+
+
+class TimeTrackingInfo(TypedDict):
+    original_estimate: str
+    remaining_estimate: str
+    time_spent: str
+    original_estimate_seconds: int
+    remaining_estimate_seconds: int
+    time_spent_seconds: int
 
 
 class WorkLoggedResult(TypedDict):
@@ -20,14 +40,14 @@ class WorkLoggedResult(TypedDict):
 class WorkLogsResult(TypedDict):
     key: str
     instance: str
-    worklogs: list[dict[str, Any]]
+    worklogs: list[WorkLogInfo]
     count: int
 
 
 class TimeTrackingResult(TypedDict):
     key: str
     instance: str
-    time_tracking: dict[str, Any]
+    time_tracking: TimeTrackingInfo
 
 
 class EstimatesUpdatedResult(TypedDict):
@@ -36,21 +56,29 @@ class EstimatesUpdatedResult(TypedDict):
     updated: dict[str, str]
     message: str
 
+
 _TIME_FORMAT = re.compile(r"^(\d+[wdhm]\s*)+$", re.IGNORECASE)
 
 
 def log_work(
-    issue_key: str, time_spent: str, comment: str | None = None,
-    started: str | None = None, instance_name: str | None = None,
+    issue_key: str,
+    time_spent: str,
+    comment: str | None = None,
+    started: str | None = None,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> WorkLoggedResult:
     """Log work time on a Jira issue."""
     key = validate_issue_key(issue_key)
     if not time_spent or not time_spent.strip():
         raise JiraValidationError("time_spent is required (e.g. '2h', '30m', '1d 4h').")
     if not _TIME_FORMAT.match(time_spent.strip()):
-        raise JiraValidationError(f"Invalid time format: '{time_spent}'. Use format like '2h', '30m', '1d 4h'.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+        raise JiraValidationError(
+            f"Invalid time format: '{time_spent}'. Use format like '2h', '30m', '1d 4h'."
+        )
+    name = instance_name
+    client = get_client()
     try:
         worklog_data = {"timeSpent": time_spent.strip()}
         if comment:
@@ -59,7 +87,9 @@ def log_work(
             worklog_data["started"] = started
         client.issue_worklog(key, **worklog_data)
         return {
-            "key": key, "instance": name, "time_spent": time_spent.strip(),
+            "key": key,
+            "instance": name,
+            "time_spent": time_spent.strip(),
             "message": f"Successfully logged {time_spent.strip()} on {key}",
         }
     except JiraError:
@@ -68,11 +98,13 @@ def log_work(
         raise JiraApiError(f"Failed to log work on {key}: {e}", instance_name=name)
 
 
-def get_work_logs(issue_key: str, instance_name: str | None = None) -> WorkLogsResult:
+def get_work_logs(
+    issue_key: str, instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> WorkLogsResult:
     """Get work log entries for a Jira issue."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         # Try dedicated worklog endpoint first
         try:
@@ -81,34 +113,48 @@ def get_work_logs(issue_key: str, instance_name: str | None = None) -> WorkLogsR
             issue = client.issue(key, fields="worklog")
             worklogs_data = issue.get("fields", {}).get("worklog", {})
 
-        raw = worklogs_data.get("worklogs", []) if isinstance(worklogs_data, dict) else []
+        raw = (
+            worklogs_data.get("worklogs", []) if isinstance(worklogs_data, dict) else []
+        )
         worklogs = []
         for w in raw:
-            worklogs.append({
-                "id": w.get("id", ""),
-                "author": w.get("author", {}).get("displayName", "") if w.get("author") else "",
-                "time_spent": w.get("timeSpent", ""),
-                "time_spent_seconds": w.get("timeSpentSeconds", 0),
-                "started": w.get("started", ""),
-                "comment": w.get("comment", ""),
-            })
-        return {"key": key, "instance": name, "worklogs": worklogs, "count": len(worklogs)}
+            worklogs.append(
+                {
+                    "id": w.get("id", ""),
+                    "author": w.get("author", {}).get("displayName", "")
+                    if w.get("author")
+                    else "",
+                    "time_spent": w.get("timeSpent", ""),
+                    "time_spent_seconds": w.get("timeSpentSeconds", 0),
+                    "started": w.get("started", ""),
+                    "comment": w.get("comment", ""),
+                }
+            )
+        return {
+            "key": key,
+            "instance": name,
+            "worklogs": worklogs,
+            "count": len(worklogs),
+        }
     except JiraError:
         raise
     except Exception as e:
         raise JiraApiError(f"Failed to get worklogs for {key}: {e}", instance_name=name)
 
 
-def get_time_tracking_info(issue_key: str, instance_name: str | None = None) -> TimeTrackingResult:
+def get_time_tracking_info(
+    issue_key: str, instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> TimeTrackingResult:
     """Get time tracking information for a Jira issue."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         issue = client.issue(key, fields="timetracking")
         tt = issue.get("fields", {}).get("timetracking", {})
         return {
-            "key": key, "instance": name,
+            "key": key,
+            "instance": name,
             "time_tracking": {
                 "original_estimate": tt.get("originalEstimate", ""),
                 "remaining_estimate": tt.get("remainingEstimate", ""),
@@ -121,19 +167,27 @@ def get_time_tracking_info(issue_key: str, instance_name: str | None = None) -> 
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to get time tracking for {key}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to get time tracking for {key}: {e}", instance_name=name
+        )
 
 
 def update_time_estimates(
-    issue_key: str, original_estimate: str | None = None,
-    remaining_estimate: str | None = None, instance_name: str | None = None,
+    issue_key: str,
+    original_estimate: str | None = None,
+    remaining_estimate: str | None = None,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> EstimatesUpdatedResult:
     """Update time estimates for a Jira issue."""
     key = validate_issue_key(issue_key)
     if not original_estimate and not remaining_estimate:
-        raise JiraValidationError("At least one of original_estimate or remaining_estimate is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+        raise JiraValidationError(
+            "At least one of original_estimate or remaining_estimate is required."
+        )
+    name = instance_name
+    client = get_client()
     try:
         tt = {}
         if original_estimate:
@@ -142,10 +196,14 @@ def update_time_estimates(
             tt["remainingEstimate"] = remaining_estimate
         client.issue_update(key, fields={"timetracking": tt})
         return {
-            "key": key, "instance": name, "updated": tt,
+            "key": key,
+            "instance": name,
+            "updated": tt,
             "message": f"Successfully updated time estimates for {key}",
         }
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to update time estimates for {key}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to update time estimates for {key}: {e}", instance_name=name
+        )

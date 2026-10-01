@@ -59,10 +59,10 @@ new bounded legacy-session defaults. Its server construction remains unchanged.
 ### MCP Server Creator
 
 The three tools and generated template remain factory-based and imperatively
-registered. Because the canonical template now contains the development CLI
-extra and module-level `mcp` object, newly generated servers inherit the same
-factory-based structure. MCP Manager remains the generated server's install and
-synchronization path.
+registered. The canonical template has no module-level server instance or SDK CLI
+extra; generated servers inherit its `create_server()` and explicit registration
+structure. MCP Manager remains the generated server's install and synchronization
+path. (Corrected against the template on 2026-09-30.)
 
 ### Loadbearing YouTube
 

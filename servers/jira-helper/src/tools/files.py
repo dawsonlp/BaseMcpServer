@@ -2,12 +2,23 @@
 
 import logging
 import os
-from typing import Any, TypedDict
+from typing import TypedDict
 
-from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
+from jira_client import validate_issue_key
+from collections.abc import Callable
+from atlassian import Jira
 from exceptions import JiraError, JiraValidationError, JiraApiError
 
 logger = logging.getLogger(__name__)
+
+
+class AttachmentInfo(TypedDict):
+    id: str
+    filename: str
+    size: int
+    mime_type: str
+    created: str
+    author: str
 
 
 class UploadResult(TypedDict):
@@ -21,7 +32,7 @@ class UploadResult(TypedDict):
 class AttachmentsResult(TypedDict):
     key: str
     instance: str
-    attachments: list[dict[str, Any]]
+    attachments: list[AttachmentInfo]
     count: int
 
 
@@ -30,11 +41,16 @@ class DeleteAttachmentResult(TypedDict):
     instance: str
     message: str
 
+
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 def upload_file_to_jira(
-    issue_key: str, file_path: str, instance_name: str | None = None,
+    issue_key: str,
+    file_path: str,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> UploadResult:
     """Upload a file to a Jira issue as an attachment."""
     key = validate_issue_key(issue_key)
@@ -45,15 +61,17 @@ def upload_file_to_jira(
     file_size = os.path.getsize(file_path)
     if file_size > MAX_FILE_SIZE:
         raise JiraValidationError(
-            f"File too large: {file_size / (1024*1024):.1f} MB. Maximum is 25 MB."
+            f"File too large: {file_size / (1024 * 1024):.1f} MB. Maximum is 25 MB."
         )
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
-        result = client.add_attachment(key, file_path)
+        client.add_attachment(key, file_path)
         filename = os.path.basename(file_path)
         return {
-            "key": key, "instance": name, "filename": filename,
+            "key": key,
+            "instance": name,
+            "filename": filename,
             "size": file_size,
             "message": f"Successfully uploaded {filename} to {key}",
         }
@@ -63,46 +81,65 @@ def upload_file_to_jira(
         raise JiraApiError(f"Failed to upload file to {key}: {e}", instance_name=name)
 
 
-def list_issue_attachments(issue_key: str, instance_name: str | None = None) -> AttachmentsResult:
+def list_issue_attachments(
+    issue_key: str, instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> AttachmentsResult:
     """List all attachments for a Jira issue."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         issue = client.issue(key, fields="attachment")
         attachments_raw = issue.get("fields", {}).get("attachment", [])
         attachments = []
         for a in attachments_raw:
-            attachments.append({
-                "id": a.get("id", ""),
-                "filename": a.get("filename", ""),
-                "size": a.get("size", 0),
-                "mime_type": a.get("mimeType", ""),
-                "created": a.get("created", ""),
-                "author": a.get("author", {}).get("displayName", "") if a.get("author") else "",
-            })
-        return {"key": key, "instance": name, "attachments": attachments, "count": len(attachments)}
+            attachments.append(
+                {
+                    "id": a.get("id", ""),
+                    "filename": a.get("filename", ""),
+                    "size": a.get("size", 0),
+                    "mime_type": a.get("mimeType", ""),
+                    "created": a.get("created", ""),
+                    "author": a.get("author", {}).get("displayName", "")
+                    if a.get("author")
+                    else "",
+                }
+            )
+        return {
+            "key": key,
+            "instance": name,
+            "attachments": attachments,
+            "count": len(attachments),
+        }
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to list attachments for {key}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to list attachments for {key}: {e}", instance_name=name
+        )
 
 
 def delete_issue_attachment(
-    attachment_id: str, instance_name: str | None = None,
+    attachment_id: str,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> DeleteAttachmentResult:
     """Delete an attachment from a Jira issue."""
     if not attachment_id:
         raise JiraValidationError("attachment_id is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         client.delete_attachment(attachment_id)
         return {
-            "attachment_id": attachment_id, "instance": name,
+            "attachment_id": attachment_id,
+            "instance": name,
             "message": f"Successfully deleted attachment {attachment_id}",
         }
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to delete attachment {attachment_id}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to delete attachment {attachment_id}: {e}", instance_name=name
+        )

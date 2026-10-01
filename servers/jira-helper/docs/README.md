@@ -3,7 +3,8 @@
 The Jira Helper MCP server provides Jira + Confluence integration over the Model
 Context Protocol: issue management, JQL/filter search, transitions, time
 tracking, and more. It follows the repository's factory-based MCP SDK v2 pattern:
-tools are declared in `src/tools/`, mapped in `tool_config.py`, and registered
+domain functions live in `src/tools/`, explicit adapters in `mcp_adapters.py`
+are mapped in `tool_config.py`, and registered
 by `create_server()` through `MCPServer.add_tool()`.
 
 ## Documentation
@@ -13,11 +14,12 @@ by `create_server()` through `MCPServer.add_tool()`.
 - [Available Tools](user/available-tools.md) — tool reference
 
 ### For developers
+- [MCP integration development plan](../../../docs/developer/jira-helper-mcp-improvement-plan.md) — implementation scope, decisions, and acceptance evidence
 - [Adding Features](developer/adding-features.md) — how to add a tool
 - [Cline-safe output](architecture/cline-safe-output.md) — output sanitization for Cline
 - [Search system](architecture/search-system.md) — search/JQL design
-- [MCP resource system](architecture/mcp-resource-system.md) — proposed design for serving
-  workflow-graph images as MCP resources (status: design-only, not yet implemented)
+- [MCP resource system](architecture/mcp-resource-system.md) — serving
+  workflow-graph images, atomic publication, and subscription behavior
 
 ## Quick start
 

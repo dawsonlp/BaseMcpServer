@@ -2,11 +2,12 @@
 
 import logging
 import re
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, TypedDict
 
 from pydantic import Field
 
-from jira_client import get_jira_client, resolve_instance_name
+from collections.abc import Callable
+from atlassian import Jira
 from exceptions import JiraError, JiraValidationError, JiraApiError
 from output_sanitizer import sanitize_string, truncate_string
 
@@ -25,15 +26,35 @@ def _extract_issue(issue: dict) -> dict:
     return {
         "key": issue.get("key", ""),
         "summary": truncate_string(sanitize_string(raw_summary), 200),
-        "status": fields.get("status", {}).get("name", "") if fields.get("status") else "",
-        "assignee": fields.get("assignee", {}).get("displayName", "Unassigned") if fields.get("assignee") else "Unassigned",
-        "priority": fields.get("priority", {}).get("name", "") if fields.get("priority") else "",
-        "issue_type": fields.get("issuetype", {}).get("name", "") if fields.get("issuetype") else "",
-        "project": fields.get("project", {}).get("key", "") if fields.get("project") else "",
+        "status": fields.get("status", {}).get("name", "")
+        if fields.get("status")
+        else "",
+        "assignee": fields.get("assignee", {}).get("displayName", "Unassigned")
+        if fields.get("assignee")
+        else "Unassigned",
+        "priority": fields.get("priority", {}).get("name", "")
+        if fields.get("priority")
+        else "",
+        "issue_type": fields.get("issuetype", {}).get("name", "")
+        if fields.get("issuetype")
+        else "",
+        "project": fields.get("project", {}).get("key", "")
+        if fields.get("project")
+        else "",
     }
 
 
 ResultLimit = Annotated[int, Field(ge=1, le=1000)]
+
+
+class IssueSummary(TypedDict):
+    key: str
+    summary: str
+    status: str
+    assignee: str
+    priority: str
+    issue_type: str
+    project: str
 
 
 class JqlValidationResult(TypedDict):
@@ -45,18 +66,22 @@ class JqlValidationResult(TypedDict):
 class SearchResult(TypedDict):
     instance: str
     jql: str
-    issues: list[dict[str, Any]]
+    issues: list[IssueSummary]
     total: int
 
 
 def search_jira_issues(
-    jql: str, max_results: ResultLimit = 20, instance_name: str | None = None,
+    jql: str,
+    max_results: ResultLimit = 20,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> SearchResult:
     """Execute a JQL search query to find Jira issues."""
     if not jql or not jql.strip():
         raise JiraValidationError("JQL query is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         result = client.jql(jql, limit=max_results)
         issues_raw = result.get("issues", []) if isinstance(result, dict) else []
@@ -65,7 +90,9 @@ def search_jira_issues(
             "instance": name,
             "jql": jql,
             "issues": issues,
-            "total": result.get("total", len(issues)) if isinstance(result, dict) else len(issues),
+            "total": result.get("total", len(issues))
+            if isinstance(result, dict)
+            else len(issues),
         }
     except JiraError:
         raise
@@ -74,9 +101,14 @@ def search_jira_issues(
 
 
 def list_project_tickets(
-    project_key: str, status: str | None = None, assignee: str | None = None,
-    issue_type: str | None = None, max_results: ResultLimit = 20,
+    project_key: str,
+    status: str | None = None,
+    assignee: str | None = None,
+    issue_type: str | None = None,
+    max_results: ResultLimit = 20,
     instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> SearchResult:
     """List tickets in a Jira project with optional filtering."""
     if not project_key:
@@ -89,7 +121,12 @@ def list_project_tickets(
     if issue_type:
         clauses.append(f'issuetype = "{issue_type}"')
     jql = " AND ".join(clauses) + " ORDER BY updated DESC"
-    return search_jira_issues(jql=jql, max_results=max_results, instance_name=instance_name)
+    return search_jira_issues(
+        jql=jql,
+        max_results=max_results,
+        instance_name=instance_name,
+        get_client=get_client,
+    )
 
 
 def validate_jql_query(jql: str) -> JqlValidationResult:

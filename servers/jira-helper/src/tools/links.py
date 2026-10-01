@@ -1,12 +1,22 @@
 """Issue link operations: create, query, and bulk-link on creation."""
 
 import logging
-from typing import Any, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
-from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
+from jira_client import validate_issue_key
+from collections.abc import Callable
+from atlassian import Jira
 from exceptions import JiraError, JiraValidationError, JiraApiError
 
 logger = logging.getLogger(__name__)
+
+
+class IssueLinkInfo(TypedDict):
+    type: str
+    direction: NotRequired[str]
+    issue_key: NotRequired[str]
+    summary: NotRequired[str]
+    status: NotRequired[str]
 
 
 class IssueLinkInput(TypedDict):
@@ -32,7 +42,7 @@ class EpicLinkResult(TypedDict):
 class IssueLinksResult(TypedDict):
     key: str
     instance: str
-    links: list[dict[str, Any]]
+    links: list[IssueLinkInfo]
     count: int
 
 
@@ -45,14 +55,18 @@ class LinkedIssueResult(TypedDict):
 
 
 def create_issue_link(
-    from_issue_key: str, to_issue_key: str, link_type: str = "Relates",
+    from_issue_key: str,
+    to_issue_key: str,
+    link_type: str = "Relates",
     instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> LinkCreatedResult:
     """Create a link between two Jira issues."""
     from_key = validate_issue_key(from_issue_key)
     to_key = validate_issue_key(to_issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         link_data = {
             "type": {"name": link_type},
@@ -61,8 +75,11 @@ def create_issue_link(
         }
         client.create_issue_link(link_data)
         return {
-            "from_issue": from_key, "to_issue": to_key, "link_type": link_type,
-            "instance": name, "message": f"Successfully linked {from_key} -> {to_key} ({link_type})",
+            "from_issue": from_key,
+            "to_issue": to_key,
+            "link_type": link_type,
+            "instance": name,
+            "message": f"Successfully linked {from_key} -> {to_key} ({link_type})",
         }
     except JiraError:
         raise
@@ -71,13 +88,17 @@ def create_issue_link(
 
 
 def create_epic_story_link(
-    epic_key: str, story_key: str, instance_name: str | None = None,
+    epic_key: str,
+    story_key: str,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> EpicLinkResult:
     """Create an Epic-Story link between issues."""
     e_key = validate_issue_key(epic_key)
     s_key = validate_issue_key(story_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         link_data = {
             "type": {"name": "Epic-Story Link"},
@@ -91,8 +112,10 @@ def create_epic_story_link(
             link_data["type"]["name"] = "Relates"
             client.create_issue_link(link_data)
         return {
-            "epic_key": e_key, "story_key": s_key,
-            "instance": name, "message": f"Successfully linked epic {e_key} to story {s_key}",
+            "epic_key": e_key,
+            "story_key": s_key,
+            "instance": name,
+            "message": f"Successfully linked epic {e_key} to story {s_key}",
         }
     except JiraError:
         raise
@@ -100,11 +123,13 @@ def create_epic_story_link(
         raise JiraApiError(f"Failed to create epic-story link: {e}", instance_name=name)
 
 
-def get_issue_links(issue_key: str, instance_name: str | None = None) -> IssueLinksResult:
+def get_issue_links(
+    issue_key: str, instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> IssueLinksResult:
     """Get all links for a specific Jira issue."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         issue = client.issue(key)
         issue_links = issue.get("fields", {}).get("issuelinks", [])
@@ -116,13 +141,21 @@ def get_issue_links(issue_key: str, instance_name: str | None = None) -> IssueLi
                 link_info["direction"] = "outward"
                 link_info["issue_key"] = linked.get("key", "")
                 link_info["summary"] = linked.get("fields", {}).get("summary", "")
-                link_info["status"] = linked.get("fields", {}).get("status", {}).get("name", "") if linked.get("fields", {}).get("status") else ""
+                link_info["status"] = (
+                    linked.get("fields", {}).get("status", {}).get("name", "")
+                    if linked.get("fields", {}).get("status")
+                    else ""
+                )
             elif "inwardIssue" in link:
                 linked = link["inwardIssue"]
                 link_info["direction"] = "inward"
                 link_info["issue_key"] = linked.get("key", "")
                 link_info["summary"] = linked.get("fields", {}).get("summary", "")
-                link_info["status"] = linked.get("fields", {}).get("status", {}).get("name", "") if linked.get("fields", {}).get("status") else ""
+                link_info["status"] = (
+                    linked.get("fields", {}).get("status", {}).get("name", "")
+                    if linked.get("fields", {}).get("status")
+                    else ""
+                )
             links.append(link_info)
         return {"key": key, "instance": name, "links": links, "count": len(links)}
     except JiraError:
@@ -132,15 +165,20 @@ def get_issue_links(issue_key: str, instance_name: str | None = None) -> IssueLi
 
 
 def create_issue_with_links(
-    project_key: str, summary: str, issue_type: str = "Task",
-    description: str = "", links: list[IssueLinkInput] | None = None,
+    project_key: str,
+    summary: str,
+    issue_type: str = "Task",
+    description: str = "",
+    links: list[IssueLinkInput] | None = None,
     instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> LinkedIssueResult:
     """Create a new Jira issue with links to other issues."""
     if not project_key or not summary:
         raise JiraValidationError("project_key and summary are required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         fields = {
             "project": {"key": project_key.strip().upper()},
@@ -168,11 +206,17 @@ def create_issue_with_links(
                         }
                         client.create_issue_link(link_data)
                         links_created += 1
-                    except Exception as le:
-                        link_errors.append(f"Failed to link to {target_key}: {le}")
+                    except Exception:
+                        logger.warning(
+                            "Link creation failed after issue creation", exc_info=True
+                        )
+                        link_errors.append(
+                            f"Failed to link to {target_key}; the issue was created. Check the server log and existing links before retrying."
+                        )
 
         response = {
-            "key": new_key, "instance": name,
+            "key": new_key,
+            "instance": name,
             "links_created": links_created,
             "message": f"Created {new_key} with {links_created} links",
         }
@@ -182,4 +226,6 @@ def create_issue_with_links(
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to create issue with links: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to create issue with links: {e}", instance_name=name
+        )

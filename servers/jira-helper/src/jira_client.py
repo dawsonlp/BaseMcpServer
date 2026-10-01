@@ -1,125 +1,148 @@
-"""
-Jira and Confluence client factory.
+"""Owned Atlassian clients and ordinary instance/key helpers."""
 
-Consolidates client creation, caching, and instance resolution from the
-old infrastructure/atlassian_repository.py, config_adapter, and confluence adapter.
-"""
-
-import logging
 import re
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from threading import Condition, RLock
+from typing import Literal, TypedDict
 
-from config import settings
-from exceptions import (
-    JiraAuthenticationError,
-    JiraConnectionError,
-    JiraNotFoundError,
-    JiraValidationError,
-)
+import requests
+from atlassian import Jira, Confluence
 
-logger = logging.getLogger(__name__)
+from config import Settings
+from exceptions import JiraConnectionError, JiraNotFoundError, JiraValidationError
 
-# Client caches — one Jira/Confluence client per instance name
-_jira_clients: dict = {}
-_confluence_clients: dict = {}
-
+Service = Literal["jira", "confluence"]
+AtlassianClient = Jira | Confluence
+ClientFactory = Callable[[Service, str, Settings], AtlassianClient]
 ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]+-\d+$")
 
 
-def resolve_instance_name(instance_name: str = None) -> str:
-    """Resolve instance name, falling back to default."""
-    if instance_name:
-        return instance_name
-    default = settings.get_default_instance_name()
-    if not default:
-        raise JiraValidationError("No Jira instances configured. Check config.yaml.")
-    return default
+class InstanceInfo(TypedDict):
+    name: str
+    url: str
+    user: str
+    description: str
+    is_default: bool
 
 
-def get_jira_client(instance_name: str = None):
-    """Get or create a cached Jira client for the given instance."""
-    from atlassian import Jira
-
-    name = resolve_instance_name(instance_name)
-
-    if name in _jira_clients:
-        return _jira_clients[name]
-
-    instance = settings.get_jira_instance(name)
-    if not instance:
-        raise JiraNotFoundError(f"Jira instance '{name}' not found in configuration.")
-
+def build_client(
+    service: Service, name: str, configuration: Settings
+) -> AtlassianClient:
+    instance = (
+        configuration.get_jira_instance(name)
+        if service == "jira"
+        else configuration.get_confluence_instance(name)
+    )
+    if instance is None:
+        raise JiraNotFoundError(
+            f"{service.title()} instance '{name}' not found in configuration."
+        )
+    session = requests.Session()
     try:
-        client = Jira(
+        cls = Jira if service == "jira" else Confluence
+        client = cls(
             url=instance.url,
             username=instance.user,
             password=instance.token,
             cloud=instance.url.endswith(".atlassian.net"),
+            session=session,
+            timeout=75,
+            backoff_and_retry=False,
         )
-        # Validate connection
-        client.myself()
-        _jira_clients[name] = client
-        logger.info(f"Connected to Jira instance '{name}' at {instance.url}")
+        if service == "jira":
+            client.myself()
         return client
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "401" in error_msg or "403" in error_msg or "unauthorized" in error_msg:
-            raise JiraAuthenticationError(
-                f"Authentication failed for instance '{name}': {e}", instance_name=name
-            )
+    except Exception as error:
+        session.close()
         raise JiraConnectionError(
-            f"Failed to connect to Jira instance '{name}': {e}", instance_name=name
-        )
+            "Failed to initialize Atlassian client", instance_name=name
+        ) from error
 
 
-def get_confluence_client(instance_name: str = None):
-    """Get or create a cached Confluence client for the given instance."""
-    from atlassian import Confluence
+class ClientRegistry:
+    """One lifespan owns the clients; one lock serializes each service/instance.
 
-    name = resolve_instance_name(instance_name)
+    An operation holds its lock across all calls, including compound writes.
+    Shutdown rejects new work and waits for queued/running operations before close.
+    """
 
-    if name in _confluence_clients:
-        return _confluence_clients[name]
+    def __init__(self, configuration: Settings, factory: ClientFactory = build_client):
+        self.configuration = configuration
+        self._factory = factory
+        self._clients: dict[tuple[Service, str], AtlassianClient] = {}
+        self._locks: dict[tuple[Service, str], RLock] = {}
+        self._condition = Condition()
+        self._active = 0
+        self._closed = False
 
-    instance = settings.get_confluence_instance(name)
-    if not instance:
-        raise JiraNotFoundError(f"Confluence instance '{name}' not found in configuration.")
-
-    try:
-        client = Confluence(
-            url=instance.url,
-            username=instance.user,
-            password=instance.token,
-            cloud=instance.url.endswith(".atlassian.net"),
-        )
-        _confluence_clients[name] = client
-        logger.info(f"Connected to Confluence instance '{name}' at {instance.url}")
-        return client
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "401" in error_msg or "403" in error_msg:
-            raise JiraAuthenticationError(
-                f"Authentication failed for Confluence instance '{name}': {e}",
-                instance_name=name,
+    def resolve_name(self, instance_name: str | None) -> str:
+        name = instance_name or self.configuration.get_default_instance_name()
+        if not name:
+            raise JiraValidationError(
+                "No Jira instances configured. Check config.yaml."
             )
-        raise JiraConnectionError(
-            f"Failed to connect to Confluence instance '{name}': {e}",
-            instance_name=name,
-        )
+        return name
+
+    @contextmanager
+    def operation(
+        self, service: Service, name: str
+    ) -> Iterator[Callable[[], AtlassianClient]]:
+        key = (service, name)
+        with self._condition:
+            if self._closed:
+                raise RuntimeError("Client registry is closed")
+            lock = self._locks.setdefault(key, RLock())
+            self._active += 1
+            self._condition.notify_all()
+        try:
+            with lock:
+
+                def acquire() -> AtlassianClient:
+                    # This callable is scoped to the operation and must not escape it.
+                    if key not in self._clients:
+                        self._clients[key] = self._factory(
+                            service, name, self.configuration
+                        )
+                    return self._clients[key]
+
+                yield acquire
+        finally:
+            with self._condition:
+                self._active -= 1
+                self._condition.notify_all()
+
+    def close(self) -> None:
+        with self._condition:
+            self._closed = True
+            self._condition.wait_for(lambda: self._active == 0)
+            clients = list(self._clients.values())
+            self._clients.clear()
+        errors = []
+        for client in clients:
+            try:
+                client.close()
+            except Exception as error:
+                errors.append(error)
+        if errors:
+            raise ExceptionGroup("Failed to close Atlassian clients", errors)
 
 
-def get_instances_info() -> list[dict]:
+def get_instances_info(configuration: Settings) -> list[InstanceInfo]:
     """Get information about all configured Jira instances."""
-    instances = settings.get_jira_instances()
-    default_name = settings.get_default_instance_name()
+    instances = configuration.get_jira_instances()
+    default_name = configuration.get_default_instance_name()
     result = []
     for name, inst in instances.items():
-        result.append({
-            "name": name,
-            "url": inst.url,
-            "user": inst.user,
-            "description": inst.description,
-            "is_default": name == default_name,
-        })
+        result.append(
+            {
+                "name": name,
+                "url": inst.url,
+                "user": inst.user,
+                "description": inst.description,
+                "is_default": name == default_name,
+            }
+        )
     return result
 
 

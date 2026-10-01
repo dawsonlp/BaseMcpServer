@@ -4,6 +4,10 @@ This directory contains technical documentation for developers building and exte
 
 ## Available Documentation
 
+### [Jira Helper MCP Integration Development Plan](jira-helper-mcp-improvement-plan.md)
+Implementation plan and verification evidence for actionable errors, responsive
+workflow execution, client ownership, precise result schemas, and protocol checks.
+
 ### [Dependency Refresh — September 25, 2026](dependency-refresh-2026-09-25.md)
 Resolved versions, SDK guidance review, and validation evidence.
 
@@ -19,8 +23,9 @@ upstream development CLI and MCP Manager.
 Complete guide for creating new MCP (Model Context Protocol) servers, including setup, development patterns, and best practices.
 
 ### [MCP Python SDK v2 Conventions](mcp-v2-conventions.md)
-Current contract, metadata, lifecycle, resource, HTTP security, and tool-behavior
-rules for maintained and generated servers.
+Factory construction and explicit registration conventions, current SDK capabilities,
+modern versus legacy protocol behavior, contracts, lifecycle, and verification rules
+for maintained and generated servers.
 
 ### [MCP Result Adapter](mcp-result-adapter.md)
 Technical documentation for the MCP result adapter system, including implementation details and usage patterns.

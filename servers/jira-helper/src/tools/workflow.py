@@ -1,19 +1,21 @@
 """Workflow operations: transitions, workflow graph generation."""
 
-import json
 import logging
 import os
 import tempfile
+from threading import RLock
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal, NotRequired, TypedDict
 
-from mcp.server.mcpserver import Context
 
 from config import settings
-from jira_client import get_jira_client, resolve_instance_name
-from exceptions import JiraError, JiraValidationError, JiraApiError, JiraGraphError
+from collections.abc import Callable
+from atlassian import Jira
+from exceptions import JiraError, JiraValidationError, JiraGraphError
 
 logger = logging.getLogger(__name__)
+
+_RENDER_LOCK = RLock()
 
 WORKFLOW_RESOURCE_DIR = settings.config_file.parent / "resources"
 WORKFLOW_RESOURCE_URIS = {
@@ -25,17 +27,46 @@ WORKFLOW_RESOURCE_PATHS = {
 }
 
 
-async def generate_project_workflow_graph(
-    project_key: str, issue_type: str = "Task",
+class WorkflowStatus(TypedDict):
+    name: str
+    category: str
+    id: NotRequired[str]
+
+
+class WorkflowTransition(TypedDict):
+    name: str
+    from_status: str
+    to_status: str
+
+
+class WorkflowData(TypedDict):
+    statuses: list[WorkflowStatus]
+    transitions: list[WorkflowTransition]
+
+
+class WorkflowResult(TypedDict):
+    project_key: str
+    issue_type: str
+    instance: str
+    format: Literal["png", "svg", "json"]
+    workflow: NotRequired[WorkflowData]
+    resource_uri: NotRequired[str]
+    message: NotRequired[str]
+
+
+def generate_project_workflow_graph(
+    project_key: str,
+    issue_type: str = "Task",
     output_format: Literal["png", "svg", "json"] = "png",
     instance_name: str | None = None,
-    ctx: Context | None = None,
-) -> dict[str, Any]:
+    *,
+    get_client: Callable[[], Jira],
+) -> WorkflowResult:
     """Generate a visual workflow graph for a project and issue type."""
     if not project_key:
         raise JiraValidationError("project_key is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
 
     try:
         # Get workflow data using multi-strategy approach
@@ -43,89 +74,124 @@ async def generate_project_workflow_graph(
 
         if output_format == "json":
             return {
-                "project_key": project_key, "issue_type": issue_type,
-                "instance": name, "format": "json", "workflow": workflow,
+                "project_key": project_key,
+                "issue_type": issue_type,
+                "instance": name,
+                "format": "json",
+                "workflow": workflow,
             }
 
-        # Generate visual graph
-        try:
-            import matplotlib
-            matplotlib.use("Agg")
-            import matplotlib.pyplot as plt
-            import networkx as nx
-        except ImportError:
-            raise JiraGraphError("matplotlib and networkx are required for graph generation.")
+        with _RENDER_LOCK:
+            # Generate visual graph
+            try:
+                import matplotlib
 
-        G = nx.DiGraph()
-        statuses = workflow.get("statuses", [])
-        transitions = workflow.get("transitions", [])
+                matplotlib.use("Agg")
+                import matplotlib.pyplot as plt
+                import networkx as nx
+            except ImportError:
+                raise JiraGraphError(
+                    "matplotlib and networkx are required for graph generation."
+                )
 
-        for s in statuses:
-            G.add_node(s["name"], category=s.get("category", ""))
+            G = nx.DiGraph()
+            statuses = workflow.get("statuses", [])
+            transitions = workflow.get("transitions", [])
 
-        for t in transitions:
-            if t.get("from_status") and t.get("to_status"):
-                G.add_edge(t["from_status"], t["to_status"], label=t.get("name", ""))
+            for s in statuses:
+                G.add_node(s["name"], category=s.get("category", ""))
 
-        if not G.nodes():
-            return {
-                "project_key": project_key, "issue_type": issue_type,
-                "instance": name, "format": output_format,
-                "message": "No workflow data available for this project/issue type.",
-            }
+            for t in transitions:
+                if t.get("from_status") and t.get("to_status"):
+                    G.add_edge(
+                        t["from_status"], t["to_status"], label=t.get("name", "")
+                    )
 
-        # Layout and draw
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-        pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
+            if not G.nodes():
+                return {
+                    "project_key": project_key,
+                    "issue_type": issue_type,
+                    "instance": name,
+                    "format": output_format,
+                    "message": "No workflow data available for this project/issue type.",
+                }
 
-        # Color by category
-        color_map = {"To Do": "#4A90D9", "In Progress": "#F6C342", "Done": "#14892C"}
-        node_colors = [
-            color_map.get(G.nodes[n].get("category", ""), "#C0C0C0") for n in G.nodes()
-        ]
+            # Layout and draw
+            fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+            try:
+                pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
 
-        nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_colors, node_size=2000, alpha=0.9)
-        nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
-        nx.draw_networkx_edges(G, pos, ax=ax, edge_color="#666666", arrows=True, arrowsize=20)
+                # Color by category
+                color_map = {
+                    "To Do": "#4A90D9",
+                    "In Progress": "#F6C342",
+                    "Done": "#14892C",
+                }
+                node_colors = [
+                    color_map.get(G.nodes[n].get("category", ""), "#C0C0C0")
+                    for n in G.nodes()
+                ]
 
-        edge_labels = nx.get_edge_attributes(G, "label")
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=ax, font_size=6)
+                nx.draw_networkx_nodes(
+                    G, pos, ax=ax, node_color=node_colors, node_size=2000, alpha=0.9
+                )
+                nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
+                nx.draw_networkx_edges(
+                    G, pos, ax=ax, edge_color="#666666", arrows=True, arrowsize=20
+                )
 
-        ax.set_title(f"Workflow: {project_key} - {issue_type}", fontsize=14, fontweight="bold")
-        ax.axis("off")
-        plt.tight_layout()
+                edge_labels = nx.get_edge_attributes(G, "label")
+                nx.draw_networkx_edge_labels(
+                    G, pos, edge_labels=edge_labels, ax=ax, font_size=6
+                )
 
-        fmt = "svg" if output_format == "svg" else "png"
-        resource_path = WORKFLOW_RESOURCE_PATHS[fmt]
-        resource_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                dir=resource_path.parent, suffix=f".{fmt}", delete=False,
-            ) as temporary_file:
-                temporary_path = Path(temporary_file.name)
-            fig.savefig(temporary_path, format=fmt, dpi=150, bbox_inches="tight")
-            os.replace(temporary_path, resource_path)
-            temporary_path = None
-        finally:
-            plt.close(fig)
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
+                ax.set_title(
+                    f"Workflow: {project_key} - {issue_type}",
+                    fontsize=14,
+                    fontweight="bold",
+                )
+                ax.axis("off")
+                plt.tight_layout()
+
+                fmt = "svg" if output_format == "svg" else "png"
+                resource_path = WORKFLOW_RESOURCE_PATHS[fmt]
+                resource_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary_path: Path | None = None
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        dir=resource_path.parent,
+                        suffix=f".{fmt}",
+                        delete=False,
+                    ) as temporary_file:
+                        temporary_path = Path(temporary_file.name)
+                    fig.savefig(
+                        temporary_path, format=fmt, dpi=150, bbox_inches="tight"
+                    )
+                    os.replace(temporary_path, resource_path)
+                    temporary_path = None
+                finally:
+                    if temporary_path is not None:
+                        temporary_path.unlink(missing_ok=True)
+
+            finally:
+                plt.close(fig)
 
         resource_uri = WORKFLOW_RESOURCE_URIS[fmt]
-        if ctx is not None:
-            await ctx.notify_resource_updated(resource_uri)
 
         return {
-            "project_key": project_key, "issue_type": issue_type,
-            "instance": name, "format": fmt,
+            "project_key": project_key,
+            "issue_type": issue_type,
+            "instance": name,
+            "format": fmt,
             "resource_uri": resource_uri,
             "message": f"Generated {fmt.upper()} workflow graph for {project_key}/{issue_type}",
         }
     except (JiraError, JiraGraphError):
         raise
     except Exception as e:
-        raise JiraGraphError(f"Failed to generate workflow graph: {e}", instance_name=name)
+        raise JiraGraphError(
+            f"Failed to generate workflow graph: {e}", instance_name=name
+        )
 
 
 def _extract_workflow_data(client, project_key: str, issue_type: str) -> dict:
@@ -140,12 +206,18 @@ def _extract_workflow_data(client, project_key: str, issue_type: str) -> dict:
             for itype in project_statuses:
                 if itype.get("name", "").lower() == issue_type.lower():
                     for s in itype.get("statuses", []):
-                        category = s.get("statusCategory", {}).get("name", "") if s.get("statusCategory") else ""
-                        statuses.append({
-                            "name": s.get("name", ""),
-                            "id": s.get("id", ""),
-                            "category": category,
-                        })
+                        category = (
+                            s.get("statusCategory", {}).get("name", "")
+                            if s.get("statusCategory")
+                            else ""
+                        )
+                        statuses.append(
+                            {
+                                "name": s.get("name", ""),
+                                "id": s.get("id", ""),
+                                "category": category,
+                            }
+                        )
                     break
     except Exception:
         pass
@@ -162,20 +234,42 @@ def _extract_workflow_data(client, project_key: str, issue_type: str) -> dict:
                     trans = client.get_issue_transitions(sample_key)
                     current = issues[0].get("fields", {}).get("status", {})
                     if current:
-                        cat = current.get("statusCategory", {}).get("name", "") if current.get("statusCategory") else ""
-                        statuses.append({"name": current.get("name", ""), "id": current.get("id", ""), "category": cat})
+                        cat = (
+                            current.get("statusCategory", {}).get("name", "")
+                            if current.get("statusCategory")
+                            else ""
+                        )
+                        statuses.append(
+                            {
+                                "name": current.get("name", ""),
+                                "id": current.get("id", ""),
+                                "category": cat,
+                            }
+                        )
                     for t in trans:
                         to_status = t.get("to", {})
                         if to_status:
-                            cat = to_status.get("statusCategory", {}).get("name", "") if to_status.get("statusCategory") else ""
-                            s = {"name": to_status.get("name", ""), "id": to_status.get("id", ""), "category": cat}
+                            cat = (
+                                to_status.get("statusCategory", {}).get("name", "")
+                                if to_status.get("statusCategory")
+                                else ""
+                            )
+                            s = {
+                                "name": to_status.get("name", ""),
+                                "id": to_status.get("id", ""),
+                                "category": cat,
+                            }
                             if s not in statuses:
                                 statuses.append(s)
-                            transitions.append({
-                                "name": t.get("name", ""),
-                                "from_status": current.get("name", "") if current else "",
-                                "to_status": to_status.get("name", ""),
-                            })
+                            transitions.append(
+                                {
+                                    "name": t.get("name", ""),
+                                    "from_status": current.get("name", "")
+                                    if current
+                                    else "",
+                                    "to_status": to_status.get("name", ""),
+                                }
+                            )
         except Exception:
             pass
 
@@ -196,15 +290,25 @@ def _generate_logical_transitions(statuses: list) -> list:
     # To Do -> In Progress
     for t in todo:
         for ip in in_progress[:1]:
-            transitions.append({"name": "Start", "from_status": t["name"], "to_status": ip["name"]})
+            transitions.append(
+                {"name": "Start", "from_status": t["name"], "to_status": ip["name"]}
+            )
 
     # In Progress -> Done
     for ip in in_progress:
         for d in done[:1]:
-            transitions.append({"name": "Complete", "from_status": ip["name"], "to_status": d["name"]})
+            transitions.append(
+                {"name": "Complete", "from_status": ip["name"], "to_status": d["name"]}
+            )
 
     # In Progress -> In Progress (between substates)
     for i, ip1 in enumerate(in_progress[:-1]):
-        transitions.append({"name": "Progress", "from_status": ip1["name"], "to_status": in_progress[i + 1]["name"]})
+        transitions.append(
+            {
+                "name": "Progress",
+                "from_status": ip1["name"],
+                "to_status": in_progress[i + 1]["name"],
+            }
+        )
 
     return transitions

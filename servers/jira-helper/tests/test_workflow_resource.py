@@ -1,109 +1,216 @@
-"""Protocol and failure tests for the generated Jira workflow resources."""
+"""Workflow responsiveness, publication and actual MCP subscription delivery."""
 
-import os
-import sys
+from threading import Event
+from types import SimpleNamespace
 
 import anyio
 import pytest
+from mcp import MCPError
 from mcp.client import Client
+from mcp.client.subscriptions import ResourceUpdated
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from config import settings
+from jira_client import ClientRegistry
+from main import create_server
+from tools import workflow
 
-import tools.workflow as workflow  # noqa: E402
-from main import create_server  # noqa: E402
 
-
-def _stub_workflow(monkeypatch, tmp_path):
-    monkeypatch.setattr(workflow, "resolve_instance_name", lambda _name: "test")
-    monkeypatch.setattr(workflow, "get_jira_client", lambda _name: object())
+@pytest.fixture
+def server(monkeypatch, tmp_path):
     monkeypatch.setattr(
         workflow,
         "_extract_workflow_data",
-        lambda _client, _project, _issue_type: {
+        lambda *_: {
             "statuses": [
                 {"name": "Open", "category": "To Do"},
                 {"name": "Done", "category": "Done"},
             ],
             "transitions": [
-                {"from_status": "Open", "to_status": "Done", "name": "Finish"},
+                {"from_status": "Open", "to_status": "Done", "name": "Finish"}
             ],
         },
     )
-    monkeypatch.setitem(workflow.WORKFLOW_RESOURCE_PATHS, "png", tmp_path / "workflow.png")
-    monkeypatch.setitem(workflow.WORKFLOW_RESOURCE_PATHS, "svg", tmp_path / "workflow.svg")
+    for fmt in ("png", "svg"):
+        monkeypatch.setitem(
+            workflow.WORKFLOW_RESOURCE_PATHS, fmt, tmp_path / f"workflow.{fmt}"
+        )
+    return create_server(
+        client_registry_factory=lambda: ClientRegistry(
+            settings, lambda *_: SimpleNamespace(close=lambda: None)
+        )
+    )
 
 
-def test_workflow_resource_generation_and_read(monkeypatch, tmp_path):
-    _stub_workflow(monkeypatch, tmp_path)
-
-    async def check() -> None:
-        async with Client(create_server(), raise_exceptions=True) as client:
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_workflow_generation_and_read(server, mode):
+    async def check():
+        async with Client(server, mode=mode) as client:
             result = await client.call_tool(
-                "generate_project_workflow_graph",
-                {"project_key": "TEST", "output_format": "png"},
+                "generate_project_workflow_graph", {"project_key": "TEST"}
             )
-            assert result.structured_content is not None
+            assert not result.is_error
             uri = result.structured_content["resource_uri"]
             assert "image_base64" not in result.structured_content
             resource = await client.read_resource(uri)
-        assert resource.contents[0].mime_type == "image/png"
-        assert resource.contents[0].blob
+            assert resource.contents[0].mime_type == "image/png"
+            assert resource.contents[0].blob
 
     anyio.run(check)
 
 
-def test_missing_workflow_resource_is_an_mcp_error(monkeypatch, tmp_path):
-    monkeypatch.setitem(workflow.WORKFLOW_RESOURCE_PATHS, "png", tmp_path / "missing.png")
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_missing_workflow_resource_has_precise_error(server, mode):
+    async def check():
+        async with Client(server, mode=mode) as client:
+            for uri in (
+                workflow.WORKFLOW_RESOURCE_URIS["png"],
+                "jira-workflow://unknown",
+            ):
+                with pytest.raises(MCPError) as caught:
+                    await client.read_resource(uri)
+                assert caught.value.code == -32602
+                assert caught.value.data == {"uri": uri}
 
-    async def check() -> None:
-        with pytest.raises(BaseExceptionGroup):
-            async with Client(create_server(), raise_exceptions=True) as client:
-                await client.read_resource(workflow.WORKFLOW_RESOURCE_URIS["png"])
+    anyio.run(check)
+
+
+def test_subscription_receives_success_and_no_failed_publication(server, monkeypatch):
+    uri = workflow.WORKFLOW_RESOURCE_URIS["svg"]
+    path = workflow.WORKFLOW_RESOURCE_PATHS["svg"]
+    path.write_text("previous")
+    replace = workflow.os.replace
+
+    def fail(*_):
+        raise OSError("controlled failure")
+
+    async def check():
+        async with Client(server) as client:
+            async with client.listen(resource_subscriptions=[uri]) as subscription:
+                assert uri in subscription.honored.resource_subscriptions
+                monkeypatch.setattr(workflow.os, "replace", fail)
+                result = await client.call_tool(
+                    "generate_project_workflow_graph",
+                    {"project_key": "TEST", "output_format": "svg"},
+                )
+                assert result.is_error
+                assert path.read_text() == "previous"
+                with anyio.move_on_after(0.1) as timeout:
+                    await anext(subscription)
+                assert timeout.cancel_called
+                monkeypatch.setattr(workflow.os, "replace", replace)
+                result = await client.call_tool(
+                    "generate_project_workflow_graph",
+                    {"project_key": "TEST", "output_format": "svg"},
+                )
+                assert not result.is_error
+                with anyio.fail_after(3):
+                    event = await anext(subscription)
+                assert isinstance(event, ResourceUpdated) and event.uri == uri
+                resource = await client.read_resource(uri)
+                assert "<svg" in resource.contents[0].text
 
     anyio.run(check)
 
 
-def test_workflow_replacement_failure_preserves_previous_artifact(monkeypatch, tmp_path):
-    _stub_workflow(monkeypatch, tmp_path)
-    target = workflow.WORKFLOW_RESOURCE_PATHS["png"]
-    target.write_bytes(b"previous")
+def test_blocked_workflow_allows_unrelated_mcp_call(server, monkeypatch):
+    entered, release = Event(), Event()
 
-    class RecordingContext:
-        notifications: list[str] = []
+    def blocking(*_):
+        entered.set()
+        assert release.wait(5)
+        return {"statuses": [], "transitions": []}
 
-        async def notify_resource_updated(self, uri: str) -> None:
-            self.notifications.append(uri)
+    monkeypatch.setattr(workflow, "_extract_workflow_data", blocking)
 
-    context = RecordingContext()
-    monkeypatch.setattr(workflow.os, "replace", lambda _source, _target: (_ for _ in ()).throw(OSError("boom")))
+    async def check():
+        async with Client(server) as client:
 
-    async def check() -> None:
-        with pytest.raises(workflow.JiraGraphError, match="boom"):
-            await workflow.generate_project_workflow_graph("TEST", ctx=context)
+            async def generate():
+                result = await client.call_tool(
+                    "generate_project_workflow_graph",
+                    {"project_key": "TEST", "output_format": "json"},
+                )
+                assert not result.is_error
+
+            async with anyio.create_task_group() as group:
+                group.start_soon(generate)
+                try:
+                    with anyio.fail_after(2):
+                        while not entered.is_set():
+                            await anyio.sleep(0.01)
+                        result = await client.call_tool(
+                            "validate_jql_query", {"jql": "project = TEST"}
+                        )
+                        assert not result.is_error
+                finally:
+                    release.set()
 
     anyio.run(check)
-    assert target.read_bytes() == b"previous"
-    assert context.notifications == []
 
 
-def test_workflow_notifies_after_successful_replacement(monkeypatch, tmp_path):
-    _stub_workflow(monkeypatch, tmp_path)
+def test_render_failure_closes_figure(server, monkeypatch):
+    import matplotlib.pyplot as plt
+    import networkx as nx
 
-    class RecordingContext:
-        def __init__(self):
-            self.notifications = []
+    before = plt.get_fignums()
+    monkeypatch.setattr(
+        nx,
+        "spring_layout",
+        lambda *a, **kw: (_ for _ in ()).throw(ValueError("layout failed")),
+    )
 
-        async def notify_resource_updated(self, uri: str) -> None:
-            assert workflow.WORKFLOW_RESOURCE_PATHS["svg"].exists()
-            self.notifications.append(uri)
+    async def check():
+        async with Client(server) as client:
+            result = await client.call_tool(
+                "generate_project_workflow_graph", {"project_key": "TEST"}
+            )
+            assert result.is_error
 
-    context = RecordingContext()
+    anyio.run(check)
+    assert plt.get_fignums() == before
 
-    async def check() -> None:
-        result = await workflow.generate_project_workflow_graph(
-            "TEST", output_format="svg", ctx=context,
+
+def test_rendering_is_serialized_across_server_instances(server, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Lock
+    import networkx as nx
+
+    # Finish font-cache initialization before timing synchronization waits.
+    import matplotlib.pyplot as plt
+
+    assert not plt.get_fignums()
+    original = nx.spring_layout
+    entered, release = Event(), Event()
+    guard = Lock()
+    active = peak = calls = 0
+
+    def layout(*args, **kwargs):
+        nonlocal active, peak, calls
+        with guard:
+            active += 1
+            calls += 1
+            peak = max(peak, active)
+            first = calls == 1
+        try:
+            if first:
+                entered.set()
+                assert release.wait(5)
+            return original(*args, **kwargs)
+        finally:
+            with guard:
+                active -= 1
+
+    monkeypatch.setattr(nx, "spring_layout", layout)
+
+    def generate(name):
+        return workflow.generate_project_workflow_graph(
+            "TEST", instance_name=name, output_format="svg", get_client=lambda: object()
         )
-        assert result["resource_uri"] == workflow.WORKFLOW_RESOURCE_URIS["svg"]
 
-    anyio.run(check)
-    assert context.notifications == [workflow.WORKFLOW_RESOURCE_URIS["svg"]]
+    with ThreadPoolExecutor(2) as pool:
+        first = pool.submit(generate, "one")
+        assert entered.wait(3)
+        second = pool.submit(generate, "two")
+        release.set()
+        assert first.result(5)["resource_uri"] == second.result(5)["resource_uri"]
+    assert calls == 2 and peak == 1

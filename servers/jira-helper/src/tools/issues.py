@@ -3,11 +3,28 @@
 import logging
 from typing import Any, Literal, TypedDict
 
-from jira_client import get_jira_client, validate_issue_key, resolve_instance_name
+from jira_client import validate_issue_key, InstanceInfo
+from collections.abc import Callable
+from atlassian import Jira
 from exceptions import JiraError, JiraValidationError, JiraApiError
 from output_sanitizer import sanitize_string
+from config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+class ProjectInfo(TypedDict):
+    key: str
+    name: str
+    id: str
+    project_type: str
+
+
+class CustomFieldInfo(TypedDict):
+    id: str
+    name: str
+    type: str
+    custom_type: str
 
 
 class ListResult(TypedDict):
@@ -16,7 +33,7 @@ class ListResult(TypedDict):
 
 
 class ProjectsResult(ListResult):
-    projects: list[dict[str, Any]]
+    projects: list[ProjectInfo]
 
 
 class IssueDetailsResult(TypedDict):
@@ -67,28 +84,32 @@ class AssigneeResult(TypedDict):
 
 
 class InstancesResult(TypedDict):
-    instances: list[dict[str, Any]]
+    instances: list[InstanceInfo]
     count: int
 
 
 class CustomFieldsResult(ListResult):
-    custom_fields: list[dict[str, Any]]
+    custom_fields: list[CustomFieldInfo]
 
 
-def list_jira_projects(instance_name: str | None = None) -> ProjectsResult:
+def list_jira_projects(
+    instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> ProjectsResult:
     """List all projects available in the Jira instance."""
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         projects = client.projects()
         result = []
         for p in projects:
-            result.append({
-                "key": p.get("key", ""),
-                "name": p.get("name", ""),
-                "id": p.get("id", ""),
-                "project_type": p.get("projectTypeKey", ""),
-            })
+            result.append(
+                {
+                    "key": p.get("key", ""),
+                    "name": p.get("name", ""),
+                    "id": p.get("id", ""),
+                    "project_type": p.get("projectTypeKey", ""),
+                }
+            )
         return {"instance": name, "projects": result, "count": len(result)}
     except JiraError:
         raise
@@ -96,23 +117,37 @@ def list_jira_projects(instance_name: str | None = None) -> ProjectsResult:
         raise JiraApiError(f"Failed to list projects: {e}", instance_name=name)
 
 
-def get_issue_details(issue_key: str, instance_name: str | None = None) -> IssueDetailsResult:
+def get_issue_details(
+    issue_key: str, instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> IssueDetailsResult:
     """Get detailed information about a specific Jira issue."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         issue = client.issue(key)
         fields = issue.get("fields", {})
         return {
             "key": issue.get("key", key),
             "summary": sanitize_string(fields.get("summary", "")),
-            "status": fields.get("status", {}).get("name", "") if fields.get("status") else "",
-            "assignee": fields.get("assignee", {}).get("displayName", "Unassigned") if fields.get("assignee") else "Unassigned",
-            "reporter": fields.get("reporter", {}).get("displayName", "") if fields.get("reporter") else "",
-            "priority": fields.get("priority", {}).get("name", "") if fields.get("priority") else "",
-            "issue_type": fields.get("issuetype", {}).get("name", "") if fields.get("issuetype") else "",
-            "project": fields.get("project", {}).get("key", "") if fields.get("project") else "",
+            "status": fields.get("status", {}).get("name", "")
+            if fields.get("status")
+            else "",
+            "assignee": fields.get("assignee", {}).get("displayName", "Unassigned")
+            if fields.get("assignee")
+            else "Unassigned",
+            "reporter": fields.get("reporter", {}).get("displayName", "")
+            if fields.get("reporter")
+            else "",
+            "priority": fields.get("priority", {}).get("name", "")
+            if fields.get("priority")
+            else "",
+            "issue_type": fields.get("issuetype", {}).get("name", "")
+            if fields.get("issuetype")
+            else "",
+            "project": fields.get("project", {}).get("key", "")
+            if fields.get("project")
+            else "",
             "description": sanitize_string(fields.get("description", "")),
             "created": fields.get("created", ""),
             "updated": fields.get("updated", ""),
@@ -127,13 +162,18 @@ def get_issue_details(issue_key: str, instance_name: str | None = None) -> Issue
 
 
 def get_full_issue_details(
-    issue_key: str, instance_name: str | None = None, include_comments: bool = True,
-    raw_data: bool = False, format: Literal["structured"] = "structured",
+    issue_key: str,
+    instance_name: str | None = None,
+    include_comments: bool = True,
+    raw_data: bool = False,
+    format: Literal["structured"] = "structured",
+    *,
+    get_client: Callable[[], Jira],
 ) -> dict[str, Any]:
     """Get comprehensive information about a Jira issue with formatting options."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         issue = client.issue(key)
         if raw_data:
@@ -143,12 +183,24 @@ def get_full_issue_details(
         result = {
             "key": issue.get("key", key),
             "summary": sanitize_string(fields.get("summary", "")),
-            "status": fields.get("status", {}).get("name", "") if fields.get("status") else "",
-            "assignee": fields.get("assignee", {}).get("displayName", "Unassigned") if fields.get("assignee") else "Unassigned",
-            "reporter": fields.get("reporter", {}).get("displayName", "") if fields.get("reporter") else "",
-            "priority": fields.get("priority", {}).get("name", "") if fields.get("priority") else "",
-            "issue_type": fields.get("issuetype", {}).get("name", "") if fields.get("issuetype") else "",
-            "project": fields.get("project", {}).get("key", "") if fields.get("project") else "",
+            "status": fields.get("status", {}).get("name", "")
+            if fields.get("status")
+            else "",
+            "assignee": fields.get("assignee", {}).get("displayName", "Unassigned")
+            if fields.get("assignee")
+            else "Unassigned",
+            "reporter": fields.get("reporter", {}).get("displayName", "")
+            if fields.get("reporter")
+            else "",
+            "priority": fields.get("priority", {}).get("name", "")
+            if fields.get("priority")
+            else "",
+            "issue_type": fields.get("issuetype", {}).get("name", "")
+            if fields.get("issuetype")
+            else "",
+            "project": fields.get("project", {}).get("key", "")
+            if fields.get("project")
+            else "",
             "description": sanitize_string(fields.get("description", "")),
             "created": fields.get("created", ""),
             "updated": fields.get("updated", ""),
@@ -160,15 +212,23 @@ def get_full_issue_details(
         if include_comments:
             comments_data = client.issue_get_comments(key)
             comments = []
-            raw_comments = comments_data.get("comments", []) if isinstance(comments_data, dict) else comments_data
+            raw_comments = (
+                comments_data.get("comments", [])
+                if isinstance(comments_data, dict)
+                else comments_data
+            )
             for c in raw_comments:
-                comments.append({
-                    "id": c.get("id", ""),
-                    "author": c.get("author", {}).get("displayName", "") if c.get("author") else "",
-                    "body": sanitize_string(c.get("body", "")),
-                    "created": c.get("created", ""),
-                    "updated": c.get("updated", ""),
-                })
+                comments.append(
+                    {
+                        "id": c.get("id", ""),
+                        "author": c.get("author", {}).get("displayName", "")
+                        if c.get("author")
+                        else "",
+                        "body": sanitize_string(c.get("body", "")),
+                        "created": c.get("created", ""),
+                        "updated": c.get("updated", ""),
+                    }
+                )
             result["comments"] = comments
             result["comment_count"] = len(comments)
 
@@ -180,11 +240,15 @@ def get_full_issue_details(
             if "outwardIssue" in link:
                 link_info["direction"] = "outward"
                 link_info["issue_key"] = link["outwardIssue"].get("key", "")
-                link_info["summary"] = sanitize_string(link["outwardIssue"].get("fields", {}).get("summary", ""))
+                link_info["summary"] = sanitize_string(
+                    link["outwardIssue"].get("fields", {}).get("summary", "")
+                )
             elif "inwardIssue" in link:
                 link_info["direction"] = "inward"
                 link_info["issue_key"] = link["inwardIssue"].get("key", "")
-                link_info["summary"] = sanitize_string(link["inwardIssue"].get("fields", {}).get("summary", ""))
+                link_info["summary"] = sanitize_string(
+                    link["inwardIssue"].get("fields", {}).get("summary", "")
+                )
             links.append(link_info)
         result["links"] = links
 
@@ -196,7 +260,9 @@ def get_full_issue_details(
                 "filename": a.get("filename", ""),
                 "size": a.get("size", 0),
                 "created": a.get("created", ""),
-                "author": a.get("author", {}).get("displayName", "") if a.get("author") else "",
+                "author": a.get("author", {}).get("displayName", "")
+                if a.get("author")
+                else "",
             }
             for a in attachments
         ]
@@ -205,20 +271,30 @@ def get_full_issue_details(
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to get full issue details for {key}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to get full issue details for {key}: {e}", instance_name=name
+        )
 
 
 def create_jira_ticket(
-    project_key: str, summary: str, issue_type: str = "Task",
-    description: str = "", priority: str | None = None, assignee: str | None = None,
-    labels: list[str] | None = None, components: list[str] | None = None,
-    instance_name: str | None = None, custom_fields: dict[str, Any] | None = None,
+    project_key: str,
+    summary: str,
+    issue_type: str = "Task",
+    description: str = "",
+    priority: str | None = None,
+    assignee: str | None = None,
+    labels: list[str] | None = None,
+    components: list[str] | None = None,
+    instance_name: str | None = None,
+    custom_fields: dict[str, Any] | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> CreatedIssueResult:
     """Create a new Jira ticket."""
     if not project_key or not summary:
         raise JiraValidationError("project_key and summary are required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         fields = {
             "project": {"key": project_key.strip().upper()},
@@ -258,15 +334,22 @@ def create_jira_ticket(
 
 
 def update_jira_issue(
-    issue_key: str, summary: str | None = None, description: str | None = None,
-    priority: str | None = None, assignee: str | None = None,
-    labels: list[str] | None = None, components: list[str] | None = None,
-    instance_name: str | None = None, custom_fields: dict[str, Any] | None = None,
+    issue_key: str,
+    summary: str | None = None,
+    description: str | None = None,
+    priority: str | None = None,
+    assignee: str | None = None,
+    labels: list[str] | None = None,
+    components: list[str] | None = None,
+    instance_name: str | None = None,
+    custom_fields: dict[str, Any] | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> UpdatedIssueResult:
     """Update an existing Jira issue with new field values."""
     key = validate_issue_key(issue_key)
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         fields = {}
         if summary is not None:
@@ -290,7 +373,9 @@ def update_jira_issue(
             fields[field_name] = value
 
         if not fields:
-            raise JiraValidationError("No fields to update. Provide at least one field.")
+            raise JiraValidationError(
+                "No fields to update. Provide at least one field."
+            )
 
         client.issue_update(key, fields=fields)
         return {
@@ -306,15 +391,21 @@ def update_jira_issue(
 
 
 def transition_jira_issue(
-    issue_key: str, transition_name: str | None = None, transition_id: str | None = None,
+    issue_key: str,
+    transition_name: str | None = None,
+    transition_id: str | None = None,
     instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> TransitionResult:
     """Transition a Jira issue through its workflow."""
     key = validate_issue_key(issue_key)
     if not transition_name and not transition_id:
-        raise JiraValidationError("Either transition_name or transition_id is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+        raise JiraValidationError(
+            "Either transition_name or transition_id is required."
+        )
+    name = instance_name
+    client = get_client()
     try:
         transitions = client.get_issue_transitions(key)
         target = None
@@ -352,14 +443,18 @@ def transition_jira_issue(
 
 
 def change_issue_assignee(
-    issue_key: str, assignee: str, instance_name: str | None = None,
+    issue_key: str,
+    assignee: str,
+    instance_name: str | None = None,
+    *,
+    get_client: Callable[[], Jira],
 ) -> AssigneeResult:
     """Change the assignee of a Jira issue."""
     key = validate_issue_key(issue_key)
     if not assignee:
         raise JiraValidationError("assignee is required.")
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         client.issue_update(key, fields={"assignee": {"name": assignee}})
         return {
@@ -371,33 +466,46 @@ def change_issue_assignee(
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to change assignee for {key}: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to change assignee for {key}: {e}", instance_name=name
+        )
 
 
-def list_jira_instances() -> InstancesResult:
+def list_jira_instances(*, configuration: Settings) -> InstancesResult:
     """List all configured Jira instances."""
     from jira_client import get_instances_info
-    instances = get_instances_info()
+
+    instances = get_instances_info(configuration)
     return {"instances": instances, "count": len(instances)}
 
 
-def get_custom_field_mappings(instance_name: str | None = None) -> CustomFieldsResult:
+def get_custom_field_mappings(
+    instance_name: str | None = None, *, get_client: Callable[[], Jira]
+) -> CustomFieldsResult:
     """Get mappings between Jira custom field IDs and their names."""
-    name = resolve_instance_name(instance_name)
-    client = get_jira_client(name)
+    name = instance_name
+    client = get_client()
     try:
         all_fields = client.get_all_fields()
         mappings = []
         for field in all_fields:
             if field.get("custom", False):
-                mappings.append({
-                    "id": field.get("id", ""),
-                    "name": field.get("name", ""),
-                    "type": field.get("schema", {}).get("type", "") if field.get("schema") else "",
-                    "custom_type": field.get("schema", {}).get("custom", "") if field.get("schema") else "",
-                })
+                mappings.append(
+                    {
+                        "id": field.get("id", ""),
+                        "name": field.get("name", ""),
+                        "type": field.get("schema", {}).get("type", "")
+                        if field.get("schema")
+                        else "",
+                        "custom_type": field.get("schema", {}).get("custom", "")
+                        if field.get("schema")
+                        else "",
+                    }
+                )
         return {"instance": name, "custom_fields": mappings, "count": len(mappings)}
     except JiraError:
         raise
     except Exception as e:
-        raise JiraApiError(f"Failed to get custom field mappings: {e}", instance_name=name)
+        raise JiraApiError(
+            f"Failed to get custom field mappings: {e}", instance_name=name
+        )
