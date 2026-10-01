@@ -90,7 +90,7 @@ approved plan is therefore the governing design input for this checklist.
   - Acceptance: the 13 pre-existing modified files are treated as user-owned
     work and are not reverted or silently replaced.
 - [x] **V2-003 — Establish the initial dependency state.**
-  - Acceptance: all five server manifests use `mcp>=2.0.0,<3.0.0`, their locks
+  - Acceptance: all five server manifests use `mcp>=2.2.0,<3.0.0`, their locks
     resolve `mcp` and `mcp-types` 2.0.0, and the five obsolete explicit
     prerelease overrides are absent.
 - [x] **V2-004 — Record known unresolved resolution defects.**
@@ -116,7 +116,7 @@ approved plan is therefore the governing design input for this checklist.
   - Include every direct dependency and each resolved version in all six locks.
   - Distinguish direct requirements from transitive resolutions.
 - [x] **V2-102 — Replace the MCP v2 release-candidate pin.**
-  - Acceptance: all five server manifests use `mcp>=2.0.0,<3.0.0` and no server
+  - Acceptance: all five server manifests use `mcp>=2.2.0,<3.0.0` and no server
     forces prerelease resolution.
 - [x] **V2-103 — Review lower bounds as compatibility claims.**
   - Retain a lower bound when tests demonstrate compatibility with it.
@@ -281,7 +281,7 @@ approved plan is therefore the governing design input for this checklist.
 ## Phase 5: Update Scaffolding, Documentation, and Architecture Record
 
 - [x] **V2-500 — Update generated dependency constraints.**
-  - Current local generator output uses `mcp>=2.0.0,<3.0.0` and omits the
+  - Current local generator output uses `mcp>=2.2.0,<3.0.0` and omits the
     prerelease override; its regression test reflects that contract.
 - [x] **V2-501 — Update the basic dependency guide.**
   - Current local developer guidance describes the stable v2 range and no longer
@@ -497,7 +497,7 @@ The effort is complete only when:
 
 ## Decisions Made
 
-- Use `mcp>=2.0.0,<3.0.0` rather than an exact release-candidate pin.
+- Use `mcp>=2.2.0,<3.0.0` rather than an exact release-candidate pin.
 - Upgrade all packages, subject to stable-release and compatibility verification.
 - Retain imperative `add_tool()` and `add_resource()` registration.
 - Use decorators only for genuine aspect-oriented, cross-cutting behavior.

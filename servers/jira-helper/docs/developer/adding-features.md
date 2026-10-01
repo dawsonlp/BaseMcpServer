@@ -10,7 +10,7 @@ contract; there are no generic service/use-case/repository layers to instantiate
 | File | Responsibility |
 | --- | --- |
 | `src/tools/*.py` | Domain validation, Atlassian operations, and typed projected results |
-| `src/mcp_adapters.py` | Explicit public tool signatures, MCP context, worker dispatch, safe errors, and notifications |
+| `src/mcp_adapters.py` | Explicit public tool signatures, MCP context, safe errors, and notifications |
 | `src/jira_client.py` | Lazy client construction, per-service/instance serialization, and deterministic cleanup |
 | `src/runtime.py` | Lifespan state and execution using its owned registry |
 | `src/tool_config.py` | Tool metadata, adapter references, behavior hints, and resource registration objects |
@@ -25,12 +25,13 @@ contract; there are no generic service/use-case/repository layers to instantiate
 2. Define stable results using `TypedDict`, including nested projected records.
    Use an open dictionary only for genuinely open upstream data. Domain functions
    do not import MCP or retrieve runtime globals.
-3. Add an ordinary, explicitly typed async function in `mcp_adapters.py`. Keep
+3. Add an ordinary, explicitly typed synchronous function in `mcp_adapters.py`. Keep
    client-facing arguments concrete and inject `ctx: Context[RuntimeState]` as a
    keyword-only parameter. Call the private `_call` execution helper with the
-   service, instance, domain function, and its arguments. This helper runs the
-   synchronous operation off-loop, within the owned client scope, and translates
-   expected domain exceptions. Do not expose its internal `**arguments` on tools.
+   service, instance, domain function, and its arguments. This helper executes within the owned client scope and translates expected
+   domain exceptions. MCP 2.2.0 dispatches synchronous adapters to worker threads.
+   Use an async adapter only when it must await an async API, such as a resource
+   notification; explicitly offload its blocking work. Do not expose its internal `**arguments` on tools.
 4. Add the adapter reference and description to `JIRA_TOOLS`, classify its behavior
    hints, and let `create_server()` register it through `add_tool()`. No tool
    decorators, import-time server, or private SDK manager access is needed.

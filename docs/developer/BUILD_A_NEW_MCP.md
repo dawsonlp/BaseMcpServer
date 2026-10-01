@@ -33,7 +33,7 @@ a future breaking major release is not selected automatically.
 
 ```toml
 [project]
-dependencies = ["mcp>=2.0.0,<3.0.0", "PyYAML>=6.0.3"]
+dependencies = ["mcp>=2.2.0,<3.0.0", "PyYAML>=6.0.3"]
 ```
 
 Run `uv lock` after changing dependencies and commit the lockfile for these

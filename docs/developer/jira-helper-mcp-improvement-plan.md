@@ -242,3 +242,42 @@ above remain intentional constraints.
 - [SDK migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md)
 - [SDK v2 capability overview](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/whats-new.md)
 - [Jira Helper documentation](../../servers/jira-helper/docs/README.md)
+
+## October 1 follow-up: SDK synchronous dispatch
+
+The agreed minimum is now `mcp>=2.2.0,<3.0.0`. Ordinary MCP adapters are
+synchronous: SDK 2.2.0 performs worker-thread dispatch with non-abandoning
+cancellation. The adapters retain explicit injection and safe error translation.
+Workflow generation retains an async adapter for the subsequent resource update
+notification and explicitly offloads its synchronous operation. The earlier
+blocking reproduction concerned an async handler calling synchronous rendering;
+it does not imply that registered synchronous handlers block the event loop.
+Client ownership, serialization, shutdown draining, and output contracts remain.
+
+### Follow-up verification — October 1
+
+Implemented on `improve/jira-sdk-sync-dispatch`: 31 synchronous Jira adapters
+use SDK worker dispatch; workflow generation retains an async notification
+boundary. Client ownership and public contracts are preserved. All five server
+manifests and current scaffold guidance use `mcp>=2.2.0,<3.0.0`.
+
+- Locked suites: Jira 53, Template 6, World Context 6, YouTube 10, Creator 8,
+  Manager 14: 97 passed; the opt-in Creator E2E passed separately.
+- Wheels and source distributions built for all six projects.
+- Fresh disposable Jira wheel install reported 2.3.0; modern `2026-07-28` and
+  legacy `2025-11-25` stdio discovery exposed 32 tools and two resources.
+  Full tool/resource inventories exactly matched the tracked release inventory;
+  valid JQL and safe invalid-issue calls passed in both modes.
+- Fresh stdio discovery passed for Template, World Context, Creator, and YouTube.
+- All six `uv lock --upgrade` and `uv tree --locked --outdated` checks completed,
+  including development dependencies. Manager's lock was already current.
+  MCP remains 2.2.0. The only outdated graph entry was pydantic-core 2.46.5
+  versus 2.49.0: installed Pydantic 2.13.5 requires exactly 2.46.5.
+- Remote YouTube tag inventory confirmed v0.1.4 is the latest available tag;
+  its peeled commit matches the locked dependency d6b42f7841d0c3fae7789924919fdcdf19971a18.
+- `git diff --check` passed. Evidence logs and disposable artifacts are in
+  `/private/tmp/jira-sync-verification`; these are local, temporary evidence.
+
+These are checkout/disposable-artifact checks. No managed installations, client
+synchronization, live Jira mutations, commit/push, merge, tag, or release publication
+were performed for this follow-up.

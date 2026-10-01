@@ -2,7 +2,7 @@
 
 ## Dependency maintenance
 
-Keep the stable MCP v2 policy `mcp>=2.0.0,<3.0.0`. Refresh all six project locks
+Keep the stable MCP v2 policy `mcp>=2.2.0,<3.0.0`. Refresh all six project locks
 with `uv lock --upgrade`, check complete graphs with `uv tree --locked --outdated`,
 and explain any upstream-constrained exceptions. Include development dependencies
 and check the release tag of the Git-sourced Loadbearing YouTube dependency.

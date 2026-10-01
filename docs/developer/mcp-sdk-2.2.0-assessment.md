@@ -12,7 +12,7 @@ against the MCP 2.2.0 release notes and the six refreshed `uv.lock` files.
 ## Dependency result
 
 All server locks now resolve `mcp` and `mcp-types` 2.2.0 while retaining the
-bounded runtime policy `mcp>=2.0.0,<3.0.0`. Neither the servers nor the manager
+bounded runtime policy `mcp>=2.2.0,<3.0.0`. Neither the servers nor the manager
 request the optional SDK CLI. The manager deliberately has no MCP SDK
 dependency.
 
@@ -107,7 +107,7 @@ code should delegate to or wrap `mcp install`.
 
 ## Decisions
 
-- Keep `mcp>=2.0.0,<3.0.0` as the deployed runtime requirement.
+- Keep `mcp>=2.2.0,<3.0.0` as the deployed runtime requirement.
 - Do not add `mcp[cli]` to server or manager dependencies without a development
   need independent of the CLI's preferred module shape.
 - Retain `create_server()`, explicit `add_tool()` registration, and construction
@@ -124,7 +124,7 @@ code should delegate to or wrap `mcp install`.
   skipped in the normal matrix and passed separately when enabled.
 - Wheels and source distributions built for all four operational servers, the
   template, and MCP Manager 1.8.0. Artifact metadata retains plain
-  `mcp>=2.0.0,<3.0.0` and the existing console entry points.
+  `mcp>=2.2.0,<3.0.0` and the existing console entry points.
 - MCP Manager transactionally reinstalled all four operational servers,
   preserving the three existing `config.yaml` files, and synchronized five
   registered servers to Cline, Claude Desktop, VS Code, Codex, and Antigravity.

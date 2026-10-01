@@ -4,6 +4,10 @@ This directory contains technical documentation for developers building and exte
 
 ## Available Documentation
 
+### [Agent Handover — October 1, 2026](agent-handover-2026-10-01.md)
+Released Jira work, verification evidence, current checkout discrepancy, and
+proposed follow-up work for MCP Manager and the other servers.
+
 ### [Jira Helper MCP Integration Development Plan](jira-helper-mcp-improvement-plan.md)
 Implementation plan and verification evidence for actionable errors, responsive
 workflow execution, client ownership, precise result schemas, and protocol checks.

@@ -9,7 +9,7 @@ Build MCP servers from ordinary, independently testable functions, with explicit
 composition, registration, and runtime ownership. Use the SDK's supported
 capabilities without coupling business logic to server construction.
 
-Keep the dependency policy `mcp>=2.0.0,<3.0.0`. All five server locks currently
+Keep the dependency policy `mcp>=2.2.0,<3.0.0`. All five server locks currently
 resolve `mcp` and `mcp-types` 2.2.0; MCP Manager remains SDK-independent.
 An allowed version range, a lockfile resolution, an upstream `main` document,
 and a managed installation are different evidence. This documentation update

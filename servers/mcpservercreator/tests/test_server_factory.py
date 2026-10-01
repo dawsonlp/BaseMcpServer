@@ -73,7 +73,7 @@ def add_numbers(a: int, b: int) -> dict[str, int]:
     assert "def add_numbers(a: int, b: int)" in tools_source
     assert "self" not in tools_source
     assert "allowed_hosts" in config_example
-    assert '"mcp>=2.0.0,<3.0.0"' in pyproject
+    assert '"mcp>=2.2.0,<3.0.0"' in pyproject
     assert "prerelease" not in pyproject
     assert "mcp-commons" not in pyproject
     assert 'py-modules = ["main", "config", "tools", "tool_config"]' in pyproject

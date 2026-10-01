@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jira-helper"
-version = "2.3.0"
+version = "2.3.1"
 description = "A Jira and Confluence helper MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -13,7 +13,7 @@ authors = [
 ]
 dependencies = [
     # Core MCP
-    "mcp>=2.0.0,<3.0.0",
+    "mcp>=2.2.0,<3.0.0",
     "pydantic>=2.13.5,<3.0.0",
     
     # Jira/Confluence integration 

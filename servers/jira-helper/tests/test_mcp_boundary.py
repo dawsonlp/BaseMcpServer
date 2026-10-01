@@ -159,7 +159,8 @@ def test_partial_creation_is_not_converted_to_failure():
     anyio.run(check)
 
 
-def test_cancellation_does_not_close_client_under_running_work():
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_cancellation_does_not_close_client_under_running_work(mode):
     from threading import Event
 
     entered, release, finished = Event(), Event(), Event()
@@ -185,7 +186,7 @@ def test_cancellation_does_not_close_client_under_running_work():
         server = create_server(
             client_registry_factory=lambda: ClientRegistry(settings, lambda *_: fake)
         )
-        async with Client(server) as client:
+        async with Client(server, mode=mode) as client:
 
             async def call():
                 with anyio.CancelScope() as scope:

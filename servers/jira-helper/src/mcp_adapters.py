@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-async def _call(
+def _call(
     ctx: Context[RuntimeState],
     service: Literal["jira", "confluence"],
     instance_name: str | None,
@@ -35,31 +35,27 @@ async def _call(
 ) -> T:
     state = ctx.request_context.lifespan_context
     try:
-        # Do not abandon a thread on cancellation: its client stays owned until it finishes.
-        return await anyio.to_thread.run_sync(
-            partial(state.execute, service, instance_name, operation, arguments),
-            abandon_on_cancel=False,
-        )
+        return state.execute(service, instance_name, operation, arguments)
     except JiraError as error:
         logger.info("Expected Jira operation failure", exc_info=True)
         raise ToolError(public_error_message(error)) from error
 
 
-async def list_jira_projects(
+def list_jira_projects(
     instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> issues.ProjectsResult:
-    return await _call(ctx, "jira", instance_name, issues.list_jira_projects)
+    return _call(ctx, "jira", instance_name, issues.list_jira_projects)
 
 
-async def get_issue_details(
+def get_issue_details(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> issues.IssueDetailsResult:
-    return await _call(
+    return _call(
         ctx, "jira", instance_name, issues.get_issue_details, issue_key=issue_key
     )
 
 
-async def get_full_issue_details(
+def get_full_issue_details(
     issue_key: str,
     instance_name: str | None = None,
     include_comments: bool = True,
@@ -68,7 +64,7 @@ async def get_full_issue_details(
     *,
     ctx: Context[RuntimeState],
 ) -> dict[str, Any]:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -80,7 +76,7 @@ async def get_full_issue_details(
     )
 
 
-async def create_jira_ticket(
+def create_jira_ticket(
     project_key: str,
     summary: str,
     issue_type: str = "Task",
@@ -94,7 +90,7 @@ async def create_jira_ticket(
     *,
     ctx: Context[RuntimeState],
 ) -> issues.CreatedIssueResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -111,7 +107,7 @@ async def create_jira_ticket(
     )
 
 
-async def update_jira_issue(
+def update_jira_issue(
     issue_key: str,
     summary: str | None = None,
     description: str | None = None,
@@ -124,7 +120,7 @@ async def update_jira_issue(
     *,
     ctx: Context[RuntimeState],
 ) -> issues.UpdatedIssueResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -140,7 +136,7 @@ async def update_jira_issue(
     )
 
 
-async def transition_jira_issue(
+def transition_jira_issue(
     issue_key: str,
     transition_name: str | None = None,
     transition_id: str | None = None,
@@ -148,7 +144,7 @@ async def transition_jira_issue(
     *,
     ctx: Context[RuntimeState],
 ) -> issues.TransitionResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -159,14 +155,14 @@ async def transition_jira_issue(
     )
 
 
-async def change_issue_assignee(
+def change_issue_assignee(
     issue_key: str,
     assignee: str,
     instance_name: str | None = None,
     *,
     ctx: Context[RuntimeState],
 ) -> issues.AssigneeResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -176,26 +172,26 @@ async def change_issue_assignee(
     )
 
 
-async def list_jira_instances(*, ctx: Context[RuntimeState]) -> issues.InstancesResult:
+def list_jira_instances(*, ctx: Context[RuntimeState]) -> issues.InstancesResult:
     return issues.list_jira_instances(
         configuration=ctx.request_context.lifespan_context.clients.configuration
     )
 
 
-async def get_custom_field_mappings(
+def get_custom_field_mappings(
     instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> issues.CustomFieldsResult:
-    return await _call(ctx, "jira", instance_name, issues.get_custom_field_mappings)
+    return _call(ctx, "jira", instance_name, issues.get_custom_field_mappings)
 
 
-async def upload_file_to_jira(
+def upload_file_to_jira(
     issue_key: str,
     file_path: str,
     instance_name: str | None = None,
     *,
     ctx: Context[RuntimeState],
 ) -> files.UploadResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -205,18 +201,18 @@ async def upload_file_to_jira(
     )
 
 
-async def list_issue_attachments(
+def list_issue_attachments(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> files.AttachmentsResult:
-    return await _call(
+    return _call(
         ctx, "jira", instance_name, files.list_issue_attachments, issue_key=issue_key
     )
 
 
-async def delete_issue_attachment(
+def delete_issue_attachment(
     attachment_id: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> files.DeleteAttachmentResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -225,22 +221,22 @@ async def delete_issue_attachment(
     )
 
 
-async def list_confluence_spaces(
+def list_confluence_spaces(
     instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> confluence.SpacesResult:
-    return await _call(
+    return _call(
         ctx, "confluence", instance_name, confluence.list_confluence_spaces
     )
 
 
-async def list_confluence_pages(
+def list_confluence_pages(
     space_key: str,
     instance_name: str | None = None,
     limit: confluence.ResultLimit = 20,
     *,
     ctx: Context[RuntimeState],
 ) -> confluence.PagesResult:
-    return await _call(
+    return _call(
         ctx,
         "confluence",
         instance_name,
@@ -250,7 +246,7 @@ async def list_confluence_pages(
     )
 
 
-async def get_confluence_page(
+def get_confluence_page(
     page_id: str | None = None,
     title: str | None = None,
     space_key: str | None = None,
@@ -258,7 +254,7 @@ async def get_confluence_page(
     *,
     ctx: Context[RuntimeState],
 ) -> confluence.PageResult:
-    return await _call(
+    return _call(
         ctx,
         "confluence",
         instance_name,
@@ -269,14 +265,14 @@ async def get_confluence_page(
     )
 
 
-async def search_confluence_pages(
+def search_confluence_pages(
     query: str,
     instance_name: str | None = None,
     limit: confluence.ResultLimit = 20,
     *,
     ctx: Context[RuntimeState],
 ) -> confluence.SearchPagesResult:
-    return await _call(
+    return _call(
         ctx,
         "confluence",
         instance_name,
@@ -286,7 +282,7 @@ async def search_confluence_pages(
     )
 
 
-async def create_confluence_page(
+def create_confluence_page(
     space_key: str,
     title: str,
     body: str,
@@ -295,7 +291,7 @@ async def create_confluence_page(
     *,
     ctx: Context[RuntimeState],
 ) -> confluence.CreatedPageResult:
-    return await _call(
+    return _call(
         ctx,
         "confluence",
         instance_name,
@@ -307,7 +303,7 @@ async def create_confluence_page(
     )
 
 
-async def update_confluence_page(
+def update_confluence_page(
     page_id: str,
     title: str | None = None,
     body: str | None = None,
@@ -315,7 +311,7 @@ async def update_confluence_page(
     *,
     ctx: Context[RuntimeState],
 ) -> confluence.UpdatedPageResult:
-    return await _call(
+    return _call(
         ctx,
         "confluence",
         instance_name,
@@ -326,7 +322,7 @@ async def update_confluence_page(
     )
 
 
-async def create_issue_link(
+def create_issue_link(
     from_issue_key: str,
     to_issue_key: str,
     link_type: str = "Relates",
@@ -334,7 +330,7 @@ async def create_issue_link(
     *,
     ctx: Context[RuntimeState],
 ) -> issue_links.LinkCreatedResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -345,14 +341,14 @@ async def create_issue_link(
     )
 
 
-async def create_epic_story_link(
+def create_epic_story_link(
     epic_key: str,
     story_key: str,
     instance_name: str | None = None,
     *,
     ctx: Context[RuntimeState],
 ) -> issue_links.EpicLinkResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -362,15 +358,15 @@ async def create_epic_story_link(
     )
 
 
-async def get_issue_links(
+def get_issue_links(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> issue_links.IssueLinksResult:
-    return await _call(
+    return _call(
         ctx, "jira", instance_name, issue_links.get_issue_links, issue_key=issue_key
     )
 
 
-async def create_issue_with_links(
+def create_issue_with_links(
     project_key: str,
     summary: str,
     issue_type: str = "Task",
@@ -380,7 +376,7 @@ async def create_issue_with_links(
     *,
     ctx: Context[RuntimeState],
 ) -> issue_links.LinkedIssueResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -393,14 +389,14 @@ async def create_issue_with_links(
     )
 
 
-async def search_jira_issues(
+def search_jira_issues(
     jql: str,
     max_results: search.ResultLimit = 20,
     instance_name: str | None = None,
     *,
     ctx: Context[RuntimeState],
 ) -> search.SearchResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -410,7 +406,7 @@ async def search_jira_issues(
     )
 
 
-async def list_project_tickets(
+def list_project_tickets(
     project_key: str,
     status: str | None = None,
     assignee: str | None = None,
@@ -420,7 +416,7 @@ async def list_project_tickets(
     *,
     ctx: Context[RuntimeState],
 ) -> search.SearchResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -433,7 +429,7 @@ async def list_project_tickets(
     )
 
 
-async def validate_jql_query(
+def validate_jql_query(
     jql: str, *, ctx: Context[RuntimeState]
 ) -> search.JqlValidationResult:
     return search.validate_jql_query(jql)
@@ -447,21 +443,26 @@ async def generate_project_workflow_graph(
     *,
     ctx: Context[RuntimeState],
 ) -> workflow.WorkflowResult:
-    result = await _call(
-        ctx,
-        "jira",
-        instance_name,
-        workflow.generate_project_workflow_graph,
-        project_key=project_key,
-        issue_type=issue_type,
-        output_format=output_format,
+    # This async boundary also publishes resource notifications.
+    result = await anyio.to_thread.run_sync(
+        partial(
+            _call,
+            ctx,
+            "jira",
+            instance_name,
+            workflow.generate_project_workflow_graph,
+            project_key=project_key,
+            issue_type=issue_type,
+            output_format=output_format,
+        ),
+        abandon_on_cancel=False,
     )
     if "resource_uri" in result:
         await ctx.notify_resource_updated(result["resource_uri"])
     return result
 
 
-async def log_work(
+def log_work(
     issue_key: str,
     time_spent: str,
     comment: str | None = None,
@@ -470,7 +471,7 @@ async def log_work(
     *,
     ctx: Context[RuntimeState],
 ) -> time_tracking.WorkLoggedResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -482,18 +483,18 @@ async def log_work(
     )
 
 
-async def get_work_logs(
+def get_work_logs(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> time_tracking.WorkLogsResult:
-    return await _call(
+    return _call(
         ctx, "jira", instance_name, time_tracking.get_work_logs, issue_key=issue_key
     )
 
 
-async def get_time_tracking_info(
+def get_time_tracking_info(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> time_tracking.TimeTrackingResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -502,7 +503,7 @@ async def get_time_tracking_info(
     )
 
 
-async def update_time_estimates(
+def update_time_estimates(
     issue_key: str,
     original_estimate: str | None = None,
     remaining_estimate: str | None = None,
@@ -510,7 +511,7 @@ async def update_time_estimates(
     *,
     ctx: Context[RuntimeState],
 ) -> time_tracking.EstimatesUpdatedResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -521,14 +522,14 @@ async def update_time_estimates(
     )
 
 
-async def add_comment_to_jira_ticket(
+def add_comment_to_jira_ticket(
     issue_key: str,
     comment: str,
     instance_name: str | None = None,
     *,
     ctx: Context[RuntimeState],
 ) -> comments.CommentResult:
-    return await _call(
+    return _call(
         ctx,
         "jira",
         instance_name,
@@ -538,9 +539,9 @@ async def add_comment_to_jira_ticket(
     )
 
 
-async def get_issue_transitions(
+def get_issue_transitions(
     issue_key: str, instance_name: str | None = None, *, ctx: Context[RuntimeState]
 ) -> comments.TransitionsResult:
-    return await _call(
+    return _call(
         ctx, "jira", instance_name, comments.get_issue_transitions, issue_key=issue_key
     )
