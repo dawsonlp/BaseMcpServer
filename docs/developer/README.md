@@ -4,6 +4,9 @@ This directory contains technical documentation for developers building and exte
 
 ## Available Documentation
 
+### [Release v1.9.2 — Dependency Refresh](release-v1.9.2.md)
+MCP 2.3.0 compatibility, all six package versions, verification, and managed deployment.
+
 ### [Agent Handover — October 1, 2026](agent-handover-2026-10-01.md)
 Released Jira work, verification evidence, current checkout discrepancy, and
 proposed follow-up work for MCP Manager and the other servers.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loadbearing-youtube-mcp-server"
-version = "0.1.0"
+version = "0.1.1"
 description = "loadbearing_youtube MCP Server - extract a YouTube transcript and expose its load-bearing components"
 authors = [
     {name = "Larry Dawson"}
